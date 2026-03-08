@@ -1,0 +1,223 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { GraphSnapshot } from '@glade/contracts';
+
+import { useAppStore } from '../store/app';
+import { useGraphStore } from '../store/graph';
+import { IndexRoute } from './index';
+
+const dispatchCommand = vi.fn();
+
+vi.mock('../hooks/useServerConnection', () => ({
+  useServerConnection: () => ({
+    dispatchCommand,
+    reconnect: vi.fn(),
+  }),
+}));
+
+const baseSnapshot: GraphSnapshot = {
+  protocol_version: '0.1.0',
+  message_type: 'GraphSnapshot',
+  emitted_at: '2026-03-08T10:00:00.000Z',
+  project_id: 'proj_phase_5',
+  project_name: 'workflow-ui',
+  graph: {
+    version: 1,
+    registry: {
+      kinds: {
+        fit: { name: 'fit', input_contract: ['data.frame'], output_type: 'fit' },
+      },
+    },
+    nodes: {
+      fit_1: { id: 'fit_1', kind: 'fit', label: 'Baseline fit', status: 'blocked', block_reason: 'review_required' },
+    },
+    edges: {},
+  },
+  status: {
+    workflow_state: 'blocked',
+    runnable_nodes: 0,
+    blocked_nodes: 1,
+    pending_gates: 0,
+    active_jobs: 0,
+    health: 'ok',
+    messages: ['review required'],
+  },
+  pending_gates: {},
+  branches: {},
+  branch_goals: {},
+  protocol: {
+    summary: {
+      n_scopes: 1,
+      n_obligations: 1,
+      n_actions: 1,
+      n_blocking: 1,
+      scopes: ['project'],
+    },
+    project: {
+      scope: 'project',
+      scope_label: 'Project',
+      obligations: {
+        review_fit: {
+          obligation_id: 'review_fit',
+          kind: 'fit_review',
+          scope: 'project',
+          severity: 'blocking',
+          title: 'Review fit criticism',
+          basis: { node_ids: ['fit_1'] },
+          explanation: { why_now: 'A fit criticism decision is required before you continue.' },
+        },
+      },
+      actions: {
+        act_review: {
+          action_id: 'act_review',
+          kind: 'record_decision',
+          scope: 'project',
+          title: 'Record fit criticism decision',
+          basis: { node_ids: ['fit_1'] },
+          payload: {
+            template_ref: 'review_decision',
+            prompt: 'What is your fit criticism assessment for these summaries?',
+            choice: 'needs_revision',
+            rationale: 'Posterior predictive checks need remediation.',
+            decision_type: 'fit_criticism',
+          },
+          explanation: { why_now: 'Record the review outcome before branching or comparing.' },
+        },
+      },
+    },
+  },
+};
+
+const updatedSnapshot: GraphSnapshot = {
+  ...baseSnapshot,
+  emitted_at: '2026-03-08T10:00:02.000Z',
+  status: {
+    ...baseSnapshot.status,
+    workflow_state: 'open',
+    runnable_nodes: 1,
+    blocked_nodes: 0,
+    messages: ['review recorded'],
+  },
+  protocol: {
+    summary: {
+      n_scopes: 1,
+      n_obligations: 0,
+      n_actions: 1,
+      n_blocking: 0,
+      scopes: ['project'],
+    },
+    project: {
+      scope: 'project',
+      scope_label: 'Project',
+      obligations: {},
+      actions: {
+        act_compare: {
+          action_id: 'act_compare',
+          kind: 'create_node_from_template',
+          scope: 'project',
+          title: 'Compare revised branches',
+          basis: { node_ids: ['fit_1'] },
+          payload: {
+            template_ref: 'branch_comparison',
+            inputs: ['fit_1'],
+            node_kind: 'compare',
+            default_label: 'Compare revised fits',
+          },
+          explanation: { why_now: 'Run a comparison after recording the review decision.' },
+        },
+      },
+    },
+  },
+};
+
+const reviewActionPayload = (
+  (baseSnapshot.protocol as unknown as {
+    project: {
+      actions: {
+        act_review: {
+          payload: Record<string, unknown>;
+        };
+      };
+    };
+  }).project.actions.act_review.payload
+);
+
+describe('IndexRoute phase 5 workflow UI', () => {
+  beforeEach(() => {
+    dispatchCommand.mockReset();
+    useGraphStore.getState().clear();
+    vi.stubGlobal('ResizeObserver', class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    useAppStore.setState({
+      serverConnected: true,
+      serverVersion: '0.5.0',
+      sessionState: 'ready',
+      sessionReason: null,
+      notifications: [],
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('shows an action preview, dispatches ExecuteAction on confirm, and surfaces updated guidance', async () => {
+    dispatchCommand.mockResolvedValue({
+      type: 'CommandResult',
+      id: 'cmd_1',
+      success: true,
+    });
+    useGraphStore.getState().applySnapshot(baseSnapshot);
+
+    render(<IndexRoute />);
+
+    const [runButton] = screen.getAllByRole('button', { name: 'Run' });
+    if (!runButton) {
+      throw new Error('Expected a Run button.');
+    }
+    fireEvent.click(runButton);
+
+    expect(screen.getByText('Action Preview')).toBeInTheDocument();
+    expect(screen.getAllByText('Record fit criticism decision')[0]).toBeInTheDocument();
+    expect(screen.getByText(/Record an explicit review-oriented decision/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm and run' }));
+
+    await waitFor(() =>
+      expect(dispatchCommand).toHaveBeenCalledWith({
+        type: 'ExecuteAction',
+        actionId: 'act_review',
+        payload: reviewActionPayload,
+      }),
+    );
+
+    await act(async () => {
+      useGraphStore.getState().applySnapshot(updatedSnapshot);
+    });
+
+    expect(await screen.findByText('Next from bayesgrove')).toBeInTheDocument();
+    expect(screen.getAllByText('Compare revised branches')[0]).toBeInTheDocument();
+  });
+
+  it('does not dispatch when the preview is cancelled', () => {
+    useGraphStore.getState().applySnapshot(baseSnapshot);
+
+    render(<IndexRoute />);
+
+    const [runButton] = screen.getAllByRole('button', { name: 'Run' });
+    if (!runButton) {
+      throw new Error('Expected a Run button.');
+    }
+    fireEvent.click(runButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(dispatchCommand).not.toHaveBeenCalled();
+    expect(screen.queryByText('Action Preview')).not.toBeInTheDocument();
+  });
+});

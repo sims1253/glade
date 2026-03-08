@@ -70,23 +70,42 @@ export const NodeShell = memo(function NodeShell({
   const isConnectionSource = connectionPreview?.sourceNodeId === data.id;
   const isValidTarget = connectionPreview?.validTargetIds.has(data.id) ?? false;
   const isInvalidTarget = connectionPreview?.invalidTargetIds.has(data.id) ?? false;
+  const hasBlockingObligation = data.blockingObligationCount > 0;
   const blockReason = data.blockReason && data.blockReason !== 'none'
     ? data.blockReason.replace(/[_-]+/g, ' ')
     : null;
+  // Connection affordances intentionally override passive selection/highlight rings.
+  const ringClass = isValidTarget
+    ? 'ring-2 ring-emerald-400/60'
+    : isConnectionSource
+      ? 'ring-2 ring-sky-400/60'
+      : data.isHighlighted
+        ? 'ring-2 ring-sky-400/65'
+        : selected
+          ? 'ring-2 ring-emerald-300/50'
+          : null;
 
   return (
     <>
       <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-none !bg-transparent" />
       <div
         className={cn(
-          'min-w-[248px] rounded-2xl border bg-slate-950/95 p-4 shadow-xl backdrop-blur transition-colors',
+          'relative min-w-[248px] rounded-2xl border bg-slate-950/95 p-4 shadow-xl backdrop-blur transition-colors',
           cardClassMap[data.status],
-          selected && 'ring-2 ring-emerald-300/50',
-          isConnectionSource && 'ring-2 ring-sky-400/60',
-          isValidTarget && 'ring-2 ring-emerald-400/60',
+          ringClass,
           isInvalidTarget && 'opacity-40 saturate-50',
         )}
       >
+        {hasBlockingObligation ? (
+          <div
+            className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-rose-400/60 bg-rose-500/18 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-50"
+            role="status"
+            aria-label={`${data.blockingObligationCount} blocking obligation${data.blockingObligationCount === 1 ? '' : 's'}`}
+          >
+            <Lock className="size-3.5" />
+            locked
+          </div>
+        ) : null}
         <div className={cn('rounded-xl border border-white/8 bg-linear-to-br p-3', accentClassName)}>
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">

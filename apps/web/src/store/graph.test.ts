@@ -54,12 +54,23 @@ const snapshot: GraphSnapshot = {
           obligation_id: 'review_fit',
           kind: 'review',
           scope: 'project',
-          severity: 'warning',
+          severity: 'blocking',
           title: 'Review fit',
           basis: { node_ids: ['fit'] },
+          explanation: { why_now: 'The fit needs an explicit review decision.' },
         },
       },
-      actions: {},
+      actions: {
+        act_review: {
+          action_id: 'act_review',
+          kind: 'record_decision',
+          scope: 'project',
+          title: 'Record review decision',
+          basis: { node_ids: ['fit'] },
+          payload: { template_ref: 'review_decision' },
+          explanation: { why_now: 'Record the decision before proceeding.' },
+        },
+      },
     },
   },
 };
@@ -98,6 +109,12 @@ describe('useGraphStore', () => {
     expect(graph?.edges).toHaveLength(1);
     expect(graph?.nodeKinds).toHaveLength(2);
     expect(graph?.obligationsByNodeId.fit).toHaveLength(1);
+    expect(graph?.nodesById.fit?.blockingObligationCount).toBe(1);
+    expect(graph?.protocolScopes[0]?.scope).toBe('project');
+    expect(graph?.actions[0]).toMatchObject({
+      id: 'act_review',
+      templateRef: 'review_decision',
+    });
   });
 
   it('records the latest protocol event incrementally', () => {

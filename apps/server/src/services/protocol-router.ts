@@ -28,6 +28,7 @@ import {
   RSessionUnavailableError,
 } from '../errors';
 import { BayesgroveSocket } from './bayesgrove-socket';
+import { toExecuteActionCommand } from './execute-action';
 import { FrontendBroadcast } from './frontend-broadcast';
 import { GraphStateCache } from './graph-state-cache';
 import { RProcessService } from './r-process';
@@ -177,6 +178,16 @@ function toBayesgroveCommand(id: string, command: WorkflowCommand): BayesgroveCo
         message: `Workflow command ${command.type} is not supported by the current bayesgrove protocol.`,
       });
   }
+}
+
+function wrapCommandMappingError(cause: unknown) {
+  return cause instanceof CommandDispatchError
+    ? cause
+    : new CommandDispatchError({
+        code: 'workflow_mapping_failed',
+        message: 'Failed to map workflow command.',
+        cause,
+      });
 }
 
 export const ProtocolRouterLive = Layer.scoped(
@@ -349,17 +360,18 @@ export const ProtocolRouterLive = Layer.scoped(
           );
         }
 
-        const rawCommand = yield* Effect.try({
-          try: () => toBayesgroveCommand(id, command),
-          catch: (cause) =>
-            cause instanceof CommandDispatchError
-              ? cause
-              : new CommandDispatchError({
-                  code: 'workflow_mapping_failed',
-                  message: 'Failed to map workflow command.',
-                  cause,
-                }),
-        });
+        const rawCommand = command.type === 'ExecuteAction'
+          ? yield* Effect.gen(function* () {
+            const snapshot = yield* cache.getSnapshot;
+            return yield* Effect.try({
+              try: () => toExecuteActionCommand(id, command, Option.getOrNull(snapshot)),
+              catch: wrapCommandMappingError,
+            });
+          })
+          : yield* Effect.try({
+            try: () => toBayesgroveCommand(id, command),
+            catch: wrapCommandMappingError,
+          });
         const requestMap = yield* Ref.get(pendingRequests);
         requestMap.set(id, socket);
         yield* Ref.set(pendingRequests, new Map(requestMap));

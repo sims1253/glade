@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0 - 2026-03-08
+
+- Added the phase 5 workflow protocol UI with always-visible obligations, recommended actions, confirm-before-run previews, post-action guidance, and canvas highlighting/lock states driven by bayesgrove snapshots.
+- Added server-side `ExecuteAction` routing for snapshot-backed workflow actions, plus focused tests for action dispatch, lock overlays, and follow-up guidance updates.
+
 ## 0.4.0 - 2026-03-08
 
 - Added the phase 4 interactive graph workflow with server-validated add, connect, rename, delete, selection, confirmation, and toast flows on the React canvas.

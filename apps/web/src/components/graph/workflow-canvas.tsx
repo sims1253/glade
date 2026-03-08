@@ -37,7 +37,9 @@ function sameNode(left: WorkflowFlowNode, right: WorkflowFlowNode) {
     left.data.kind === right.data.kind &&
     left.data.status === right.data.status &&
     left.data.blockReason === right.data.blockReason &&
-    left.data.obligationCount === right.data.obligationCount
+    left.data.obligationCount === right.data.obligationCount &&
+    left.data.blockingObligationCount === right.data.blockingObligationCount &&
+    left.data.isHighlighted === right.data.isHighlighted
   );
 }
 
@@ -138,7 +140,9 @@ type ContextMenuState =
 export function WorkflowCanvas({ className, dispatchCommand }: WorkflowCanvasProps) {
   const graph = useGraphStore((state) => state.graph);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
+  const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
   const setSelectedNodeId = useGraphStore((state) => state.setSelectedNodeId);
+  const setHighlightedNodeIds = useGraphStore((state) => state.setHighlightedNodeIds);
   const sessionState = useAppStore((state) => state.sessionState);
   const sessionReason = useAppStore((state) => state.sessionReason);
   const pushNotification = useAppStore((state) => state.pushNotification);
@@ -203,9 +207,14 @@ export function WorkflowCanvas({ className, dispatchCommand }: WorkflowCanvasPro
         return;
       }
 
+      const highlightedNodeIdSet = new Set(highlightedNodeIds);
       const nextNodes = toReactFlowNodes(nextGraph.nodes, positionsRef.current).map((node) => ({
         ...node,
         selected: node.id === selectedNodeId,
+        data: {
+          ...node.data,
+          isHighlighted: highlightedNodeIdSet.has(node.id),
+        },
       }));
       const nextEdges = toReactFlowEdges(nextGraph.edges);
       setNodes((previous) => reconcileNodes(previous, nextNodes));
@@ -216,7 +225,7 @@ export function WorkflowCanvas({ className, dispatchCommand }: WorkflowCanvasPro
     return () => {
       cancelled = true;
     };
-  }, [graph, selectedNodeId]);
+  }, [graph, highlightedNodeIds, selectedNodeId]);
 
   useEffect(() => {
     if (contextMenu?.mode === 'node' && !graph?.nodes.some((node) => node.id === contextMenu.nodeId)) {
@@ -429,11 +438,13 @@ export function WorkflowCanvas({ className, dispatchCommand }: WorkflowCanvasPro
           }}
           onPaneClick={() => {
             setSelectedNodeId(null);
+            setHighlightedNodeIds([]);
             closeMenus();
           }}
           onPaneContextMenu={(event) => {
             event.preventDefault();
             setSelectedNodeId(null);
+            setHighlightedNodeIds([]);
             setContextMenu({ mode: 'pane', x: event.clientX, y: event.clientY });
           }}
           onConnectStart={(_, params) => {

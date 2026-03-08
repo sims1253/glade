@@ -18,6 +18,7 @@ function makeProps(): NodeProps<WorkflowFlowNode> {
     status: 'ok',
     blockReason: null,
     obligationCount: 0,
+    blockingObligationCount: 0,
     raw: {},
   };
 

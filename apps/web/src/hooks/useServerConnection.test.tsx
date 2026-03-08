@@ -44,13 +44,54 @@ const snapshot: GraphSnapshot = {
   protocol: {
     summary: {
       n_scopes: 1,
-      n_obligations: 0,
-      n_actions: 0,
+      n_obligations: 1,
+      n_actions: 1,
       n_blocking: 0,
       scopes: ['project'],
     },
+    project: {
+      scope: 'project',
+      scope_label: 'Project',
+      obligations: {
+        review_fit: {
+          obligation_id: 'review_fit',
+          kind: 'review',
+          scope: 'project',
+          severity: 'advisory',
+          title: 'Review fit',
+          basis: { node_ids: ['source'] },
+        },
+      },
+      actions: {
+        act_review: {
+          action_id: 'act_review',
+          kind: 'record_decision',
+          scope: 'project',
+          title: 'Record review decision',
+          basis: { node_ids: ['source'] },
+          payload: {
+            template_ref: 'review_decision',
+            prompt: 'Record the review outcome',
+            choice: 'accept',
+            rationale: 'Everything looks good.',
+          },
+        },
+      },
+    },
   },
 };
+
+const actionPayload = (
+  (snapshot.protocol as unknown as {
+    project: {
+      actions: {
+        act_review: {
+          payload: Record<string, unknown>;
+        };
+      };
+    };
+  }).project.actions.act_review.payload
+);
 
 class MockWebSocket {
   static readonly OPEN = 1;
@@ -154,6 +195,87 @@ describe('useServerConnection', () => {
     expect(useAppStore.getState().notifications.at(-1)).toMatchObject({
       tone: 'error',
       description: 'Rename rejected by bayesgrove.',
+    });
+  });
+
+  it('dispatches ExecuteAction envelopes and applies the follow-up snapshot', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          refetchInterval: false,
+        },
+      },
+    });
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useServerConnection(), { wrapper });
+    const socket = MockWebSocket.instances[0];
+
+    act(() => {
+      socket!.emitOpen();
+      socket!.emitMessage(snapshot);
+    });
+
+    await waitFor(() => expect(useGraphStore.getState().graph?.actions[0]?.id).toBe('act_review'));
+
+    const commandPromise = result.current.dispatchCommand({
+      type: 'ExecuteAction',
+      actionId: 'act_review',
+      payload: actionPayload,
+    });
+
+    const envelope = JSON.parse(socket!.sent.at(-1) ?? '{}') as { id: string; command: { type: string; actionId: string } };
+    expect(envelope.command).toMatchObject({
+      type: 'ExecuteAction',
+      actionId: 'act_review',
+    });
+
+    act(() => {
+      socket!.emitMessage({
+        type: 'CommandResult',
+        id: envelope.id,
+        success: true,
+      });
+      socket!.emitMessage({
+        ...snapshot,
+        emitted_at: new Date(Date.now() + 1_000).toISOString(),
+        protocol: {
+          summary: {
+            n_scopes: 1,
+            n_obligations: 0,
+            n_actions: 1,
+            n_blocking: 0,
+            scopes: ['project'],
+          },
+          project: {
+            scope: 'project',
+            scope_label: 'Project',
+            obligations: {},
+            actions: {
+              act_compare: {
+                action_id: 'act_compare',
+                kind: 'create_node_from_template',
+                scope: 'project',
+                title: 'Compare fits',
+                basis: { node_ids: ['source'] },
+                payload: { template_ref: 'branch_comparison', inputs: ['source'], node_kind: 'compare' },
+              },
+            },
+          },
+        },
+      });
+    });
+
+    const resultMessage = await commandPromise;
+    expect(resultMessage.success).toBe(true);
+    expect(useGraphStore.getState().graph?.actions[0]?.id).toBe('act_compare');
+    expect(useAppStore.getState().notifications.at(-1)).toMatchObject({
+      tone: 'success',
+      title: 'Executed workflow action',
     });
   });
 });

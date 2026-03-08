@@ -17,6 +17,8 @@ export function describeWorkflowCommand(command: WorkflowCommand) {
       return 'Connected nodes';
     case 'RenameNode':
       return `Renamed node to ${command.label}`;
+    case 'ExecuteAction':
+      return 'Executed workflow action';
     default:
       return command.type;
   }

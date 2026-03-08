@@ -24,6 +24,7 @@ function makeProps(overrides: Partial<WorkflowNodeData>): NodeProps<WorkflowFlow
     status: 'ok',
     blockReason: null,
     obligationCount: 1,
+    blockingObligationCount: 0,
     raw: {},
     ...overrides,
   };
@@ -95,5 +96,41 @@ describe('workflow node renderers', () => {
     expect(screen.getByText('stale')).toBeInTheDocument();
     expect(screen.getByText('held')).toBeInTheDocument();
     expect(screen.getByText('blocked')).toBeInTheDocument();
+  });
+
+  it('shows a lock overlay when a node has a blocking obligation', () => {
+    render(
+      <WorkflowCanvasContextProvider value={contextValue}>
+        <ReactFlowProvider>
+          <FitNode {...makeProps({ blockingObligationCount: 1, obligationCount: 1, label: 'Blocked by review' })} />
+        </ReactFlowProvider>
+      </WorkflowCanvasContextProvider>,
+    );
+
+    expect(screen.getByLabelText('1 blocking obligation')).toBeInTheDocument();
+  });
+
+  it('pluralizes the blocking obligation overlay count', () => {
+    render(
+      <WorkflowCanvasContextProvider value={contextValue}>
+        <ReactFlowProvider>
+          <FitNode {...makeProps({ blockingObligationCount: 2, obligationCount: 2, label: 'Blocked by reviews' })} />
+        </ReactFlowProvider>
+      </WorkflowCanvasContextProvider>,
+    );
+
+    expect(screen.getByLabelText('2 blocking obligations')).toBeInTheDocument();
+  });
+
+  it('does not render a blocking overlay when there are no blocking obligations', () => {
+    render(
+      <WorkflowCanvasContextProvider value={contextValue}>
+        <ReactFlowProvider>
+          <FitNode {...makeProps({ blockingObligationCount: 0, obligationCount: 0, label: 'No obligations' })} />
+        </ReactFlowProvider>
+      </WorkflowCanvasContextProvider>,
+    );
+
+    expect(screen.queryByLabelText('0 blocking obligations')).not.toBeInTheDocument();
   });
 });

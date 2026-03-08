@@ -25,12 +25,57 @@ export const NODE_VISUAL_STATES = [
 export type NodeRendererKind = (typeof NODE_RENDERER_KINDS)[number];
 export type NodeVisualState = (typeof NODE_VISUAL_STATES)[number];
 
+export interface WorkflowStatusSummary {
+  readonly workflowState: string;
+  readonly runnableNodes: number;
+  readonly blockedNodes: number;
+  readonly pendingGates: number;
+  readonly activeJobs: number;
+  readonly health: string;
+  readonly messages: ReadonlyArray<string>;
+  readonly lastRunId: string | null;
+}
+
+export interface WorkflowProtocolSummary {
+  readonly scopeCount: number;
+  readonly obligationCount: number;
+  readonly actionCount: number;
+  readonly blockingCount: number;
+  readonly scopes: ReadonlyArray<string>;
+}
+
 export interface WorkflowObligationRecord {
   readonly id: string;
   readonly kind: string;
   readonly scope: string;
+  readonly scopeLabel: string;
   readonly severity: string | null;
-  readonly title: string | null;
+  readonly title: string;
+  readonly description: string | null;
+  readonly affectedNodeIds: ReadonlyArray<string>;
+  readonly raw: Record<string, unknown>;
+}
+
+export interface WorkflowActionRecord {
+  readonly id: string;
+  readonly kind: string;
+  readonly scope: string;
+  readonly scopeLabel: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly templateRef: string | null;
+  readonly basis: Record<string, unknown>;
+  readonly payload: Record<string, unknown> | null;
+  readonly metadata: Record<string, unknown> | null;
+  readonly affectedNodeIds: ReadonlyArray<string>;
+  readonly raw: Record<string, unknown>;
+}
+
+export interface WorkflowProtocolScope {
+  readonly scope: string;
+  readonly scopeLabel: string;
+  readonly obligations: ReadonlyArray<WorkflowObligationRecord>;
+  readonly actions: ReadonlyArray<WorkflowActionRecord>;
 }
 
 export interface WorkflowNodeKindSpec {
@@ -50,6 +95,8 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   readonly status: NodeVisualState;
   readonly blockReason: string | null;
   readonly obligationCount: number;
+  readonly blockingObligationCount: number;
+  readonly isHighlighted?: boolean;
   readonly raw: Record<string, unknown>;
 }
 
@@ -66,10 +113,16 @@ export interface WorkflowGraph {
   readonly projectId: string;
   readonly projectName: string;
   readonly emittedAt: string;
+  readonly status: WorkflowStatusSummary;
+  readonly protocolSummary: WorkflowProtocolSummary;
   readonly nodes: ReadonlyArray<WorkflowNodeData>;
+  readonly nodesById: Record<string, WorkflowNodeData>;
   readonly edges: ReadonlyArray<WorkflowEdgeData>;
   readonly nodeKinds: ReadonlyArray<WorkflowNodeKindSpec>;
   readonly nodeKindsByKind: Record<string, WorkflowNodeKindSpec>;
+  readonly protocolScopes: ReadonlyArray<WorkflowProtocolScope>;
+  readonly obligations: ReadonlyArray<WorkflowObligationRecord>;
+  readonly actions: ReadonlyArray<WorkflowActionRecord>;
   readonly obligationsByNodeId: Record<string, ReadonlyArray<WorkflowObligationRecord>>;
   readonly topologySignature: string;
 }

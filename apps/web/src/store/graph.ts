@@ -8,9 +8,11 @@ interface GraphState {
   readonly graph: WorkflowGraph | null;
   readonly lastProtocolEvent: ProtocolEvent | null;
   readonly selectedNodeId: string | null;
+  readonly highlightedNodeIds: ReadonlyArray<string>;
   readonly applySnapshot: (snapshot: GraphSnapshot) => void;
   readonly applyProtocolEvent: (event: ProtocolEvent) => void;
   readonly setSelectedNodeId: (nodeId: string | null) => void;
+  readonly setHighlightedNodeIds: (nodeIds: ReadonlyArray<string>) => void;
   readonly clear: () => void;
 }
 
@@ -18,12 +20,14 @@ export const useGraphStore = create<GraphState>((set) => ({
   graph: null,
   lastProtocolEvent: null,
   selectedNodeId: null,
+  highlightedNodeIds: [],
   applySnapshot: (snapshot) =>
     set((state) => {
       const graph = adaptSnapshotToGraph(snapshot);
       return {
         graph,
-        selectedNodeId: graph.nodes.some((node) => node.id === state.selectedNodeId) ? state.selectedNodeId : null,
+        selectedNodeId: state.selectedNodeId && state.selectedNodeId in graph.nodesById ? state.selectedNodeId : null,
+        highlightedNodeIds: state.highlightedNodeIds.filter((nodeId) => nodeId in graph.nodesById),
       };
     }),
   applyProtocolEvent: (event) =>
@@ -32,10 +36,12 @@ export const useGraphStore = create<GraphState>((set) => ({
       graph: state.graph,
     })),
   setSelectedNodeId: (selectedNodeId) => set({ selectedNodeId }),
+  setHighlightedNodeIds: (highlightedNodeIds) => set({ highlightedNodeIds: [...new Set(highlightedNodeIds)] }),
   clear: () =>
     set({
       graph: null,
       lastProtocolEvent: null,
       selectedNodeId: null,
+      highlightedNodeIds: [],
     }),
 }));
