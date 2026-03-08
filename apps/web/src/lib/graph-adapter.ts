@@ -4,6 +4,7 @@ import {
   type NodeRendererKind,
   type NodeVisualState,
   type WorkflowGraph,
+  type WorkflowNodeKindSpec,
   type WorkflowNodeData,
   type WorkflowObligationRecord,
 } from './graph-types';
@@ -48,6 +49,18 @@ function asString(value: unknown): string | null {
 
 function asStringArray(value: unknown): Array<string> {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function normalizeTypeList(value: unknown): Array<string> {
+  if (typeof value === 'string') {
+    return value.trim() ? [value] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  }
+
+  return [];
 }
 
 function normalizeKind(kind: string | null): NodeRendererKind {
@@ -112,11 +125,52 @@ function extractObligations(snapshot: GraphSnapshot) {
   return obligationsByNodeId;
 }
 
+function describeNodeKind(kind: string, inputTypes: ReadonlyArray<string>, outputTypes: ReadonlyArray<string>) {
+  const inputSummary = inputTypes.length > 0 ? inputTypes.join(' or ') : 'any input';
+  const outputSummary = outputTypes.length > 0 ? outputTypes.join(' or ') : 'unspecified output';
+  return `${formatKind(kind)} · ${inputSummary} → ${outputSummary}`;
+}
+
+function formatKind(kind: string) {
+  return kind
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function extractNodeKinds(snapshot: GraphSnapshot): Array<WorkflowNodeKindSpec> {
+  const snapshotObject = asObject(snapshot) ?? {};
+  const graph = asObject(snapshot.graph) ?? {};
+  const registry = asObject(graph.registry) ?? {};
+  const rawKinds = asObject(registry.kinds) ?? {};
+  const availableKinds = new Set<string>([
+    ...Object.keys(rawKinds),
+    ...asStringArray(snapshotObject.availableNodeKinds),
+  ]);
+
+  return [...availableKinds]
+    .map((kind) => {
+      const rawKind = asObject(rawKinds[kind]) ?? {};
+      const inputTypes = normalizeTypeList(rawKind.input_contract);
+      const outputTypes = normalizeTypeList(rawKind.output_type);
+      return {
+        kind,
+        label: formatKind(kind),
+        description: asString(rawKind.description) ?? describeNodeKind(kind, inputTypes, outputTypes),
+        inputTypes,
+        outputTypes,
+        raw: rawKind,
+      } satisfies WorkflowNodeKindSpec;
+    })
+    .sort((left, right) => left.label.localeCompare(right.label));
+}
+
 export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
   const graph = asObject(snapshot.graph) ?? {};
   const rawNodes = asObject(graph.nodes) ?? {};
   const rawEdges = asObject(graph.edges) ?? {};
   const obligationsByNodeId = extractObligations(snapshot);
+  const nodeKinds = extractNodeKinds(snapshot);
+  const nodeKindsByKind = Object.fromEntries(nodeKinds.map((kind) => [kind.kind, kind]));
 
   const nodes = Object.entries(rawNodes)
     .map(([id, value]) => {
@@ -134,13 +188,13 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
         kind,
         rendererKind: normalizeKind(kind),
         status: normalizeStatus(rawNode),
+        blockReason: asString(rawNode.block_reason),
         obligationCount,
         raw: rawNode,
       } satisfies WorkflowNodeData;
     })
     .filter((node): node is WorkflowNodeData => node !== null)
     .sort((left, right) => left.label.localeCompare(right.label));
-
   const edges = Object.entries(rawEdges)
     .map(([id, value]) => {
       const rawEdge = asObject(value);
@@ -177,6 +231,8 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
     emittedAt: snapshot.emitted_at,
     nodes,
     edges,
+    nodeKinds,
+    nodeKindsByKind,
     obligationsByNodeId,
     topologySignature,
   };

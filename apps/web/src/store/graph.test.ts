@@ -12,9 +12,15 @@ const snapshot: GraphSnapshot = {
   project_name: 'graph-test',
   graph: {
     version: 1,
+    registry: {
+      kinds: {
+        data_source: { name: 'data_source', input_contract: [], output_type: 'data.frame' },
+        fit: { name: 'fit', input_contract: ['data.frame'], output_type: 'fit' },
+      },
+    },
     nodes: {
-      source: { id: 'source', kind: 'data_source', label: 'Source', status: 'ok' },
-      fit: { id: 'fit', kind: 'fit', label: 'Fit', status: 'warning' },
+      source: { id: 'source', kind: 'data_source', label: 'Source', status: 'ok', block_reason: 'none' },
+      fit: { id: 'fit', kind: 'fit', label: 'Fit', status: 'warning', block_reason: 'pending_input' },
     },
     edges: {
       edge_1: { id: 'edge_1', from: 'source', to: 'fit', type: 'data' },
@@ -90,6 +96,7 @@ describe('useGraphStore', () => {
     expect(graph?.projectId).toBe('proj_graph');
     expect(graph?.nodes).toHaveLength(2);
     expect(graph?.edges).toHaveLength(1);
+    expect(graph?.nodeKinds).toHaveLength(2);
     expect(graph?.obligationsByNodeId.fit).toHaveLength(1);
   });
 

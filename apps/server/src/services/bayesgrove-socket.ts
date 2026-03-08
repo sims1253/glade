@@ -86,9 +86,61 @@ export const BayesgroveSocketLive = Layer.effect(
     const establishConnection = Effect.async<void, SessionStartupError>((resume) => {
       const socket = new WebSocket(`ws://${config.rHost}:${config.rPort}/websocket`);
       let settled = false;
+      const supportsUnexpectedResponse = !('Bun' in globalThis);
+
+      const failStartup = (message: string, cause?: unknown) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanupStartupListeners();
+        resume(
+          Effect.fail(
+            new SessionStartupError({
+              message,
+              cause,
+            }),
+          ),
+        );
+      };
+
+      const onStartupError = (error: Error) => {
+        failStartup(`Failed to connect to bg_serve websocket: ${error.message}`, error);
+      };
+
+      const onStartupClose = () => {
+        failStartup('bg_serve websocket closed before the session became ready.');
+      };
+
+      const onUnexpectedResponse = (request: unknown, response: { statusCode?: number; statusMessage?: string }) => {
+        const status = [response.statusCode, response.statusMessage].filter(Boolean).join(' ');
+        failStartup(
+          `bg_serve websocket handshake failed${status ? `: ${status}` : '.'}`,
+          response,
+        );
+      };
+
+      const cleanupStartupListeners = () => {
+        socket.off('error', onStartupError);
+        socket.off('close', onStartupClose);
+        if (supportsUnexpectedResponse) {
+          socket.off('unexpected-response', onUnexpectedResponse);
+        }
+      };
+
+      socket.on('error', onStartupError);
+      socket.on('close', onStartupClose);
+      if (supportsUnexpectedResponse) {
+        socket.on('unexpected-response', onUnexpectedResponse);
+      }
 
       socket.once('open', () => {
+        if (settled) {
+          return;
+        }
         settled = true;
+        cleanupStartupListeners();
+
         socket.on('message', (data) => {
           void Effect.runPromise(
             parseInbound(String(data)).pipe(
@@ -115,19 +167,6 @@ export const BayesgroveSocketLive = Layer.effect(
         });
         void Effect.runPromise(Ref.set(socketRef, socket));
         resume(Effect.void);
-      });
-
-      socket.once('error', (error) => {
-        if (!settled) {
-          resume(
-            Effect.fail(
-              new SessionStartupError({
-                message: `Failed to connect to bg_serve websocket: ${error.message}`,
-                cause: error,
-              }),
-            ),
-          );
-        }
       });
     });
 

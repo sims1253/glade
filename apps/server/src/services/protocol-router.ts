@@ -421,6 +421,10 @@ export const ProtocolRouterLive = Layer.scoped(
           socket.on('close', () => {
             void Effect.runPromise(broadcast.remove(socket));
           });
+
+          socket.on('error', () => {
+            void Effect.runPromise(broadcast.remove(socket));
+          });
         });
       });
 

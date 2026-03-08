@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Effect from 'effect/Effect';
 
-import { decodeHealthResponse, decodeServerMessage } from '@glade/contracts';
+import { decodeHealthResponse, decodeServerMessage, type CommandResult, type WorkflowCommand } from '@glade/contracts';
 
 import { websocketUrl } from '../lib/runtime';
+import { describeWorkflowCommand, createWorkflowCommandEnvelope } from '../lib/workflow-commands';
 import { useAppStore } from '../store/app';
 import { useGraphStore } from '../store/graph';
 
@@ -18,12 +19,61 @@ async function fetchHealth() {
 
 export function useServerConnection() {
   const queryClient = useQueryClient();
+  const socketRef = useRef<WebSocket | null>(null);
+  const pendingCommandsRef = useRef(new Map<string, {
+    readonly command: WorkflowCommand;
+    readonly resolve: (result: CommandResult) => void;
+    readonly timeout: number;
+  }>());
   const setServerConnected = useAppStore((state) => state.setServerConnected);
   const setServerVersion = useAppStore((state) => state.setServerVersion);
   const setSessionState = useAppStore((state) => state.setSessionState);
   const setSessionReason = useAppStore((state) => state.setSessionReason);
+  const pushNotification = useAppStore((state) => state.pushNotification);
   const applySnapshot = useGraphStore((state) => state.applySnapshot);
   const applyProtocolEvent = useGraphStore((state) => state.applyProtocolEvent);
+
+  const finishPendingCommand = useCallback((result: CommandResult) => {
+    const pending = pendingCommandsRef.current.get(result.id);
+    if (!pending) {
+      return;
+    }
+
+    window.clearTimeout(pending.timeout);
+    pendingCommandsRef.current.delete(result.id);
+    pending.resolve(result);
+
+    if (result.success) {
+      pushNotification({
+        tone: 'success',
+        title: describeWorkflowCommand(pending.command),
+        description: null,
+      });
+      return;
+    }
+
+    pushNotification({
+      tone: 'error',
+      title: `Could not ${pending.command.type}`,
+      description: result.error?.message ?? 'The bayesgrove session rejected the command.',
+    });
+  }, [pushNotification]);
+
+  const rejectAllPending = useCallback((message: string) => {
+    for (const [id, pending] of pendingCommandsRef.current.entries()) {
+      window.clearTimeout(pending.timeout);
+      pending.resolve({
+        type: 'CommandResult',
+        id,
+        success: false,
+        error: {
+          code: 'websocket_closed',
+          message,
+        },
+      });
+    }
+    pendingCommandsRef.current.clear();
+  }, []);
 
   const healthQuery = useQuery({
     queryKey: healthQueryKey,
@@ -48,9 +98,11 @@ export function useServerConnection() {
 
   useEffect(() => {
     const socket = new WebSocket(websocketUrl());
+    socketRef.current = socket;
 
     socket.onopen = () => {
       setServerConnected(true);
+      setSessionState('ready');
       setSessionReason(null);
     };
 
@@ -62,6 +114,11 @@ export function useServerConnection() {
             setSessionState(message.state);
             setSessionReason(message.reason ?? null);
             setServerConnected(message.state !== 'error');
+            return;
+          }
+
+          if (message.type === 'CommandResult') {
+            finishPendingCommand(message);
             return;
           }
 
@@ -81,6 +138,7 @@ export function useServerConnection() {
       setServerConnected(false);
       setSessionState('error');
       setSessionReason('websocket_closed');
+      rejectAllPending('The websocket connection closed before the command completed.');
     };
 
     socket.onerror = () => {
@@ -88,10 +146,66 @@ export function useServerConnection() {
       setSessionReason('websocket_error');
     };
 
-    return () => socket.close();
-  }, [applyProtocolEvent, applySnapshot, setServerConnected, setSessionReason, setSessionState]);
+    return () => {
+      socketRef.current = null;
+      rejectAllPending('The websocket connection closed before the command completed.');
+      socket.close();
+    };
+  }, [applyProtocolEvent, applySnapshot, finishPendingCommand, rejectAllPending, setServerConnected, setSessionReason, setSessionState]);
+
+  const dispatchCommand = useCallback((command: WorkflowCommand) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      const result: CommandResult = {
+        type: 'CommandResult',
+        id: crypto.randomUUID(),
+        success: false,
+        error: {
+          code: 'websocket_unavailable',
+          message: 'The websocket connection is not ready.',
+        },
+      };
+      pushNotification({
+        tone: 'error',
+        title: `Could not ${command.type}`,
+        description: result.error?.message ?? 'The websocket connection is not ready.',
+      });
+      return Promise.resolve(result);
+    }
+
+    const envelope = createWorkflowCommandEnvelope(command);
+    return new Promise<CommandResult>((resolve) => {
+      const timeout = window.setTimeout(() => {
+        pendingCommandsRef.current.delete(envelope.id);
+        const result: CommandResult = {
+          type: 'CommandResult',
+          id: envelope.id,
+          success: false,
+          error: {
+            code: 'command_timeout',
+            message: 'Timed out waiting for bayesgrove to respond.',
+          },
+        };
+        pushNotification({
+          tone: 'error',
+          title: `Could not ${command.type}`,
+          description: result.error?.message ?? 'Timed out waiting for bayesgrove to respond.',
+        });
+        resolve(result);
+      }, 20_000);
+
+      pendingCommandsRef.current.set(envelope.id, {
+        command,
+        resolve,
+        timeout,
+      });
+
+      socket.send(JSON.stringify(envelope));
+    });
+  }, [pushNotification]);
 
   return {
+    dispatchCommand,
     healthQuery,
     reconnect: () => queryClient.invalidateQueries({ queryKey: healthQueryKey }),
   };

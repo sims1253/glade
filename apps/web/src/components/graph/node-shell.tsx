@@ -11,6 +11,7 @@ import {
 
 import { cn } from '../../lib/utils';
 import { formatKindLabel, type NodeVisualState, type WorkflowFlowNode } from '../../lib/graph-types';
+import { useWorkflowCanvasContext } from './workflow-canvas-context';
 
 interface NodeShellProps extends NodeProps<WorkflowFlowNode> {
   readonly accentClassName: string;
@@ -51,9 +52,27 @@ export const NodeShell = memo(function NodeShell({
   data,
   accentClassName,
   kindLabel,
+  selected,
 }: NodeShellProps) {
+  const {
+    renamingNodeId,
+    renameDraft,
+    renamePending,
+    connectionPreview,
+    beginRename,
+    cancelRename,
+    commitRename,
+    setRenameDraft,
+  } = useWorkflowCanvasContext();
   const StatusIcon = statusIconMap[data.status];
   const badgeLabel = kindLabel ?? formatKindLabel(data.kind);
+  const isRenaming = renamingNodeId === data.id;
+  const isConnectionSource = connectionPreview?.sourceNodeId === data.id;
+  const isValidTarget = connectionPreview?.validTargetIds.has(data.id) ?? false;
+  const isInvalidTarget = connectionPreview?.invalidTargetIds.has(data.id) ?? false;
+  const blockReason = data.blockReason && data.blockReason !== 'none'
+    ? data.blockReason.replace(/[_-]+/g, ' ')
+    : null;
 
   return (
     <>
@@ -62,6 +81,10 @@ export const NodeShell = memo(function NodeShell({
         className={cn(
           'min-w-[248px] rounded-2xl border bg-slate-950/95 p-4 shadow-xl backdrop-blur transition-colors',
           cardClassMap[data.status],
+          selected && 'ring-2 ring-emerald-300/50',
+          isConnectionSource && 'ring-2 ring-sky-400/60',
+          isValidTarget && 'ring-2 ring-emerald-400/60',
+          isInvalidTarget && 'opacity-40 saturate-50',
         )}
       >
         <div className={cn('rounded-xl border border-white/8 bg-linear-to-br p-3', accentClassName)}>
@@ -70,8 +93,29 @@ export const NodeShell = memo(function NodeShell({
               <span className="inline-flex rounded-full border border-white/10 bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">
                 {badgeLabel}
               </span>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-50">{data.label}</h3>
+              <div onDoubleClick={() => beginRename(data.id, data.label)}>
+                {isRenaming ? (
+                  <input
+                    value={renameDraft}
+                    autoFocus
+                    disabled={renamePending}
+                    onBlur={() => commitRename()}
+                    onChange={(event) => setRenameDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void commitRename();
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        cancelRename();
+                      }
+                    }}
+                    className="w-full rounded-lg border border-emerald-400/40 bg-slate-950/90 px-2 py-1 text-sm font-semibold text-slate-50 outline-hidden"
+                  />
+                ) : (
+                  <h3 className="cursor-text text-sm font-semibold text-slate-50">{data.label}</h3>
+                )}
                 <p className="mt-1 text-xs text-slate-400">id: {data.id}</p>
               </div>
             </div>
@@ -82,7 +126,7 @@ export const NodeShell = memo(function NodeShell({
           </div>
           <div className="mt-4 flex items-center justify-between text-xs text-slate-300">
             <span>{data.obligationCount} obligation{data.obligationCount === 1 ? '' : 's'}</span>
-            <span className="text-slate-400">read-only</span>
+            <span className="text-slate-400">{blockReason ?? 'interactive'}</span>
           </div>
         </div>
       </div>

@@ -2,10 +2,16 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
+
+import {
+  ensureBayesgroveIntegrationPrerequisites,
+  getAvailablePort,
+  terminateChildren,
+  waitFor,
+} from './integration-support';
 
 type Message = Record<string, unknown>;
 
@@ -13,27 +19,9 @@ const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ChildProcess>();
 
 afterEach(() => {
-  for (const child of children) {
-    if (!child.killed) {
-      child.kill('SIGTERM');
-    }
-  }
+  terminateChildren(children);
   children.clear();
 });
-
-async function waitFor(url: string, attempts = 160) {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return response;
-      }
-    } catch {
-    }
-    await sleep(250);
-  }
-  throw new Error(`Timed out waiting for ${url}`);
-}
 
 async function prepareBayesgroveProject(projectPath: string) {
   await new Promise<void>((resolve, reject) => {
@@ -80,17 +68,21 @@ async function collectMessages(url: string, expected: (messages: Message[]) => b
 
 describe('phase 2 bridge', () => {
   it('bridges a real bayesgrove session and dispatches AddNode', async () => {
+    ensureBayesgroveIntegrationPrerequisites();
+
     const projectPath = await mkdtemp(path.join(tmpdir(), 'glade-phase2-'));
+    const stateDir = await mkdtemp(path.join(tmpdir(), 'glade-state-phase2-'));
     await prepareBayesgroveProject(projectPath);
 
-    const port = 7952;
-    const rPort = 7962;
+    const port = await getAvailablePort();
+    const rPort = await getAvailablePort();
     const child = spawn('bun', ['run', 'apps/server/src/index.ts'], {
       cwd,
       env: {
         ...process.env,
         BAYESGROVE_APP_ROOT: cwd,
         BAYESGROVE_PROJECT_PATH: projectPath,
+        BAYESGROVE_STATE_DIR: stateDir,
         BAYESGROVE_SERVER_PORT: String(port),
         BAYESGROVE_R_PORT: String(rPort),
         NODE_ENV: 'production',

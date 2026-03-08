@@ -33,12 +33,22 @@ export interface WorkflowObligationRecord {
   readonly title: string | null;
 }
 
+export interface WorkflowNodeKindSpec {
+  readonly kind: string;
+  readonly label: string;
+  readonly description: string;
+  readonly inputTypes: ReadonlyArray<string>;
+  readonly outputTypes: ReadonlyArray<string>;
+  readonly raw: Record<string, unknown>;
+}
+
 export interface WorkflowNodeData extends Record<string, unknown> {
   readonly id: string;
   readonly label: string;
   readonly kind: string;
   readonly rendererKind: NodeRendererKind;
   readonly status: NodeVisualState;
+  readonly blockReason: string | null;
   readonly obligationCount: number;
   readonly raw: Record<string, unknown>;
 }
@@ -58,6 +68,8 @@ export interface WorkflowGraph {
   readonly emittedAt: string;
   readonly nodes: ReadonlyArray<WorkflowNodeData>;
   readonly edges: ReadonlyArray<WorkflowEdgeData>;
+  readonly nodeKinds: ReadonlyArray<WorkflowNodeKindSpec>;
+  readonly nodeKindsByKind: Record<string, WorkflowNodeKindSpec>;
   readonly obligationsByNodeId: Record<string, ReadonlyArray<WorkflowObligationRecord>>;
   readonly topologySignature: string;
 }

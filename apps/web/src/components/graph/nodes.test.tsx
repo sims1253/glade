@@ -5,6 +5,7 @@ import { Position, ReactFlowProvider, type NodeProps } from '@xyflow/react';
 import { describe, expect, it } from 'vitest';
 
 import type { WorkflowFlowNode, WorkflowNodeData } from '../../lib/graph-types';
+import { WorkflowCanvasContextProvider } from './workflow-canvas-context';
 import { CompareNode } from './nodes/compare-node';
 import { CompileNode } from './nodes/compile-node';
 import { DataSourceNode } from './nodes/data-source-node';
@@ -21,6 +22,7 @@ function makeProps(overrides: Partial<WorkflowNodeData>): NodeProps<WorkflowFlow
     kind: 'fit',
     rendererKind: 'fit',
     status: 'ok',
+    blockReason: null,
     obligationCount: 1,
     raw: {},
     ...overrides,
@@ -41,19 +43,32 @@ function makeProps(overrides: Partial<WorkflowNodeData>): NodeProps<WorkflowFlow
   } as NodeProps<WorkflowFlowNode>;
 }
 
+const contextValue = {
+  renamingNodeId: null,
+  renameDraft: '',
+  renamePending: false,
+  connectionPreview: null,
+  beginRename: () => {},
+  cancelRename: () => {},
+  commitRename: () => {},
+  setRenameDraft: () => {},
+};
+
 describe('workflow node renderers', () => {
   it('renders every built-in node kind without crashing', () => {
     render(
-              <ReactFlowProvider>
-                <DataSourceNode {...makeProps({ kind: 'data_source', rendererKind: 'data_source', label: 'Source data' })} />
-                <ModelSpecNode {...makeProps({ kind: 'model_spec', rendererKind: 'model_spec', label: 'Model spec' })} />
-                <CompileNode {...makeProps({ kind: 'compile', rendererKind: 'compile', label: 'Compile' })} />
-                <FitNode {...makeProps({ kind: 'fit', rendererKind: 'fit', label: 'Fit' })} />
-                <DiagnosticNode {...makeProps({ kind: 'diagnostic', rendererKind: 'diagnostic', label: 'Diagnostics' })} />
-                <CompareNode {...makeProps({ kind: 'compare', rendererKind: 'compare', label: 'Compare' })} />
-                <ExportNode {...makeProps({ kind: 'export', rendererKind: 'export', label: 'Export' })} />
-                <GenericNode {...makeProps({ kind: 'custom_extension', rendererKind: 'generic', label: 'Custom node' })} />
-              </ReactFlowProvider>,
+      <WorkflowCanvasContextProvider value={contextValue}>
+        <ReactFlowProvider>
+          <DataSourceNode {...makeProps({ kind: 'data_source', rendererKind: 'data_source', label: 'Source data' })} />
+          <ModelSpecNode {...makeProps({ kind: 'model_spec', rendererKind: 'model_spec', label: 'Model spec' })} />
+          <CompileNode {...makeProps({ kind: 'compile', rendererKind: 'compile', label: 'Compile' })} />
+          <FitNode {...makeProps({ kind: 'fit', rendererKind: 'fit', label: 'Fit' })} />
+          <DiagnosticNode {...makeProps({ kind: 'diagnostic', rendererKind: 'diagnostic', label: 'Diagnostics' })} />
+          <CompareNode {...makeProps({ kind: 'compare', rendererKind: 'compare', label: 'Compare' })} />
+          <ExportNode {...makeProps({ kind: 'export', rendererKind: 'export', label: 'Export' })} />
+          <GenericNode {...makeProps({ kind: 'custom_extension', rendererKind: 'generic', label: 'Custom node' })} />
+        </ReactFlowProvider>
+      </WorkflowCanvasContextProvider>,
     );
 
     expect(screen.getByRole('heading', { name: 'Source data' })).toBeInTheDocument();
@@ -68,11 +83,13 @@ describe('workflow node renderers', () => {
 
   it('renders stale, held, and blocked states', () => {
     render(
-              <ReactFlowProvider>
-                <FitNode {...makeProps({ status: 'stale', label: 'Stale fit' })} />
-                <FitNode {...makeProps({ id: 'held', status: 'held', label: 'Held fit' })} />
-                <FitNode {...makeProps({ id: 'blocked', status: 'blocked', label: 'Blocked fit' })} />
-              </ReactFlowProvider>,
+      <WorkflowCanvasContextProvider value={contextValue}>
+        <ReactFlowProvider>
+          <FitNode {...makeProps({ status: 'stale', label: 'Stale fit' })} />
+          <FitNode {...makeProps({ id: 'held', status: 'held', label: 'Held fit' })} />
+          <FitNode {...makeProps({ id: 'blocked', status: 'blocked', label: 'Blocked fit' })} />
+        </ReactFlowProvider>
+      </WorkflowCanvasContextProvider>,
     );
 
     expect(screen.getByText('stale')).toBeInTheDocument();

@@ -8,11 +8,13 @@ const sampleGraph: WorkflowGraph = {
   projectName: 'Demo',
   emittedAt: new Date().toISOString(),
   topologySignature: 'layout-test',
+  nodeKinds: [],
+  nodeKindsByKind: {},
   obligationsByNodeId: {},
   nodes: [
-    { id: 'source', label: 'Source', kind: 'data_source', rendererKind: 'data_source', status: 'ok', obligationCount: 0, raw: {} },
-    { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', obligationCount: 0, raw: {} },
-    { id: 'export', label: 'Export', kind: 'export', rendererKind: 'export', status: 'ok', obligationCount: 0, raw: {} },
+    { id: 'source', label: 'Source', kind: 'data_source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, raw: {} },
+    { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, raw: {} },
+    { id: 'export', label: 'Export', kind: 'export', rendererKind: 'export', status: 'ok', blockReason: null, obligationCount: 0, raw: {} },
   ],
   edges: [
     { id: 'edge_1', source: 'source', target: 'fit', kind: 'data', label: 'data', raw: {} },

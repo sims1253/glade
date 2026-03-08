@@ -1,39 +1,21 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 
 import { afterEach, expect, it } from 'vitest';
 
 import { version } from '../package.json' with { type: 'json' };
+import { getAvailablePort, terminateChildren, waitFor } from './integration-support';
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ReturnType<typeof spawn>>();
 
 afterEach(() => {
-  for (const child of children) {
-    if (!child.killed) {
-      child.kill('SIGTERM');
-    }
-  }
+  terminateChildren(children);
   children.clear();
 });
 
-async function waitFor(url: string, attempts = 120) {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return response;
-      }
-    } catch {
-    }
-    await sleep(250);
-  }
-  throw new Error(`Timed out waiting for ${url}`);
-}
-
 it('starts standalone and exposes /health', async () => {
-  const port = 7942;
+  const port = await getAvailablePort();
   const child = spawn('bun', ['run', 'apps/server/src/index.ts'], {
     cwd,
     env: {
