@@ -30,6 +30,7 @@ export function IndexRoute() {
   const serverConnected = useAppStore((state) => state.serverConnected);
   const serverVersion = useAppStore((state) => state.serverVersion);
   const sessionState = useAppStore((state) => state.sessionState);
+  const sessionReason = useAppStore((state) => state.sessionReason);
   const graph = useGraphStore((state) => state.graph);
   const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
   const setHighlightedNodeIds = useGraphStore((state) => state.setHighlightedNodeIds);
@@ -42,10 +43,18 @@ export function IndexRoute() {
     readonly actionSignature: string;
   } | null>(null);
   const [guidanceActions, setGuidanceActions] = useState<ReadonlyArray<WorkflowActionRecord> | null>(null);
+  const [isHealthDialogOpen, setIsHealthDialogOpen] = useState(false);
   const actionSignature = useMemo(
     () => graph?.actions.map((action) => action.id).join('|') ?? '',
     [graph],
   );
+  const healthPayload = useMemo(() => JSON.stringify({
+    endpoint: `${window.location.origin}/health`,
+    status: serverConnected ? 'ok' : 'error',
+    version: serverVersion ?? 'unknown',
+    sessionState,
+    sessionReason,
+  }, null, 2), [serverConnected, serverVersion, sessionReason, sessionState]);
 
   const handleSelectObligation = useCallback((nodeIds: ReadonlyArray<string>) => {
     setHighlightedNodeIds(nodeIds);
@@ -116,6 +125,22 @@ export function IndexRoute() {
         onCancel={() => setPreviewAction(null)}
         onConfirm={() => void handleConfirmAction()}
       />
+      {isHealthDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-50">Health</h2>
+                <p className="mt-2 text-sm text-slate-400">Live server status without navigating away from the app window.</p>
+              </div>
+              <Button variant="ghost" onClick={() => setIsHealthDialogOpen(false)}>Close</Button>
+            </div>
+            <pre className="mt-5 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-200">
+              {healthPayload}
+            </pre>
+          </div>
+        </div>
+      ) : null}
       <header className="grid gap-4 rounded-3xl border border-slate-800/80 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div>
           <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 7 · repl terminal</p>
@@ -129,8 +154,8 @@ export function IndexRoute() {
             <RefreshCw className="size-4" />
             Refresh connection
           </Button>
-          <Button render={<a href="/health" />} variant="ghost">
-            Open /health
+          <Button onClick={() => setIsHealthDialogOpen(true)} variant="ghost">
+            View health
           </Button>
         </div>
       </header>

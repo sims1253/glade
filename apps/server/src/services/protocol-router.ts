@@ -511,6 +511,7 @@ export const ProtocolRouterLive = Layer.scoped(
         yield* publishStatus('error', 'project_path_not_configured');
         return;
       }
+      yield* cache.clear;
       yield* rProcess.start;
       yield* bayesgroveSocket.connect;
       yield* requestSnapshotRefresh;

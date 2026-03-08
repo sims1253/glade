@@ -239,7 +239,9 @@ export function WorkflowActionsPanel({
         </div>
       ) : (
         <div className="px-5 py-5 text-sm text-slate-400">
-          Bayesgrove did not include any suggested actions in this snapshot.
+          {graph?.status.runnableNodes
+            ? `Bayesgrove reports ${graph.status.runnableNodes} runnable node${graph.status.runnableNodes === 1 ? '' : 's'}, but this build does not expose a direct "Run workflow" command yet. Use a bayesgrove action when one is offered or run from the shared REPL.`
+            : 'Bayesgrove did not include any suggested actions in this snapshot.'}
         </div>
       )}
     </aside>

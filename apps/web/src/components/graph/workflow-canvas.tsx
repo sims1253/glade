@@ -7,6 +7,7 @@ import {
   ReactFlow,
   type Connection,
   type Edge,
+  type ReactFlowInstance,
   useReactFlow,
 } from '@xyflow/react';
 
@@ -67,6 +68,16 @@ function reconcileEdges(previous: Array<Edge>, next: Array<Edge>) {
     const existing = previousMap.get(edge.id);
     return existing && sameEdge(existing, edge) ? existing : edge;
   });
+}
+
+function mergeStoredPositions(
+  nodeIds: ReadonlyArray<string>,
+  previous: Record<string, { x: number; y: number }>,
+  next: Record<string, { x: number; y: number }>,
+) {
+  return Object.fromEntries(
+    nodeIds.map((nodeId) => [nodeId, previous[nodeId] ?? next[nodeId] ?? { x: 0, y: 0 }]),
+  ) as Record<string, { x: number; y: number }>;
 }
 
 function CanvasKeyboardShortcuts() {
@@ -150,8 +161,9 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
   const pushNotification = useAppStore((state) => state.pushNotification);
   const topologySignatureRef = useRef<string | null>(null);
   const positionsRef = useRef<Record<string, { x: number; y: number }>>({});
-  const [nodes, setNodes] = useState<Array<WorkflowFlowNode>>([]);
-  const [edges, setEdges] = useState<Array<Edge>>([]);
+  const reactFlowRef = useRef<ReactFlowInstance<WorkflowFlowNode> | null>(null);
+  const pendingNodesRef = useRef<Array<WorkflowFlowNode>>([]);
+  const pendingEdgesRef = useRef<Array<Edge>>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [pendingNodeKind, setPendingNodeKind] = useState('');
@@ -193,15 +205,24 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
 
     async function syncGraph(nextGraph: WorkflowGraph | null) {
       if (!nextGraph) {
-        setNodes([]);
-        setEdges([]);
+        pendingNodesRef.current = [];
+        pendingEdgesRef.current = [];
+        reactFlowRef.current?.setNodes([]);
+        reactFlowRef.current?.setEdges([]);
         topologySignatureRef.current = null;
         positionsRef.current = {};
         return;
       }
 
       if (topologySignatureRef.current !== nextGraph.topologySignature) {
-        positionsRef.current = await layoutWorkflowGraph(nextGraph);
+        const nextPositions = await layoutWorkflowGraph(nextGraph);
+        positionsRef.current = topologySignatureRef.current === null
+          ? nextPositions
+          : mergeStoredPositions(
+              nextGraph.nodes.map((node) => node.id),
+              positionsRef.current,
+              nextPositions,
+            );
         topologySignatureRef.current = nextGraph.topologySignature;
       }
 
@@ -219,8 +240,16 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
         },
       }));
       const nextEdges = toReactFlowEdges(nextGraph.edges);
-      setNodes((previous) => reconcileNodes(previous, nextNodes));
-      setEdges((previous) => reconcileEdges(previous, nextEdges));
+      pendingNodesRef.current = nextNodes;
+      pendingEdgesRef.current = nextEdges;
+
+      const reactFlow = reactFlowRef.current;
+      if (!reactFlow) {
+        return;
+      }
+
+      reactFlow.setNodes((previous) => reconcileNodes(previous, nextNodes));
+      reactFlow.setEdges((previous) => reconcileEdges(previous, nextEdges));
     }
 
     void syncGraph(graph);
@@ -390,6 +419,25 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
     });
   }, [dispatchCommand, graph, pushNotification]);
 
+  const autoArrange = useCallback(async () => {
+    if (!graph) {
+      return;
+    }
+
+    positionsRef.current = await layoutWorkflowGraph(graph);
+    const highlightedNodeIdSet = new Set(highlightedNodeIds);
+    const nextNodes = toReactFlowNodes(graph.nodes, positionsRef.current).map((node) => ({
+      ...node,
+      selected: node.id === selectedNodeId,
+      data: {
+        ...node.data,
+        isHighlighted: highlightedNodeIdSet.has(node.id),
+      },
+    }));
+    pendingNodesRef.current = nextNodes;
+    reactFlowRef.current?.setNodes((previous) => reconcileNodes(previous, nextNodes));
+  }, [graph, highlightedNodeIds, selectedNodeId]);
+
   return (
     <WorkflowCanvasContextProvider value={contextValue}>
       <div className={cn('relative h-full min-h-[38rem] overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/70 shadow-2xl shadow-slate-950/30', className)}>
@@ -401,18 +449,25 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
             </div>
           </div>
         )}
-        <div className="absolute left-4 top-4 z-10 rounded-full border border-slate-800 bg-slate-950/80 px-3 py-1 text-xs text-slate-300 backdrop-blur">
-          {helpText}
+        <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/85 px-3 py-2 text-xs text-slate-300 shadow-lg backdrop-blur">
+          <Button className="px-3 py-1.5 text-xs" onClick={openAddDialog}>
+            Add node
+          </Button>
+          <Button className="px-3 py-1.5 text-xs" onClick={() => void autoArrange()} variant="ghost">
+            Auto arrange
+          </Button>
+          <span>{helpText}</span>
+          <span className="text-slate-500">Drag from a bottom port to a top port to connect nodes.</span>
         </div>
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          defaultNodes={pendingNodesRef.current}
+          defaultEdges={pendingEdgesRef.current}
           nodeTypes={workflowNodeTypes}
           fitView
           fitViewOptions={{ padding: 0.18 }}
           minZoom={0.25}
           maxZoom={1.6}
-          nodesDraggable={false}
+          nodesDraggable
           nodesConnectable
           elementsSelectable
           deleteKeyCode={null}
@@ -420,12 +475,26 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
           panOnScroll
           zoomOnDoubleClick={false}
           elevateEdgesOnSelect={false}
+          onInit={(instance) => {
+            reactFlowRef.current = instance;
+            instance.setNodes((previous) => reconcileNodes(previous, pendingNodesRef.current));
+            instance.setEdges((previous) => reconcileEdges(previous, pendingEdgesRef.current));
+          }}
           isValidConnection={(connection) =>
             !!graph && !!connection.source && !!connection.target && canConnectNodes(graph, connection.source, connection.target)
           }
           onNodeClick={(_, node) => {
             setSelectedNodeId(node.id);
             setContextMenu(null);
+          }}
+          onNodeDragStop={(_, node) => {
+            positionsRef.current = {
+              ...positionsRef.current,
+              [node.id]: {
+                x: node.position.x,
+                y: node.position.y,
+              },
+            };
           }}
           onNodeContextMenu={(event, node) => {
             event.preventDefault();

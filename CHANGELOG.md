@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1 - 2026-03-08
+
+- Fixed phase 7 desktop and hosted runtime regressions: health now opens in-app, root dev runners auto-select free app/R ports, and desktop shutdown tears down the spawned server process tree instead of leaving stale `bg_serve()` listeners behind.
+- Fixed workflow canvas usability issues: disconnected nodes no longer stack at the origin, node drag now follows the cursor using React Flow's normal transient drag path, visible connection handles were added, and the canvas now exposes explicit `Add node` and `Auto arrange` controls.
+- Improved terminal and session ergonomics: REPL output can be copied from the panel, shutdown no longer crashes on late sqlite REPL writes, stale cached REPL errors are cleared on fresh startup, and the hosted/desktop status messaging is more explicit.
+
 ## 0.7.0 - 2026-03-08
 
 - Added the phase 7 shared-session REPL terminal with `xterm.js`, websocket-backed scrollback replay, clear/toggle/resize controls, hosted-mode read-only behavior, and Electron detach support.

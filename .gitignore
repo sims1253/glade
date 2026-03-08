@@ -12,3 +12,4 @@ apps/*/dist-electron/
 packages/*/dist/
 *.tsbuildinfo
 *.log
+mockups/

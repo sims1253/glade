@@ -30,6 +30,11 @@ const asString = (value: unknown): string | null => (typeof value === 'string' ?
 
 const asArray = (value: unknown): Array<unknown> => (Array.isArray(value) ? value : []);
 
+function isDatabaseClosedError(error: Error) {
+  const message = error.message.toLowerCase();
+  return message.includes('database has closed') || message.includes('database is closed');
+}
+
 const graphVersionOf = (snapshot: GraphSnapshot): number => {
   const graph = asObject(snapshot.graph);
   const version = graph?.version;
@@ -336,17 +341,23 @@ export const GraphStateCacheLive = Layer.effect(
       }).pipe(Effect.orDie);
 
     const appendReplLine = (line: string) =>
-      Effect.sync(() => {
-        database.transaction(() => {
-          insertReplLine.run(line, new Date().toISOString());
-          database.exec(`
-            DELETE FROM repl_buffer
-            WHERE sequence NOT IN (
-              SELECT sequence FROM repl_buffer ORDER BY sequence DESC LIMIT 500
-            )
-          `);
-        })();
-      }).pipe(Effect.orDie);
+      Effect.try({
+        try: () => {
+          database.transaction(() => {
+            insertReplLine.run(line, new Date().toISOString());
+            database.exec(`
+              DELETE FROM repl_buffer
+              WHERE sequence NOT IN (
+                SELECT sequence FROM repl_buffer ORDER BY sequence DESC LIMIT 500
+              )
+            `);
+          })();
+        },
+        catch: (error) => error instanceof Error ? error : new Error(String(error)),
+      }).pipe(
+        Effect.catchIf(isDatabaseClosedError, () => Effect.void),
+        Effect.orDie,
+      );
 
     return {
       clear,

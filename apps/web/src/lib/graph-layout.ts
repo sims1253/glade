@@ -12,7 +12,57 @@ import {
 
 const elk = new ELK();
 
+const GRID_HORIZONTAL_GAP = DEFAULT_NODE_WIDTH + 72;
+const GRID_VERTICAL_GAP = DEFAULT_NODE_HEIGHT + 72;
+
+function toGridPositions(nodeIds: ReadonlyArray<string>) {
+  const columnCount = Math.max(1, Math.ceil(Math.sqrt(nodeIds.length)));
+  return Object.fromEntries(
+    nodeIds.map((nodeId, index) => [
+      nodeId,
+      {
+        x: (index % columnCount) * GRID_HORIZONTAL_GAP,
+        y: Math.floor(index / columnCount) * GRID_VERTICAL_GAP,
+      } satisfies XYPosition,
+    ]),
+  ) as Record<string, XYPosition>;
+}
+
+function offsetDuplicatePositions(
+  nodes: ReadonlyArray<{ readonly id: string }>,
+  positions: Record<string, XYPosition>,
+) {
+  const seen = new Map<string, number>();
+
+  return Object.fromEntries(
+    nodes.map((node) => {
+      const position = positions[node.id] ?? { x: 0, y: 0 };
+      const key = `${Math.round(position.x)}:${Math.round(position.y)}`;
+      const duplicateIndex = seen.get(key) ?? 0;
+      seen.set(key, duplicateIndex + 1);
+
+      return [
+        node.id,
+        duplicateIndex === 0
+          ? position
+          : {
+              x: position.x + duplicateIndex * GRID_HORIZONTAL_GAP,
+              y: position.y + duplicateIndex * 32,
+            } satisfies XYPosition,
+      ];
+    }),
+  ) as Record<string, XYPosition>;
+}
+
 export async function layoutWorkflowGraph(graph: Pick<WorkflowGraph, 'nodes' | 'edges'>) {
+  if (graph.nodes.length === 0) {
+    return {};
+  }
+
+  if (graph.edges.length === 0) {
+    return toGridPositions(graph.nodes.map((node) => node.id));
+  }
+
   const layout = await elk.layout({
     id: 'glade-root',
     layoutOptions: {
@@ -34,7 +84,7 @@ export async function layoutWorkflowGraph(graph: Pick<WorkflowGraph, 'nodes' | '
     })),
   });
 
-  return Object.fromEntries(
+  const positions = Object.fromEntries(
     (layout.children ?? []).map((child) => [
       child.id,
       {
@@ -43,6 +93,8 @@ export async function layoutWorkflowGraph(graph: Pick<WorkflowGraph, 'nodes' | '
       } satisfies XYPosition,
     ]),
   ) as Record<string, XYPosition>;
+
+  return offsetDuplicatePositions(graph.nodes, positions);
 }
 
 export function toReactFlowNodes(
@@ -54,8 +106,8 @@ export function toReactFlowNodes(
     type: node.rendererKind,
     position: positions[node.id] ?? { x: 0, y: 0 },
     data: node,
-    draggable: false,
-    selectable: false,
+    draggable: true,
+    selectable: true,
     deletable: false,
   }));
 }

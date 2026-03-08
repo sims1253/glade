@@ -137,6 +137,10 @@ export const RProcessServiceLive = Layer.effect(
 
     const handleLine = (line: string) =>
       Effect.gen(function* () {
+        if (yield* Ref.get(stoppingRef)) {
+          return;
+        }
+
         switch (classifyReplLine(line)) {
           case 'ready-signal':
             if (!(yield* Ref.get(readySeenRef))) {

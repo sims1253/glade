@@ -6,8 +6,6 @@ import { setTimeout as sleep } from 'node:timers/promises';
 const root = new URL('..', import.meta.url).pathname;
 const children = new Set();
 let shuttingDown = false;
-const OSC_SEQUENCE_PATTERN = new RegExp(String.raw`\u001b\][^\u0007]*(?:\u0007|\u001b\\)`, 'g');
-const CSI_SEQUENCE_PATTERN = new RegExp(String.raw`\u001b\[[0-?]*[ -/]*[@-~]`, 'g');
 
 async function canListenOn(port) {
   return await new Promise((resolve) => {
@@ -46,46 +44,19 @@ async function getAvailablePort(preferredPort) {
   });
 }
 
-function stripTerminalControlSequences(chunk) {
-  return chunk
-    .replace(OSC_SEQUENCE_PATTERN, '')
-    .replace(CSI_SEQUENCE_PATTERN, '');
-}
-
-function shouldSuppressDesktopNoise(chunk) {
-  return chunk.includes('dbus/object_proxy.cc:573') && chunk.includes('StartTransientUnit');
-}
-
-function forwardOutput(stream, writer) {
-  stream?.setEncoding('utf8');
-  stream?.on('data', (chunk) => {
-    const cleaned = stripTerminalControlSequences(String(chunk));
-    if (!cleaned || shouldSuppressDesktopNoise(cleaned)) {
-      return;
-    }
-    writer.write(cleaned);
-  });
-}
-
-function spawnProcess(command, args, extraEnv = {}, options = {}) {
+function spawnProcess(command, args, extraEnv = {}) {
   const child = spawn(command, args, {
     cwd: root,
     env: {
       ...process.env,
       ...extraEnv,
     },
-    stdio: options.stdio ?? 'inherit',
+    stdio: 'inherit',
   });
   children.add(child);
   child.once('exit', () => {
     children.delete(child);
   });
-
-  if (options.stdio === 'pipe') {
-    forwardOutput(child.stdout, process.stdout);
-    forwardOutput(child.stderr, process.stderr);
-  }
-
   return child;
 }
 
@@ -126,6 +97,23 @@ const serverPort = await getAvailablePort(Number(process.env.BAYESGROVE_SERVER_P
 const rPort = await getAvailablePort(Number(process.env.BAYESGROVE_R_PORT ?? serverPort + 10));
 const webUrl = `http://localhost:${webPort}`;
 
+const server = spawnProcess('bun', ['run', '--cwd', 'apps/server', 'dev'], {
+  BAYESGROVE_APP_ROOT: root,
+  BAYESGROVE_SERVER_PORT: String(serverPort),
+  BAYESGROVE_R_PORT: String(rPort),
+  PORT: String(webPort),
+  VITE_DEV_SERVER_URL: webUrl,
+  NODE_ENV: 'development',
+});
+
+server.on('exit', (code) => {
+  if (!shuttingDown && code && code !== 0 && code !== 143) {
+    cleanup(code);
+  }
+});
+
+await waitFor(`http://127.0.0.1:${serverPort}/health`);
+
 const web = spawnProcess('bun', ['run', '--cwd', 'apps/web', 'dev'], {
   BAYESGROVE_APP_ROOT: root,
   BAYESGROVE_SERVER_PORT: String(serverPort),
@@ -135,29 +123,6 @@ const web = spawnProcess('bun', ['run', '--cwd', 'apps/web', 'dev'], {
 });
 
 web.on('exit', (code) => {
-  if (!shuttingDown && code && code !== 0 && code !== 143) {
-    cleanup(code);
-  }
-});
-
-await waitFor(webUrl);
-
-const desktop = spawnProcess(
-  'bun',
-  ['run', '--cwd', 'apps/desktop', 'dev'],
-  {
-    BAYESGROVE_APP_ROOT: root,
-    BAYESGROVE_SERVER_PORT: String(serverPort),
-    BAYESGROVE_R_PORT: String(rPort),
-    PORT: String(webPort),
-    VITE_DEV_SERVER_URL: webUrl,
-    NODE_ENV: 'development',
-    BAYESGROVE_ELECTRON_HEADLESS: process.env.BAYESGROVE_ELECTRON_HEADLESS ?? '0',
-  },
-  { stdio: 'pipe' },
-);
-
-desktop.on('exit', (code) => {
   if (!shuttingDown) {
     cleanup(code === 0 || code === 143 ? 0 : (code ?? 1));
   }

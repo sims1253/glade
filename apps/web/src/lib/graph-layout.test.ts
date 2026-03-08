@@ -70,4 +70,20 @@ describe('layoutWorkflowGraph', () => {
     expect(positions.fit!.y).toBeGreaterThanOrEqual(positions.source!.y);
     expect(positions.export!.y).toBeGreaterThanOrEqual(positions.fit!.y);
   });
+
+  it('spreads disconnected nodes instead of stacking them at the origin', async () => {
+    const positions = await layoutWorkflowGraph({
+      ...sampleGraph,
+      edges: [],
+    });
+
+    expect(positions.source).toBeDefined();
+    expect(positions.fit).toBeDefined();
+    expect(positions.export).toBeDefined();
+    expect(new Set([
+      `${positions.source!.x}:${positions.source!.y}`,
+      `${positions.fit!.x}:${positions.fit!.y}`,
+      `${positions.export!.x}:${positions.export!.y}`,
+    ]).size).toBe(3);
+  });
 });

@@ -37,15 +37,36 @@ export function startServerProcess(): ChildProcess {
       BAYESGROVE_SERVER_PORT: String(serverPort()),
       NODE_ENV: process.env.NODE_ENV ?? 'production',
     },
+    detached: process.platform !== 'win32',
     stdio: 'inherit',
   });
 }
 
 export function stopServerProcess(child: ChildProcess | null) {
-  if (!child || child.killed) {
+  if (!child || child.killed || child.exitCode !== null || child.signalCode !== null) {
     return;
   }
+
+  if (process.platform !== 'win32' && child.pid) {
+    try {
+      process.kill(-child.pid, 'SIGTERM');
+      setTimeout(() => {
+        try {
+          process.kill(-child.pid!, 'SIGKILL');
+        } catch {
+        }
+      }, 2_000).unref();
+      return;
+    } catch {
+    }
+  }
+
   child.kill('SIGTERM');
+  setTimeout(() => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+    }
+  }, 2_000).unref();
 }
 
 export async function waitForServer() {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GraphSnapshot } from '@glade/contracts';
@@ -187,6 +187,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -242,5 +243,21 @@ describe('IndexRoute phase 5 workflow UI', () => {
 
     expect(dispatchCommand).not.toHaveBeenCalled();
     expect(screen.queryByText('Action Preview')).not.toBeInTheDocument();
+  });
+
+  it('shows health details in a dialog without navigating away', () => {
+    useGraphStore.getState().applySnapshot(baseSnapshot);
+
+    render(<IndexRoute />);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'View health' })[0]!);
+
+    expect(screen.getByText('Health')).toBeInTheDocument();
+    expect(screen.getByText(/Live server status without navigating away/i)).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('"endpoint": "') && content.includes('/health"'))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(screen.queryByText('Health')).not.toBeInTheDocument();
   });
 });

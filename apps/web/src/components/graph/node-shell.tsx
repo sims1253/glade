@@ -74,6 +74,14 @@ export const NodeShell = memo(function NodeShell({
   const blockReason = data.blockReason && data.blockReason !== 'none'
     ? data.blockReason.replace(/[_-]+/g, ' ')
     : null;
+  const handleClassName = cn(
+    '!h-3.5 !w-3.5 !border-2 !border-slate-950 shadow-lg transition-colors',
+    isConnectionSource || selected
+      ? '!bg-sky-300'
+      : isValidTarget
+        ? '!bg-emerald-300'
+        : '!bg-slate-400',
+  );
   // Connection affordances intentionally override passive selection/highlight rings.
   const ringClass = isValidTarget
     ? 'ring-2 ring-emerald-400/60'
@@ -87,7 +95,12 @@ export const NodeShell = memo(function NodeShell({
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-none !bg-transparent" />
+      <Handle
+        type="target"
+        position={Position.Top}
+        className={handleClassName}
+        aria-label={`Connect into ${data.label}`}
+      />
       <div
         className={cn(
           'relative min-w-[248px] rounded-2xl border bg-slate-950/95 p-4 shadow-xl backdrop-blur transition-colors',
@@ -149,7 +162,12 @@ export const NodeShell = memo(function NodeShell({
           </div>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !border-none !bg-transparent" />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className={handleClassName}
+        aria-label={`Connect from ${data.label}`}
+      />
     </>
   );
 });

@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { CornerDownLeft, ExternalLink, TerminalSquare, Trash2 } from 'lucide-react';
+import { Copy, CornerDownLeft, ExternalLink, TerminalSquare, Trash2 } from 'lucide-react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import 'xterm/css/xterm.css';
@@ -228,6 +228,7 @@ export function ReplTerminalPanel({ dispatchCommand, detachedView = false }: Rep
   const setReplPanelHeight = useAppStore((state) => state.setReplPanelHeight);
   const replDetached = useAppStore((state) => state.replDetached);
   const setReplDetached = useAppStore((state) => state.setReplDetached);
+  const replLines = useAppStore((state) => state.replLines);
   const sessionState = useAppStore((state) => state.sessionState);
   const [interactive, setInteractive] = useState(() => isDesktopRuntime());
   const detachable = interactive && canDetachTerminal() && !detachedView;
@@ -312,6 +313,14 @@ export function ReplTerminalPanel({ dispatchCommand, detachedView = false }: Rep
     await dispatchCommand({ type: 'ClearRepl' });
   };
 
+  const handleCopyLogs = async () => {
+    try {
+      await navigator.clipboard.writeText(replLines.join('\n'));
+    } catch (error) {
+      console.error('[repl] failed to copy terminal output', error);
+    }
+  };
+
   if (!detachedView && !replPanelOpen) {
     return (
       <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/80 px-4 py-3 shadow-xl shadow-slate-950/30">
@@ -368,6 +377,10 @@ export function ReplTerminalPanel({ dispatchCommand, detachedView = false }: Rep
           <Button onClick={() => void handleClear()} variant="ghost">
             <Trash2 className="size-4" />
             Clear
+          </Button>
+          <Button onClick={() => void handleCopyLogs()} variant="ghost">
+            <Copy className="size-4" />
+            Copy logs
           </Button>
           {detachable ? (
             <Button

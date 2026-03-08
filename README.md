@@ -2,7 +2,7 @@
 
 Glade is the desktop and browser-based GUI for bayesgrove.
 
-Current release: `0.7.0`
+Current release: `0.7.1`
 
 Phase status: phase 7 is implemented.
 The app now includes the workflow canvas, protocol panels, node detail drawer, and a shared-session R REPL terminal with hosted-mode read-only behavior and Electron detach support.
@@ -21,6 +21,14 @@ The app now includes the workflow canvas, protocol panels, node detail drawer, a
 bun install
 bun run dev
 ```
+
+Hosted/browser development with a local Bun server:
+
+```bash
+BAYESGROVE_PROJECT_PATH=/tmp/glade-manual bun run dev:hosted
+```
+
+Both root runners (`dev` and `dev:hosted`) now select free app-server and `bg_serve()` ports automatically when the defaults are already occupied.
 
 Desktop-specific smoke coverage:
 
