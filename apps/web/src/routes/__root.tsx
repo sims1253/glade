@@ -12,7 +12,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootRoute() {
   return (
-    <main className="min-h-screen px-6 py-8 text-slate-100 sm:px-10">
+    <main className="min-h-screen text-slate-100">
       <Outlet />
     </main>
   );

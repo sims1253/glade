@@ -6,6 +6,7 @@ import { decodeHealthResponse, decodeServerMessage } from '@glade/contracts';
 
 import { websocketUrl } from '../lib/runtime';
 import { useAppStore } from '../store/app';
+import { useGraphStore } from '../store/graph';
 
 export const healthQueryKey = ['health'] as const;
 
@@ -20,6 +21,9 @@ export function useServerConnection() {
   const setServerConnected = useAppStore((state) => state.setServerConnected);
   const setServerVersion = useAppStore((state) => state.setServerVersion);
   const setSessionState = useAppStore((state) => state.setSessionState);
+  const setSessionReason = useAppStore((state) => state.setSessionReason);
+  const applySnapshot = useGraphStore((state) => state.applySnapshot);
+  const applyProtocolEvent = useGraphStore((state) => state.applyProtocolEvent);
 
   const healthQuery = useQuery({
     queryKey: healthQueryKey,
@@ -32,20 +36,22 @@ export function useServerConnection() {
     if (healthQuery.data) {
       setServerConnected(true);
       setServerVersion(healthQuery.data.version);
+      setSessionReason(null);
     }
 
     if (healthQuery.isError) {
       setServerConnected(false);
       setSessionState('error');
+      setSessionReason('health_check_failed');
     }
-  }, [healthQuery.data, healthQuery.isError, setServerConnected, setServerVersion, setSessionState]);
+  }, [healthQuery.data, healthQuery.isError, setServerConnected, setServerVersion, setSessionReason, setSessionState]);
 
   useEffect(() => {
     const socket = new WebSocket(websocketUrl());
 
     socket.onopen = () => {
       setServerConnected(true);
-      setSessionState('ready');
+      setSessionReason(null);
     };
 
     socket.onmessage = (event) => {
@@ -54,7 +60,18 @@ export function useServerConnection() {
           const message = yield* decodeServerMessage(JSON.parse(String(event.data)));
           if (message.type === 'SessionStatus') {
             setSessionState(message.state);
+            setSessionReason(message.reason ?? null);
             setServerConnected(message.state !== 'error');
+            return;
+          }
+
+          if (message.message_type === 'GraphSnapshot') {
+            applySnapshot(message);
+            return;
+          }
+
+          if (message.message_type === 'ProtocolEvent') {
+            applyProtocolEvent(message);
           }
         }),
       );
@@ -62,14 +79,17 @@ export function useServerConnection() {
 
     socket.onclose = () => {
       setServerConnected(false);
+      setSessionState('error');
+      setSessionReason('websocket_closed');
     };
 
     socket.onerror = () => {
       setSessionState('error');
+      setSessionReason('websocket_error');
     };
 
     return () => socket.close();
-  }, [setServerConnected, setSessionState]);
+  }, [applyProtocolEvent, applySnapshot, setServerConnected, setSessionReason, setSessionState]);
 
   return {
     healthQuery,
