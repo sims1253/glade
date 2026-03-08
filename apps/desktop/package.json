@@ -1,0 +1,28 @@
+{
+  "name": "@glade/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "bun run build && electron ./dist-electron/main.cjs",
+    "build": "tsdown",
+    "start": "electron ./dist-electron/main.cjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "smoke-test": "node ./scripts/smoke-test.mjs"
+  },
+  "dependencies": {
+    "@glade/shared": "workspace:*",
+    "effect": "catalog:",
+    "electron": "latest",
+    "electron-updater": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "productName": "Glade"
+}

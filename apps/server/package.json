@@ -1,0 +1,32 @@
+{
+  "name": "@glade/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "tsdown",
+    "start": "bun run dist/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@glade/contracts": "workspace:*",
+    "@glade/shared": "workspace:*",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-sqlite-bun": "catalog:",
+    "effect": "catalog:",
+    "node-pty": "latest",
+    "open": "latest",
+    "ws": "latest"
+  },
+  "devDependencies": {
+    "@effect/language-service": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/ws": "latest",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
