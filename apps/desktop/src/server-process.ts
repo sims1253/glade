@@ -13,8 +13,8 @@ function appRoot() {
 
 function serverEntry() {
   const root = appRoot();
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  return isDevelopment
+  const useSourceEntry = process.env.NODE_ENV === 'development' || process.env.BAYESGROVE_SMOKE_TEST === '1';
+  return useSourceEntry
     ? path.join(root, 'apps/server/src/index.ts')
     : path.join(root, 'apps/server/dist/index.mjs');
 }

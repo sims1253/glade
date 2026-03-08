@@ -4,6 +4,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 import { afterEach, expect, it } from 'vitest';
 
+import { version } from '../package.json' with { type: 'json' };
+
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ReturnType<typeof spawn>>();
 
@@ -45,5 +47,5 @@ it('starts standalone and exposes /health', async () => {
   children.add(child);
 
   const response = await waitFor(`http://127.0.0.1:${port}/health`);
-  expect(await response.json()).toEqual({ status: 'ok', version: '0.1.0' });
+  expect(await response.json()).toEqual({ status: 'ok', version });
 });

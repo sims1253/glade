@@ -1,6 +1,9 @@
 design/
+DEFERRED-QUESTIONS.md
+cr.md
 node_modules/
 .turbo/
+.glade/
 coverage/
 dist/
 dist-electron/

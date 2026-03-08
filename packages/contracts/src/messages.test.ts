@@ -2,10 +2,11 @@ import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 
 import {
-  Command,
+  BayesgroveCommand,
+  CommandEnvelope,
+  GraphSnapshot,
   HealthResponse,
   ServerMessage,
-  SessionStatus,
 } from './messages';
 
 function roundTrip<TSchema extends Schema.Schema.AnyNoContext>(
@@ -18,18 +19,68 @@ function roundTrip<TSchema extends Schema.Schema.AnyNoContext>(
 
 describe('contracts', () => {
   it('round-trips health responses', () => {
-    roundTrip(HealthResponse, { status: 'ok', version: '0.1.0' });
+    roundTrip(HealthResponse, { status: 'ok', version: '0.2.0' });
   });
 
-  it('round-trips session status messages', () => {
-    roundTrip(SessionStatus, { type: 'SessionStatus', state: 'ready' });
+  it('round-trips bayesgrove command payloads', () => {
+    roundTrip(BayesgroveCommand, {
+      protocol_version: '0.1.0',
+      message_type: 'Command',
+      command_id: 'cmd.add',
+      command: 'bg_add_node',
+      args: { kind: 'source', label: 'Source' },
+    });
   });
 
-  it('round-trips command unions', () => {
-    roundTrip(Command, { type: 'Ping' });
+  it('round-trips frontend command envelopes', () => {
+    roundTrip(CommandEnvelope, {
+      id: 'cmd-1',
+      command: { type: 'RenameNode', nodeId: 'node_1', label: 'Renamed' },
+    });
+  });
+
+  it('round-trips graph snapshots with protocol partitions', () => {
+    roundTrip(GraphSnapshot, {
+      protocol_version: '0.1.0',
+      message_type: 'GraphSnapshot',
+      emitted_at: new Date().toISOString(),
+      project_id: 'proj_1',
+      project_name: 'demo',
+      graph: { version: 1, nodes: {}, edges: {} },
+      status: {
+        workflow_state: 'open',
+        runnable_nodes: 0,
+        blocked_nodes: 0,
+        pending_gates: 0,
+        active_jobs: 0,
+        health: 'ok',
+        messages: ['ready'],
+      },
+      pending_gates: {},
+      branches: {},
+      branch_goals: {},
+      protocol: {
+        summary: {
+          n_scopes: 1,
+          n_obligations: 0,
+          n_actions: 0,
+          n_blocking: 0,
+          scopes: ['project'],
+        },
+        project: {
+          scope: 'project',
+          scope_label: 'Project',
+          obligations: {},
+          actions: {},
+        },
+      },
+    });
   });
 
   it('round-trips server message unions', () => {
-    roundTrip(ServerMessage, { type: 'Pong', at: new Date().toISOString() });
+    roundTrip(ServerMessage, {
+      type: 'SessionStatus',
+      state: 'connecting',
+    });
   });
 });

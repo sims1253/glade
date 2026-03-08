@@ -3,17 +3,17 @@ import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 
+import { WebSocketServer, type WebSocket } from 'ws';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import { decodeCommand, type Command, type HealthResponse, type SessionStatus } from '@glade/contracts';
+
+import { type HealthResponse } from '@glade/contracts';
 import { HEALTH_PATH, WS_PATH } from '@glade/shared';
-import { WebSocketServer, type WebSocket } from 'ws';
 
 import { ServerConfig } from './config';
 import { contentTypeFor } from './lib/content-type';
-import { SessionStatusStore } from './services/session-status';
-import { WebSocketHub } from './services/websocket-hub';
+import { ProtocolRouter } from './services/protocol-router';
 
 export class AppServer extends Context.Tag('glade/AppServer')<
   AppServer,
@@ -36,20 +36,12 @@ async function proxyToVite(request: http.IncomingMessage, response: http.ServerR
   if (request.method) {
     init.method = request.method;
   }
-  const proxied = await fetch(requestUrl, {
-    ...init,
-  });
+  const proxied = await fetch(requestUrl, init);
 
   response.statusCode = proxied.status;
   for (const [key, value] of proxied.headers.entries()) {
     response.setHeader(key, value);
   }
-
-  if (!proxied.body) {
-    response.end();
-    return;
-  }
-
   response.end(Buffer.from(await proxied.arrayBuffer()));
 }
 
@@ -64,21 +56,12 @@ async function serveStatic(rootDir: string, requestPath: string, response: http.
   response.end(buffer);
 }
 
-function handleCommand(command: Command, currentStatus: SessionStatus): SessionStatus | { type: 'Pong'; at: string } {
-  switch (command.type) {
-    case 'GetSessionStatus':
-      return currentStatus;
-    case 'Ping':
-      return { type: 'Pong', at: new Date().toISOString() };
-  }
-}
-
 export const AppServerLive = Layer.scoped(
   AppServer,
   Effect.gen(function* () {
     const config = yield* ServerConfig;
-    const statusStore = yield* SessionStatusStore;
-    const hub = yield* WebSocketHub;
+    const router = yield* ProtocolRouter;
+    yield* router.startSession;
     const httpServer = http.createServer((request, response) => {
       void Effect.runPromise(
         Effect.tryPromise(async () => {
@@ -123,26 +106,7 @@ export const AppServerLive = Layer.scoped(
     });
 
     webSocketServer.on('connection', (socket: WebSocket) => {
-      void Effect.runPromise(
-        Effect.gen(function* () {
-          yield* hub.add(socket);
-          yield* hub.send(socket, yield* statusStore.get);
-        }),
-      );
-
-      socket.on('message', (payload) => {
-        void Effect.runPromise(
-          Effect.gen(function* () {
-            const decoded = yield* decodeCommand(JSON.parse(String(payload)));
-            const currentStatus = yield* statusStore.get;
-            yield* hub.send(socket, handleCommand(decoded, currentStatus));
-          }),
-        );
-      });
-
-      socket.on('close', () => {
-        void Effect.runPromise(hub.remove(socket));
-      });
+      void Effect.runPromise(router.attachClient(socket));
     });
 
     yield* Effect.acquireRelease(
@@ -164,7 +128,6 @@ export const AppServerLive = Layer.scoped(
                   reject(webSocketError);
                   return;
                 }
-
                 httpServer.close((httpError) => {
                   if (httpError) {
                     reject(httpError);
