@@ -41,6 +41,8 @@ export function describeCommand(command: Command) {
       return 'Restarted session';
     case 'ReplInput':
       return 'Sent REPL input';
+    case 'ClearRepl':
+      return 'Cleared REPL terminal';
     case 'OpenFileInEditor':
       return 'Opened linked file in editor';
     case 'SelectDirectory':

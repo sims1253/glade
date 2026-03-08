@@ -9,4 +9,6 @@ export interface DesktopRuntimeInfo {
   readonly platform: string;
   readonly serverPort: number;
   readonly selectFilePath?: () => Promise<string | null>;
+  readonly openDetachedTerminal?: () => Promise<boolean>;
+  readonly onDetachedTerminalStateChange?: (listener: (isDetached: boolean) => void) => () => void;
 }

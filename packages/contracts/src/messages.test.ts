@@ -37,6 +37,11 @@ describe('contracts', () => {
       id: 'cmd-1',
       command: { type: 'RenameNode', nodeId: 'node_1', label: 'Renamed' },
     });
+
+    roundTrip(CommandEnvelope, {
+      id: 'cmd-2',
+      command: { type: 'ReplInput', data: '1 + 1\n' },
+    });
   });
 
   it('round-trips graph snapshots with protocol partitions', () => {

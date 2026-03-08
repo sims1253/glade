@@ -385,12 +385,33 @@ export const ProtocolRouterLive = Layer.scoped(
         }
 
         if (command.type === 'ReplInput') {
-          return yield* Effect.fail(
-            new CommandDispatchError({
-              code: 'unsupported_workflow_command',
-              message: 'ReplInput is reserved for phase 7.',
-            }),
-          );
+          if (config.hostedMode) {
+            return yield* Effect.fail(
+              new HostedCapabilityError({
+                code: 'interactive_repl_unavailable',
+                message: 'Interactive REPL is unavailable in hosted mode.',
+              }),
+            );
+          }
+
+          const running = yield* rProcess.isRunning;
+          if (!running) {
+            return yield* Effect.fail(
+              new RSessionUnavailableError({
+                message: 'The R process is not running.',
+              }),
+            );
+          }
+
+          yield* rProcess.sendInput(command.data);
+          yield* broadcast.send(socket, commandResult(id, true, { accepted: true }));
+          return;
+        }
+
+        if (command.type === 'ClearRepl') {
+          yield* broadcast.broadcast({ type: 'ReplOutput', line: '\f' });
+          yield* broadcast.send(socket, commandResult(id, true, { cleared: true }));
+          return;
         }
 
         const connected = yield* bayesgroveSocket.isConnected;
@@ -450,6 +471,9 @@ export const ProtocolRouterLive = Layer.scoped(
           yield* requestSnapshotRefresh;
         }
         yield* broadcast.send(socket, yield* statusStore.get);
+        for (const line of yield* cache.getReplLines(config.replReplayLimit)) {
+          yield* broadcast.send(socket, { type: 'ReplOutput', line });
+        }
 
         yield* Effect.sync(() => {
           socket.on('message', (payload) => {

@@ -11,6 +11,25 @@ import { IndexRoute } from './index';
 
 const dispatchCommand = vi.fn();
 const dispatchHostCommand = vi.fn();
+const fitMock = vi.fn();
+
+vi.mock('xterm', () => ({
+  Terminal: class {
+    loadAddon = vi.fn();
+    open = vi.fn();
+    write = vi.fn();
+    writeln = vi.fn();
+    clear = vi.fn();
+    onData = vi.fn(() => ({ dispose: vi.fn() }));
+    dispose = vi.fn();
+  },
+}));
+
+vi.mock('@xterm/addon-fit', () => ({
+  FitAddon: class {
+    fit = fitMock;
+  },
+}));
 
 vi.mock('../hooks/useServerConnection', () => ({
   useServerConnection: () => ({
@@ -157,6 +176,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
       unobserve() {}
       disconnect() {}
     });
+    fitMock.mockReset();
     useAppStore.setState({
       serverConnected: true,
       serverVersion: '0.5.0',

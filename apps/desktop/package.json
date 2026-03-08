@@ -1,6 +1,6 @@
 {
   "name": "@glade/desktop",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "smoke-test": "node ./scripts/smoke-test.mjs",
+    "smoke-test:repl-detach": "node ./scripts/smoke-test.mjs repl-detach",
     "smoke-test:bayesgrove": "node ./scripts/real-bayesgrove-smoke.mjs"
   },
   "dependencies": {

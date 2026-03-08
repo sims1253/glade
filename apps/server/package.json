@@ -1,6 +1,6 @@
 {
   "name": "@glade/server",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "start": "bun run dist/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude 'test/*.integration.test.ts'",
-    "test:integration": "vitest run test/bridge.integration.test.ts test/interactive-graph.integration.test.ts"
+    "test:integration": "vitest run test/bridge.integration.test.ts test/interactive-graph.integration.test.ts test/repl.integration.test.ts"
   },
   "dependencies": {
     "@glade/contracts": "workspace:*",

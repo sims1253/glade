@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 - 2026-03-08
+
+- Added the phase 7 shared-session REPL terminal with `xterm.js`, websocket-backed scrollback replay, clear/toggle/resize controls, hosted-mode read-only behavior, and Electron detach support.
+- Added real phase 7 validation with a desktop-mode `ReplInput -> ReplOutput` integration test, an Electron detach smoke test, and follow-up runtime fixes for desktop mode startup and smoke isolation.
+- Hardened the terminal/runtime boundary by filtering leaked protocol frames from console output, caching REPL history server-side, and improving Electron smoke logging so headless runs stay actionable.
+
 ## 0.6.0 - 2026-03-08
 
 - Added the phase 6 node detail drawer with inline rename, virtualized summaries, read-only decisions, notes autosave, linked file management, and clickable lineage while keeping the canvas interactive.

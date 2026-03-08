@@ -33,6 +33,7 @@ export function startServerProcess(): ChildProcess {
     env: {
       ...process.env,
       BAYESGROVE_APP_ROOT: appRoot(),
+      BAYESGROVE_RUNTIME: 'desktop',
       BAYESGROVE_SERVER_PORT: String(serverPort()),
       NODE_ENV: process.env.NODE_ENV ?? 'production',
     },

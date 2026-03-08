@@ -17,6 +17,7 @@ type UnknownParams = Array<unknown>;
 export interface SqliteStatement {
   readonly run: (...params: UnknownParams) => void;
   readonly get: <TRow>(...params: UnknownParams) => TRow | null;
+  readonly all: <TRow>(...params: UnknownParams) => Array<TRow>;
 }
 
 export interface SqliteDatabaseService {
@@ -44,6 +45,8 @@ function wrapBunDatabase(database: BunDatabase): SqliteDatabaseService {
         },
         get: <TRow>(...params: UnknownParams) =>
           (query.get(...(params as Parameters<typeof query.get>)) as TRow | null | undefined) ?? null,
+        all: <TRow>(...params: UnknownParams) =>
+          query.all(...(params as Parameters<typeof query.all>)) as Array<TRow>,
       };
     },
     transaction: (callback) => database.transaction(callback),
@@ -62,6 +65,8 @@ function wrapNodeDatabase(database: NodeDatabaseSync): SqliteDatabaseService {
         },
         get: <TRow>(...params: UnknownParams) =>
           (statement.get(...(params as Array<string | number | bigint | Uint8Array | null>)) as TRow | undefined) ?? null,
+        all: <TRow>(...params: UnknownParams) =>
+          statement.all(...(params as Array<string | number | bigint | Uint8Array | null>)) as Array<TRow>,
       };
     },
     transaction: (callback) => () => {

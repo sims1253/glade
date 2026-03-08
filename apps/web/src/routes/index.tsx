@@ -5,6 +5,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { APP_DISPLAY_NAME } from '@glade/shared';
 
 import { WorkflowCanvas } from '../components/graph/workflow-canvas';
+import { ReplTerminalPanel } from '../components/repl/repl-terminal-panel';
 import {
   PostActionGuidanceBanner,
   WorkflowActionPreviewDialog,
@@ -25,6 +26,7 @@ export const Route = createFileRoute('/')({
 
 export function IndexRoute() {
   const { dispatchCommand, dispatchHostCommand, reconnect } = useServerConnection();
+  const detachedTerminalView = new URLSearchParams(window.location.search).get('terminal') === 'detached';
   const serverConnected = useAppStore((state) => state.serverConnected);
   const serverVersion = useAppStore((state) => state.serverVersion);
   const sessionState = useAppStore((state) => state.sessionState);
@@ -76,6 +78,10 @@ export function IndexRoute() {
   }, [actionSignature, dispatchCommand, graph, previewAction]);
 
   useEffect(() => {
+    if (detachedTerminalView) {
+      return;
+    }
+
     if (!awaitingGuidance || !graph) {
       return;
     }
@@ -92,6 +98,14 @@ export function IndexRoute() {
 
   useTransientGuidanceReset(guidanceActions, () => setGuidanceActions(null));
 
+  if (detachedTerminalView) {
+    return (
+      <section className="min-h-screen bg-[#050b14]">
+        <ReplTerminalPanel detachedView dispatchCommand={dispatchCommand} />
+      </section>
+    );
+  }
+
   return (
     <section className="flex min-h-screen flex-col gap-6 px-6 py-6 sm:px-8">
       <ToastViewport />
@@ -104,10 +118,10 @@ export function IndexRoute() {
       />
       <header className="grid gap-4 rounded-3xl border border-slate-800/80 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 6 · node detail panel</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 7 · repl terminal</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">{APP_DISPLAY_NAME}</h1>
           <p className="mt-3 max-w-3xl text-base text-slate-300">
-            Review obligations, dispatch guided workflow actions, and inspect the full state of any node without dropping to the REPL.
+            Review workflow state, dispatch graph actions, inspect node details, and keep a live R console open beside the canvas.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 lg:justify-end">
@@ -155,6 +169,8 @@ export function IndexRoute() {
           onRunAction={(action) => setPreviewAction(action)}
         />
       </div>
+
+      <ReplTerminalPanel dispatchCommand={dispatchCommand} />
     </section>
   );
 }

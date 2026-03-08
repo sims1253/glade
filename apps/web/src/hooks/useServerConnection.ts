@@ -37,6 +37,7 @@ export function useServerConnection() {
   const setSessionState = useAppStore((state) => state.setSessionState);
   const setSessionReason = useAppStore((state) => state.setSessionReason);
   const pushNotification = useAppStore((state) => state.pushNotification);
+  const appendReplLine = useAppStore((state) => state.appendReplLine);
   const applySnapshot = useGraphStore((state) => state.applySnapshot);
   const applyProtocolEvent = useGraphStore((state) => state.applyProtocolEvent);
 
@@ -51,6 +52,10 @@ export function useServerConnection() {
     pending.resolve(result);
 
     if (result.success) {
+      if (pending.command.type === 'ReplInput' || pending.command.type === 'ClearRepl') {
+        return;
+      }
+
       pushNotification({
         tone: 'success',
         title: describeCommand(pending.command),
@@ -129,6 +134,11 @@ export function useServerConnection() {
             return;
           }
 
+          if (message.type === 'ReplOutput') {
+            appendReplLine(message.line);
+            return;
+          }
+
           if (message.message_type === 'GraphSnapshot') {
             applySnapshot(message);
             return;
@@ -166,7 +176,7 @@ export function useServerConnection() {
       rejectAllPending('The websocket connection closed before the command completed.');
       socket.close();
     };
-  }, [applyProtocolEvent, applySnapshot, finishPendingCommand, rejectAllPending, setServerConnected, setSessionReason, setSessionState]);
+  }, [appendReplLine, applyProtocolEvent, applySnapshot, finishPendingCommand, rejectAllPending, setServerConnected, setSessionReason, setSessionState]);
 
   const dispatchCommand = useCallback((command: Command) => {
     const socket = socketRef.current;

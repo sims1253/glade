@@ -89,4 +89,20 @@ describe('GraphStateCache', () => {
       expect(snapshot.value.graph).toEqual(sampleSnapshot.graph);
     }
   });
+
+  it('keeps a bounded REPL replay buffer in insertion order', async () => {
+    const lines = await Effect.runPromise(
+      Effect.gen(function* () {
+        const cache = yield* GraphStateCache;
+        for (let index = 1; index <= 505; index += 1) {
+          yield* cache.appendReplLine(`line ${index}`);
+        }
+        return yield* cache.getReplLines();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(lines).toHaveLength(500);
+    expect(lines[0]).toBe('line 6');
+    expect(lines.at(-1)).toBe('line 505');
+  });
 });

@@ -266,7 +266,10 @@ export const RestartSessionCommand = Schema.Struct({
 });
 export const ReplInputCommand = Schema.Struct({
   type: Schema.Literal('ReplInput'),
-  line: Schema.String,
+  data: Schema.String,
+});
+export const ClearReplCommand = Schema.Struct({
+  type: Schema.Literal('ClearRepl'),
 });
 
 export const WorkflowCommand = Schema.Union(
@@ -280,6 +283,7 @@ export const WorkflowCommand = Schema.Union(
   SetNodeFileCommand,
   RestartSessionCommand,
   ReplInputCommand,
+  ClearReplCommand,
 );
 export type WorkflowCommand = Schema.Schema.Type<typeof WorkflowCommand>;
 

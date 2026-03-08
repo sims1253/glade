@@ -14,6 +14,7 @@ export class GraphStateCache extends Context.Tag('glade/GraphStateCache')<
   {
     readonly clear: Effect.Effect<void>;
     readonly getSnapshot: Effect.Effect<Option.Option<GraphSnapshot>>;
+    readonly getReplLines: (limit?: number) => Effect.Effect<ReadonlyArray<string>>;
     readonly writeSnapshot: (snapshot: GraphSnapshot) => Effect.Effect<void>;
     readonly writeProtocolEvent: (event: ProtocolEvent) => Effect.Effect<void>;
     readonly appendReplLine: (line: string) => Effect.Effect<void>;
@@ -180,6 +181,12 @@ export const GraphStateCacheLive = Layer.effect(
     const database = yield* SqliteDatabase;
 
     const selectSnapshot = database.prepare('SELECT snapshot_json FROM snapshot_cache WHERE id = 1');
+    const selectReplLines = database.prepare(`
+      SELECT line
+      FROM repl_buffer
+      ORDER BY sequence DESC
+      LIMIT ?
+    `);
     const replaceSnapshot = database.prepare(`
       INSERT INTO snapshot_cache (id, snapshot_json, graph_version, updated_at)
       VALUES (?, ?, ?, ?)
@@ -247,6 +254,14 @@ export const GraphStateCacheLive = Layer.effect(
       }
       return Option.some(JSON.parse(row.snapshot_json) as GraphSnapshot);
     }).pipe(Effect.orDie);
+
+    const getReplLines = (limit = 500) =>
+      Effect.sync(() =>
+        selectReplLines
+          .all<{ line: string }>(Math.max(0, Math.trunc(limit)))
+          .map((row) => row.line)
+          .reverse(),
+      ).pipe(Effect.orDie);
 
     const writeSnapshot = (snapshot: GraphSnapshot) =>
       Effect.sync(() => {
@@ -336,6 +351,7 @@ export const GraphStateCacheLive = Layer.effect(
     return {
       clear,
       getSnapshot,
+      getReplLines,
       writeSnapshot,
       writeProtocolEvent,
       appendReplLine,

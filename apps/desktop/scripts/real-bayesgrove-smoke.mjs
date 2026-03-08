@@ -8,6 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import electronPath from 'electron';
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
+const scenario = process.argv[2]?.trim() || process.env.BAYESGROVE_SMOKE_SCENARIO?.trim() || 'bayesgrove-detail-drawer';
 
 async function runCommand(command, args, options = {}) {
   await new Promise((resolve, reject) => {
@@ -194,7 +195,7 @@ const child = spawn(electronPath, [entry], {
     BAYESGROVE_SERVER_PORT: String(port),
     BAYESGROVE_R_PORT: String(rPort),
     BAYESGROVE_SMOKE_TEST: '1',
-    BAYESGROVE_SMOKE_SCENARIO: 'bayesgrove-detail-drawer',
+    BAYESGROVE_SMOKE_SCENARIO: scenario,
     BAYESGROVE_ELECTRON_HEADLESS: '1',
     NODE_ENV: 'production',
   },
