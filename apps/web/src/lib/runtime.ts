@@ -4,6 +4,10 @@ export function readDesktopRuntime() {
   return window[DESKTOP_GLOBAL_KEY as '__GLADE_DESKTOP__'];
 }
 
+export function hasNativeFilePicker() {
+  return typeof readDesktopRuntime()?.selectFilePath === 'function';
+}
+
 export function websocketUrl() {
   const runtime = readDesktopRuntime();
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

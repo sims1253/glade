@@ -19,6 +19,13 @@ function makeProps(): NodeProps<WorkflowFlowNode> {
     blockReason: null,
     obligationCount: 0,
     blockingObligationCount: 0,
+    branchScope: null,
+    branchScopeLabel: null,
+    notes: '',
+    linkedFilePath: null,
+    summaries: [],
+    decisions: [],
+    metadata: null,
     raw: {},
   };
 

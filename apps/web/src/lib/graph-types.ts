@@ -87,6 +87,26 @@ export interface WorkflowNodeKindSpec {
   readonly raw: Record<string, unknown>;
 }
 
+export interface WorkflowNodeSummaryRecord {
+  readonly id: string;
+  readonly kind: string;
+  readonly label: string;
+  readonly severity: string | null;
+  readonly recordedAt: string | null;
+  readonly passed: boolean | null;
+  readonly metrics: Record<string, unknown> | null;
+  readonly metadata: Record<string, unknown> | null;
+  readonly raw: Record<string, unknown>;
+}
+
+export interface WorkflowNodeDecisionRecord {
+  readonly id: string;
+  readonly kind: string;
+  readonly recordedAt: string | null;
+  readonly basisExcerpt: string | null;
+  readonly raw: Record<string, unknown>;
+}
+
 export interface WorkflowNodeData extends Record<string, unknown> {
   readonly id: string;
   readonly label: string;
@@ -96,6 +116,13 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   readonly blockReason: string | null;
   readonly obligationCount: number;
   readonly blockingObligationCount: number;
+  readonly branchScope: string | null;
+  readonly branchScopeLabel: string | null;
+  readonly notes: string;
+  readonly linkedFilePath: string | null;
+  readonly summaries: ReadonlyArray<WorkflowNodeSummaryRecord>;
+  readonly decisions: ReadonlyArray<WorkflowNodeDecisionRecord>;
+  readonly metadata: Record<string, unknown> | null;
   readonly isHighlighted?: boolean;
   readonly raw: Record<string, unknown>;
 }

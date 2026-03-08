@@ -24,7 +24,7 @@ export const Route = createFileRoute('/')({
 });
 
 export function IndexRoute() {
-  const { dispatchCommand, reconnect } = useServerConnection();
+  const { dispatchCommand, dispatchHostCommand, reconnect } = useServerConnection();
   const serverConnected = useAppStore((state) => state.serverConnected);
   const serverVersion = useAppStore((state) => state.serverVersion);
   const sessionState = useAppStore((state) => state.sessionState);
@@ -104,10 +104,10 @@ export function IndexRoute() {
       />
       <header className="grid gap-4 rounded-3xl border border-slate-800/80 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 5 · workflow protocol ui</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 6 · node detail panel</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">{APP_DISPLAY_NAME}</h1>
           <p className="mt-3 max-w-3xl text-base text-slate-300">
-            Follow bayesgrove&apos;s guided review loop directly in the GUI with live obligations, recommended actions, and confirmed action dispatch.
+            Review obligations, dispatch guided workflow actions, and inspect the full state of any node without dropping to the REPL.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 lg:justify-end">
@@ -143,7 +143,11 @@ export function IndexRoute() {
           onSelectObligation={(obligation) => handleSelectObligation(obligation.affectedNodeIds)}
         />
         <div className="min-h-[40rem]">
-          <WorkflowCanvas className="h-[calc(100vh-18rem)] min-h-[40rem]" dispatchCommand={dispatchCommand} />
+          <WorkflowCanvas
+            className="h-[calc(100vh-18rem)] min-h-[40rem]"
+            dispatchCommand={dispatchCommand}
+            dispatchHostCommand={dispatchHostCommand}
+          />
         </div>
         <WorkflowActionsPanel
           graph={graph}

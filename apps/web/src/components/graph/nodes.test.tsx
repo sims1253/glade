@@ -25,6 +25,13 @@ function makeProps(overrides: Partial<WorkflowNodeData>): NodeProps<WorkflowFlow
     blockReason: null,
     obligationCount: 1,
     blockingObligationCount: 0,
+    branchScope: null,
+    branchScopeLabel: null,
+    notes: '',
+    linkedFilePath: null,
+    summaries: [],
+    decisions: [],
+    metadata: null,
     raw: {},
     ...overrides,
   };

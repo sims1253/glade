@@ -86,3 +86,26 @@ export function getDownstreamNodeIds(graph: WorkflowGraph, sourceNodeId: string)
 
   return [...visited];
 }
+
+export function getUpstreamNodeIds(graph: WorkflowGraph, targetNodeId: string) {
+  const visited = new Set<string>();
+  const queue = [targetNodeId];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      continue;
+    }
+
+    for (const edge of graph.edges) {
+      if (edge.target !== current || visited.has(edge.source)) {
+        continue;
+      }
+
+      visited.add(edge.source);
+      queue.push(edge.source);
+    }
+  }
+
+  return [...visited];
+}

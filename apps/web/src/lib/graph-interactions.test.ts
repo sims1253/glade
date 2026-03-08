@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { canConnectNodes, getConnectionPreview, getDownstreamNodeIds } from './graph-interactions';
+import { canConnectNodes, getConnectionPreview, getDownstreamNodeIds, getUpstreamNodeIds } from './graph-interactions';
 import type { WorkflowGraph } from './graph-types';
+
+const baseNode = {
+  branchScope: null,
+  branchScopeLabel: null,
+  notes: '',
+  linkedFilePath: null,
+  summaries: [],
+  decisions: [],
+  metadata: null,
+  raw: {},
+} as const;
 
 const graph: WorkflowGraph = {
   projectId: 'proj_1',
@@ -40,14 +51,14 @@ const graph: WorkflowGraph = {
     ppc: { kind: 'ppc', label: 'PPC', description: 'Diagnostic node', inputTypes: ['fit'], outputTypes: [], raw: {} },
   },
   nodesById: {
-    source: { id: 'source', label: 'Source', kind: 'source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    fit: { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    ppc: { id: 'ppc', label: 'PPC', kind: 'ppc', rendererKind: 'diagnostic', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
+    source: { id: 'source', label: 'Source', kind: 'source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    fit: { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    ppc: { id: 'ppc', label: 'PPC', kind: 'ppc', rendererKind: 'diagnostic', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
   },
   nodes: [
-    { id: 'source', label: 'Source', kind: 'source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    { id: 'ppc', label: 'PPC', kind: 'ppc', rendererKind: 'diagnostic', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
+    { id: 'source', label: 'Source', kind: 'source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    { id: 'ppc', label: 'PPC', kind: 'ppc', rendererKind: 'diagnostic', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
   ],
   edges: [
     { id: 'edge_1', source: 'source', target: 'fit', kind: 'data', label: 'data', raw: {} },
@@ -68,5 +79,6 @@ describe('graph interactions', () => {
     expect(preview.validTargetIds.has('ppc')).toBe(true);
     expect(preview.invalidTargetIds.has('source')).toBe(true);
     expect(getDownstreamNodeIds(graph, 'source')).toEqual(['fit', 'ppc']);
+    expect(getUpstreamNodeIds(graph, 'ppc')).toEqual(['fit', 'source']);
   });
 });

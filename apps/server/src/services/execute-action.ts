@@ -71,15 +71,27 @@ function mergePayload(basePayload: unknown, overridePayload: unknown) {
     });
   }
 
+  if (!base) {
+    return {
+      ...override,
+    } satisfies JsonObject;
+  }
+
   return {
-    ...(base ?? {}),
+    ...base,
     ...override,
   } satisfies JsonObject;
 }
 
 function buildActionMetadata(actionId: string, templateRef: string | null, payload: JsonObject, metadata: JsonObject | null) {
+  const baseMetadata = metadata
+    ? {
+        ...metadata,
+      }
+    : {};
+
   return {
-    ...(metadata ?? {}),
+    ...baseMetadata,
     action_id: actionId,
     ...(templateRef ? { template_ref: templateRef } : {}),
     ...(payload.summary_ids ? { summary_ids: payload.summary_ids } : {}),

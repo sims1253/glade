@@ -2,10 +2,17 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Effect from 'effect/Effect';
 
-import { decodeHealthResponse, decodeServerMessage, type CommandResult, type WorkflowCommand } from '@glade/contracts';
+import {
+  decodeHealthResponse,
+  decodeServerMessage,
+  type Command,
+  type CommandResult,
+  type HostCommand,
+  type WorkflowCommand,
+} from '@glade/contracts';
 
 import { websocketUrl } from '../lib/runtime';
-import { describeWorkflowCommand, createWorkflowCommandEnvelope } from '../lib/workflow-commands';
+import { createCommandEnvelope, describeCommand } from '../lib/workflow-commands';
 import { useAppStore } from '../store/app';
 import { useGraphStore } from '../store/graph';
 
@@ -21,7 +28,7 @@ export function useServerConnection() {
   const queryClient = useQueryClient();
   const socketRef = useRef<WebSocket | null>(null);
   const pendingCommandsRef = useRef(new Map<string, {
-    readonly command: WorkflowCommand;
+    readonly command: Command;
     readonly resolve: (result: CommandResult) => void;
     readonly timeout: number;
   }>());
@@ -46,7 +53,7 @@ export function useServerConnection() {
     if (result.success) {
       pushNotification({
         tone: 'success',
-        title: describeWorkflowCommand(pending.command),
+        title: describeCommand(pending.command),
         description: null,
       });
       return;
@@ -131,7 +138,15 @@ export function useServerConnection() {
             applyProtocolEvent(message);
           }
         }),
-      );
+      ).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[websocket] failed to process server message', error);
+        pushNotification({
+          tone: 'error',
+          title: 'Could not process server message',
+          description: message,
+        });
+      });
     };
 
     socket.onclose = () => {
@@ -153,7 +168,7 @@ export function useServerConnection() {
     };
   }, [applyProtocolEvent, applySnapshot, finishPendingCommand, rejectAllPending, setServerConnected, setSessionReason, setSessionState]);
 
-  const dispatchCommand = useCallback((command: WorkflowCommand) => {
+  const dispatchCommand = useCallback((command: Command) => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       const result: CommandResult = {
@@ -173,7 +188,7 @@ export function useServerConnection() {
       return Promise.resolve(result);
     }
 
-    const envelope = createWorkflowCommandEnvelope(command);
+    const envelope = createCommandEnvelope(command);
     return new Promise<CommandResult>((resolve) => {
       const timeout = window.setTimeout(() => {
         pendingCommandsRef.current.delete(envelope.id);
@@ -205,7 +220,8 @@ export function useServerConnection() {
   }, [pushNotification]);
 
   return {
-    dispatchCommand,
+    dispatchCommand: (command: WorkflowCommand) => dispatchCommand(command),
+    dispatchHostCommand: (command: HostCommand) => dispatchCommand(command),
     healthQuery,
     reconnect: () => queryClient.invalidateQueries({ queryKey: healthQueryKey }),
   };

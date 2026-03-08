@@ -154,6 +154,33 @@ function toBayesgroveCommand(id: string, command: WorkflowCommand): BayesgroveCo
         command: 'bg_update_node',
         args: { node_id: command.nodeId, label: command.label },
       };
+    case 'UpdateNodeNotes':
+      return {
+        protocol_version: '0.1.0',
+        message_type: 'Command',
+        command_id: id,
+        command: 'bg_update_node',
+        args: {
+          node_id: command.nodeId,
+          metadata: {
+            notes: command.notes,
+          },
+        },
+      };
+    case 'SetNodeFile':
+      return {
+        protocol_version: '0.1.0',
+        message_type: 'Command',
+        command_id: id,
+        command: 'bg_update_node',
+        args: {
+          node_id: command.nodeId,
+          metadata: {
+            linked_file: command.path,
+            file_path: command.path,
+          },
+        },
+      };
     case 'RecordDecision':
       return {
         protocol_version: '0.1.0',
@@ -313,7 +340,22 @@ export const ProtocolRouterLive = Layer.scoped(
                 }),
               );
             }
-            yield* Effect.tryPromise(() => open(command.path));
+            yield* Effect.tryPromise({
+              try: () =>
+                config.editorCommand
+                  ? open(command.path, {
+                      app: {
+                        name: config.editorCommand,
+                      },
+                    })
+                  : open(command.path),
+              catch: (error) =>
+                new CommandDispatchError({
+                  code: 'editor_open_failed',
+                  message: `Failed to open file in editor: ${error instanceof Error ? error.message : String(error)}`,
+                  cause: error,
+                }),
+            });
             yield* broadcast.send(socket, commandResult(id, true, { opened: true }));
             return;
           }

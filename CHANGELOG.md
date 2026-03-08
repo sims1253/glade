@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 - 2026-03-08
+
+- Added the phase 6 node detail drawer with inline rename, virtualized summaries, read-only decisions, notes autosave, linked file management, and clickable lineage while keeping the canvas interactive.
+- Added hosted-vs-desktop file handling through host commands and Electron file picker support, plus broader command/runtime coverage for notes and linked-file mutations.
+- Added an opt-in real bayesgrove desktop smoke test and fixed a live protocol mismatch by accepting `status.last_run_id: null` in real snapshots.
+
 ## 0.5.0 - 2026-03-08
 
 - Added the phase 5 workflow protocol UI with always-visible obligations, recommended actions, confirm-before-run previews, post-action guidance, and canvas highlighting/lock states driven by bayesgrove snapshots.

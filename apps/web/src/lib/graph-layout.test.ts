@@ -3,6 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { layoutWorkflowGraph } from './graph-layout';
 import type { WorkflowGraph } from './graph-types';
 
+const baseNode = {
+  branchScope: null,
+  branchScopeLabel: null,
+  notes: '',
+  linkedFilePath: null,
+  summaries: [],
+  decisions: [],
+  metadata: null,
+  raw: {},
+} as const;
+
 const sampleGraph: WorkflowGraph = {
   projectId: 'proj_1',
   projectName: 'Demo',
@@ -28,18 +39,18 @@ const sampleGraph: WorkflowGraph = {
   nodeKinds: [],
   nodeKindsByKind: {},
   nodesById: {
-    source: { id: 'source', label: 'Source', kind: 'data_source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    fit: { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    export: { id: 'export', label: 'Export', kind: 'export', rendererKind: 'export', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
+    source: { id: 'source', label: 'Source', kind: 'data_source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    fit: { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    export: { id: 'export', label: 'Export', kind: 'export', rendererKind: 'export', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
   },
   protocolScopes: [],
   obligations: [],
   actions: [],
   obligationsByNodeId: {},
   nodes: [
-    { id: 'source', label: 'Source', kind: 'data_source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
-    { id: 'export', label: 'Export', kind: 'export', rendererKind: 'export', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, raw: {} },
+    { id: 'source', label: 'Source', kind: 'data_source', rendererKind: 'data_source', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    { id: 'fit', label: 'Fit', kind: 'fit', rendererKind: 'fit', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
+    { id: 'export', label: 'Export', kind: 'export', rendererKind: 'export', status: 'ok', blockReason: null, obligationCount: 0, blockingObligationCount: 0, ...baseNode },
   ],
   edges: [
     { id: 'edge_1', source: 'source', target: 'fit', kind: 'data', label: 'data', raw: {} },

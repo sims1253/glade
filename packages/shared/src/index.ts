@@ -8,4 +8,5 @@ export const DESKTOP_GLOBAL_KEY = '__GLADE_DESKTOP__';
 export interface DesktopRuntimeInfo {
   readonly platform: string;
   readonly serverPort: number;
+  readonly selectFilePath?: () => Promise<string | null>;
 }

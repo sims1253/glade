@@ -5,11 +5,13 @@ import {
   type NodeRendererKind,
   type NodeVisualState,
   type WorkflowGraph,
+  type WorkflowNodeDecisionRecord,
   type WorkflowNodeKindSpec,
   type WorkflowNodeData,
   type WorkflowObligationRecord,
   type WorkflowProtocolScope,
   type WorkflowProtocolSummary,
+  type WorkflowNodeSummaryRecord,
   type WorkflowStatusSummary,
 } from './graph-types';
 
@@ -53,6 +55,10 @@ function asString(value: unknown): string | null {
 
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
 }
 
 function asStringArray(value: unknown): Array<string> {
@@ -100,6 +106,38 @@ function formatScopeLabel(scope: string) {
   return formatKind(scope);
 }
 
+function firstObject(...values: Array<unknown>): JsonRecord | null {
+  for (const value of values) {
+    const record = asObject(value);
+    if (record) {
+      return record;
+    }
+  }
+
+  return null;
+}
+
+function firstString(...values: Array<unknown>): string | null {
+  for (const value of values) {
+    const candidate = asString(value);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function firstArray(...values: Array<unknown>): Array<unknown> {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return [];
+}
+
 function extractDescription(value: unknown) {
   if (typeof value === 'string') {
     return value;
@@ -112,6 +150,134 @@ function extractDescription(value: unknown) {
     asString(explanation?.description) ??
     null
   );
+}
+
+function extractNodeMetadata(rawNode: JsonRecord) {
+  return firstObject(rawNode.metadata, rawNode.meta);
+}
+
+function extractBranchScope(rawNode: JsonRecord, metadata: JsonRecord | null) {
+  return firstString(
+    rawNode.scope,
+    rawNode.branch_scope,
+    rawNode.branchScope,
+    rawNode.branch_id,
+    metadata?.scope,
+    metadata?.branch_scope,
+    metadata?.branchScope,
+    metadata?.branch_id,
+  );
+}
+
+function extractBranchScopeLabel(rawNode: JsonRecord, metadata: JsonRecord | null) {
+  const scope = extractBranchScope(rawNode, metadata);
+  return firstString(
+    rawNode.scope_label,
+    rawNode.scopeLabel,
+    rawNode.branch_scope_label,
+    rawNode.branchScopeLabel,
+    metadata?.scope_label,
+    metadata?.scopeLabel,
+    metadata?.branch_scope_label,
+    metadata?.branchScopeLabel,
+    scope ? formatScopeLabel(scope) : null,
+  );
+}
+
+function extractNotes(rawNode: JsonRecord, metadata: JsonRecord | null) {
+  return firstString(rawNode.notes, metadata?.notes) ?? '';
+}
+
+function extractLinkedFilePath(rawNode: JsonRecord, metadata: JsonRecord | null) {
+  return firstString(
+    rawNode.linked_file,
+    rawNode.linkedFile,
+    rawNode.file_path,
+    rawNode.filePath,
+    metadata?.linked_file,
+    metadata?.linkedFile,
+    metadata?.file_path,
+    metadata?.filePath,
+  );
+}
+
+function extractSummaryEntries(rawNode: JsonRecord, metadata: JsonRecord | null) {
+  const rawSummaries = firstArray(
+    rawNode.summaries,
+    rawNode.summary_log,
+    rawNode.summaryLog,
+    metadata?.summaries,
+    metadata?.summary_log,
+    metadata?.summaryLog,
+  );
+
+  return rawSummaries
+    .map((value, index) => {
+      const summary = asObject(value);
+      if (!summary) {
+        return null;
+      }
+
+      const kind = firstString(summary.kind, summary.summary_kind, summary.type) ?? 'summary';
+      return {
+        id: firstString(summary.id, summary.summary_id, summary.event_id) ?? `${kind}:${index}`,
+        kind,
+        label: formatKind(kind),
+        severity: firstString(summary.severity, summary.level, summary.status_level),
+        recordedAt: firstString(summary.recorded_at, summary.timestamp, summary.created_at, summary.emitted_at),
+        passed: asBoolean(summary.passed) ?? asBoolean(summary.ok) ?? asBoolean(summary.success),
+        metrics: firstObject(summary.metrics),
+        metadata: firstObject(summary.metadata, summary.meta),
+        raw: summary,
+      } satisfies WorkflowNodeSummaryRecord;
+    })
+    .filter((summary): summary is WorkflowNodeSummaryRecord => summary !== null)
+    .sort((left, right) => (right.recordedAt ?? '').localeCompare(left.recordedAt ?? ''));
+}
+
+function summarizeDecisionBasis(rawDecision: JsonRecord) {
+  const basis = firstObject(rawDecision.basis, rawDecision.metadata);
+  const excerpt = firstString(
+    rawDecision.basis_excerpt,
+    rawDecision.basisExcerpt,
+    rawDecision.rationale,
+    rawDecision.choice,
+    basis?.excerpt,
+    basis?.summary,
+    basis?.why,
+  );
+
+  if (!excerpt) {
+    return null;
+  }
+
+  return excerpt.length > 180 ? `${excerpt.slice(0, 177)}...` : excerpt;
+}
+
+function extractDecisionEntries(rawNode: JsonRecord, metadata: JsonRecord | null) {
+  const rawDecisions = firstArray(
+    rawNode.decisions,
+    metadata?.decisions,
+  );
+
+  return rawDecisions
+    .map((value, index) => {
+      const decision = asObject(value);
+      if (!decision) {
+        return null;
+      }
+
+      const kind = firstString(decision.kind, decision.decision_kind, decision.type) ?? 'decision';
+      return {
+        id: firstString(decision.id, decision.decision_id, decision.event_id) ?? `${kind}:${index}`,
+        kind,
+        recordedAt: firstString(decision.recorded_at, decision.timestamp, decision.created_at, decision.emitted_at),
+        basisExcerpt: summarizeDecisionBasis(decision),
+        raw: decision,
+      } satisfies WorkflowNodeDecisionRecord;
+    })
+    .filter((decision): decision is WorkflowNodeDecisionRecord => decision !== null)
+    .sort((left, right) => (right.recordedAt ?? '').localeCompare(left.recordedAt ?? ''));
 }
 
 function normalizeProtocolSummary(snapshot: GraphSnapshot): WorkflowProtocolSummary {
@@ -300,19 +466,20 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
   const nodeKinds = extractNodeKinds(snapshot);
   const nodeKindsByKind = Object.fromEntries(nodeKinds.map((kind) => [kind.kind, kind]));
 
-  const nodes = Object.entries(rawNodes)
+  const nodes: Array<WorkflowNodeData> = Object.entries(rawNodes)
     .map(([id, value]) => {
       const rawNode = asObject(value);
       if (!rawNode) {
         return null;
       }
+      const metadata = extractNodeMetadata(rawNode);
       const kind = asString(rawNode.kind) ?? 'generic';
       const label = asString(rawNode.label) ?? asString(rawNode.name) ?? id;
       const nodeObligations = protocol.obligationsByNodeId[id] ?? [];
       const obligationCount = nodeObligations.length;
       const blockingObligationCount = nodeObligations.filter((obligation) => obligation.severity === 'blocking').length;
 
-      return {
+      const node: WorkflowNodeData = {
         id,
         label,
         kind,
@@ -321,10 +488,19 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
         blockReason: asString(rawNode.block_reason),
         obligationCount,
         blockingObligationCount,
+        branchScope: extractBranchScope(rawNode, metadata),
+        branchScopeLabel: extractBranchScopeLabel(rawNode, metadata),
+        notes: extractNotes(rawNode, metadata),
+        linkedFilePath: extractLinkedFilePath(rawNode, metadata),
+        summaries: extractSummaryEntries(rawNode, metadata),
+        decisions: extractDecisionEntries(rawNode, metadata),
+        metadata,
         raw: rawNode,
-      } satisfies WorkflowNodeData;
+      };
+
+      return node;
     })
-    .filter((node): node is WorkflowNodeData => node !== null)
+    .filter((node): node is NonNullable<typeof node> => node !== null)
     .sort((left, right) => left.label.localeCompare(right.label));
   const nodesById = Object.fromEntries(nodes.map((node) => [node.id, node]));
   const edges = Object.entries(rawEdges)

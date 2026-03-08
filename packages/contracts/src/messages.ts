@@ -20,7 +20,7 @@ export const BayesgroveStatus = Schema.Struct({
   active_jobs: Schema.Number,
   health: Schema.String,
   messages: StatusMessages,
-  last_run_id: OptionalString,
+  last_run_id: Schema.optional(Schema.NullOr(Schema.String)),
 });
 export type BayesgroveStatus = Schema.Schema.Type<typeof BayesgroveStatus>;
 
@@ -259,7 +259,7 @@ export const UpdateNodeNotesCommand = Schema.Struct({
 export const SetNodeFileCommand = Schema.Struct({
   type: Schema.Literal('SetNodeFile'),
   nodeId: Schema.String,
-  path: Schema.String,
+  path: Schema.NullOr(Schema.String),
 });
 export const RestartSessionCommand = Schema.Struct({
   type: Schema.Literal('RestartSession'),

@@ -1,6 +1,6 @@
 {
   "name": "@glade/desktop",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
@@ -10,7 +10,8 @@
     "start": "electron ./dist-electron/main.cjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "smoke-test": "node ./scripts/smoke-test.mjs"
+    "smoke-test": "node ./scripts/smoke-test.mjs",
+    "smoke-test:bayesgrove": "node ./scripts/real-bayesgrove-smoke.mjs"
   },
   "dependencies": {
     "@glade/shared": "workspace:*",

@@ -10,7 +10,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 
-import type { CommandResult, WorkflowCommand } from '@glade/contracts';
+import type { CommandResult, HostCommand, WorkflowCommand } from '@glade/contracts';
 
 import { canConnectNodes, getConnectionPreview, getDownstreamNodeIds } from '../../lib/graph-interactions';
 import { layoutWorkflowGraph, toReactFlowEdges, toReactFlowNodes } from '../../lib/graph-layout';
@@ -20,6 +20,7 @@ import { useAppStore } from '../../store/app';
 import { useGraphStore } from '../../store/graph';
 import { Button } from '../ui/button';
 import { CanvasStatusBanner } from './canvas-status-banner';
+import { NodeDetailDrawer } from './node-detail-drawer';
 import { workflowNodeTypes } from './node-registry';
 import {
   WorkflowCanvasContextProvider,
@@ -131,13 +132,14 @@ function CanvasKeyboardShortcuts() {
 interface WorkflowCanvasProps {
   readonly className?: string;
   readonly dispatchCommand: (command: WorkflowCommand) => Promise<CommandResult>;
+  readonly dispatchHostCommand: (command: HostCommand) => Promise<CommandResult>;
 }
 
 type ContextMenuState =
   | { readonly mode: 'pane'; readonly x: number; readonly y: number }
   | { readonly mode: 'node'; readonly x: number; readonly y: number; readonly nodeId: string; readonly label: string };
 
-export function WorkflowCanvas({ className, dispatchCommand }: WorkflowCanvasProps) {
+export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand }: WorkflowCanvasProps) {
   const graph = useGraphStore((state) => state.graph);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
@@ -586,6 +588,17 @@ export function WorkflowCanvas({ className, dispatchCommand }: WorkflowCanvasPro
               </div>
             </div>
           </div>
+        ) : null}
+
+        {graph && selectedNode ? (
+          <NodeDetailDrawer
+            graph={graph}
+            node={selectedNode}
+            dispatchCommand={dispatchCommand}
+            dispatchHostCommand={dispatchHostCommand}
+            onClose={() => setSelectedNodeId(null)}
+            onSelectNode={(nodeId) => setSelectedNodeId(nodeId)}
+          />
         ) : null}
       </div>
     </WorkflowCanvasContextProvider>

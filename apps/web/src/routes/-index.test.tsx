@@ -10,10 +10,12 @@ import { useGraphStore } from '../store/graph';
 import { IndexRoute } from './index';
 
 const dispatchCommand = vi.fn();
+const dispatchHostCommand = vi.fn();
 
 vi.mock('../hooks/useServerConnection', () => ({
   useServerConnection: () => ({
     dispatchCommand,
+    dispatchHostCommand,
     reconnect: vi.fn(),
   }),
 }));
@@ -148,6 +150,7 @@ const reviewActionPayload = (
 describe('IndexRoute phase 5 workflow UI', () => {
   beforeEach(() => {
     dispatchCommand.mockReset();
+    dispatchHostCommand.mockReset();
     useGraphStore.getState().clear();
     vi.stubGlobal('ResizeObserver', class ResizeObserver {
       observe() {}
