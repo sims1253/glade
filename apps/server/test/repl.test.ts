@@ -9,8 +9,8 @@ import { getAvailablePort, terminateChildren, waitFor } from './integration-supp
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ReturnType<typeof spawn>>();
 
-afterEach(() => {
-  terminateChildren(children);
+afterEach(async () => {
+  await terminateChildren(children);
   children.clear();
 });
 

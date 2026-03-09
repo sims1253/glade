@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -45,6 +45,7 @@ describe('tool-runtime', () => {
     expect(result.output).toEqual({ answer: 42 });
     expect(result.artifactPath).toContain(path.join(stateDir, 'artifacts', 'node_json_file'));
     expect(result.artifactHash).toMatch(/^[a-f0-9]{64}$/);
+    await expect(readFile(path.join(stateDir, 'logs', 'tool-runtime.log'), 'utf8')).resolves.toContain('start node_json_file');
   });
 
   it('executes json_stdin tools and parses json_stdout', async () => {

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -23,12 +23,15 @@ afterEach(async () => {
 
 it('starts standalone and exposes /health', async () => {
   const port = await getAvailablePort();
+  const stateDir = await mkdtemp(path.join(tmpdir(), 'glade-health-state-'));
+  tempDirs.add(stateDir);
   const child = spawn('bun', ['run', 'apps/server/src/index.ts'], {
     cwd,
     env: {
       ...process.env,
       BAYESGROVE_APP_ROOT: cwd,
       BAYESGROVE_SERVER_PORT: String(port),
+      BAYESGROVE_STATE_DIR: stateDir,
       NODE_ENV: 'production',
     },
     stdio: 'inherit',
@@ -37,6 +40,10 @@ it('starts standalone and exposes /health', async () => {
 
   const response = await waitFor(`http://127.0.0.1:${port}/health`);
   expect(await response.json()).toEqual({ status: 'ok', version });
+  await expect.poll(
+    async () => await readFile(path.join(stateDir, 'logs', 'server.log'), 'utf8').catch(() => ''),
+    { timeout: 5_000, interval: 100 },
+  ).toContain('Glade server listening');
 });
 
 it('serves cached extension bundles and returns 404 for missing bundle paths', async () => {

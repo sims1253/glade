@@ -5,6 +5,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@glade/shared": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:"

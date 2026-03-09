@@ -9,6 +9,8 @@ import {
 } from '@glade/contracts';
 import { EXTENSION_BUNDLES_PATH } from '@glade/shared';
 
+import { writeServerLogLine } from '../runtime-logging';
+
 type NormalizedExtensionDescriptor = NonNullable<GraphSnapshot['extension_registry']>[number];
 const cachedRegistryByKey = new Map<string, ReadonlyArray<NormalizedExtensionDescriptor>>();
 
@@ -91,6 +93,10 @@ export async function cacheSnapshotExtensionBundles(
       await copyFile(sourcePath, targetPath);
     } catch (error) {
       console.error(`Failed to cache extension bundle ${sourcePath} -> ${targetPath}`, error);
+      void writeServerLogLine(
+        stateDir,
+        `Failed to cache extension bundle ${sourcePath} -> ${targetPath}: ${error instanceof Error ? error.message : String(error)}`,
+      ).catch(() => undefined);
       return extension;
     }
 

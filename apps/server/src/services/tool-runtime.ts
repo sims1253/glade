@@ -7,6 +7,7 @@ import type { JsonObject, JsonValue, NodeInputSerializer, NodeOutputParser, Node
 import { ProcessTimeoutError, runBufferedProcess, type BufferedProcessResult } from '@glade/shared/process';
 
 import { CommandDispatchError } from '../errors';
+import { describeUnknown, writeToolRuntimeLine } from '../runtime-logging';
 
 export interface ToolExecutionRequest {
   readonly nodeId: string;
@@ -260,9 +261,9 @@ export async function executeToolNode(
   const prepared = await prepareToolInvocation(request);
   const executedAt = new Date().toISOString();
   const startedAt = Date.now();
-  console.info(
-    `[tool-runtime] ${request.nodeId} ${prepared.executable} ${prepared.args.join(' ')}`.trim(),
-  );
+  const startMessage = `${request.nodeId} ${prepared.executable} ${prepared.args.join(' ')}`.trim();
+  console.info(`[tool-runtime] ${startMessage}`);
+  await writeToolRuntimeLine(request.stateDir, `start ${startMessage}`).catch(() => undefined);
 
   try {
     const runProcess = dependencies.runProcess ?? ((options) =>
@@ -311,6 +312,10 @@ export async function executeToolNode(
 
     const output = await parseToolOutput(request.outputParser, outcome.stdout, prepared.artifactPath);
     const artifactHash = prepared.artifactPath ? await hashFile(prepared.artifactPath) : null;
+    await writeToolRuntimeLine(
+      request.stateDir,
+      `success ${request.nodeId} exit=0 duration_ms=${Date.now() - startedAt}`,
+    ).catch(() => undefined);
 
     return {
       status: 'ok',
@@ -330,6 +335,12 @@ export async function executeToolNode(
       },
       executedAt,
     };
+  } catch (error) {
+    await writeToolRuntimeLine(
+      request.stateDir,
+      `failure ${request.nodeId} duration_ms=${Date.now() - startedAt} ${describeUnknown(error)}`,
+    ).catch(() => undefined);
+    throw error;
   } finally {
     await rm(prepared.inputTempDir, { recursive: true, force: true });
   }

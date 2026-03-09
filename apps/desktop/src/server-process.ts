@@ -3,12 +3,14 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import {
-  createLineBuffer,
+  forwardProcessOutput,
   spawnChildProcess,
   terminateProcessTree,
+  waitForHttpReady,
   type ManagedProcessLike,
   type SpawnProcessOptions,
 } from '@glade/shared/process';
+import { writeRotatingLogLine } from '@glade/shared/logging';
 import { DEFAULT_SERVER_PORT } from '@glade/shared';
 
 import type { DesktopSettings } from '@glade/shared';
@@ -25,6 +27,7 @@ export interface ServerProcessHandle {
 
 interface StartServerProcessOptions {
   readonly projectPath: string;
+  readonly stateDir: string;
   readonly settings: DesktopSettings;
   readonly onLogLine?: (line: string) => void;
 }
@@ -63,11 +66,16 @@ export function serverUrl() {
   return `http://127.0.0.1:${serverPort()}`;
 }
 
-function appendLog(logs: string[], line: string, onLogLine?: (line: string) => void) {
+function appendLog(logs: string[], stateDir: string, line: string, onLogLine?: (line: string) => void) {
   logs.push(line);
   while (logs.length > MAX_LOG_LINES) {
     logs.shift();
   }
+  void writeRotatingLogLine({
+    directory: path.join(stateDir, 'logs'),
+    fileName: 'embedded-server.log',
+    line,
+  }).catch(() => undefined);
   onLogLine?.(line);
 }
 
@@ -75,6 +83,7 @@ function forwardOutput(
   stream: NodeJS.ReadableStream | null,
   writer: NodeJS.WriteStream,
   logs: string[],
+  stateDir: string,
   prefix: 'stdout' | 'stderr',
   onLogLine?: (line: string) => void,
 ) {
@@ -82,17 +91,12 @@ function forwardOutput(
     return;
   }
 
-  stream.setEncoding?.('utf8');
-  const buffer = createLineBuffer((line) => {
-    appendLog(logs, `[server:${prefix}] ${line}`, onLogLine);
-  });
-  stream.on('data', (chunk) => {
-    const text = String(chunk);
-    writer.write(text);
-    buffer.push(text);
-  });
-  stream.on('end', () => {
-    buffer.flush();
+  forwardProcessOutput({
+    stream,
+    writer,
+    onLine: (line) => {
+      appendLog(logs, stateDir, `[server:${prefix}] ${line}`, onLogLine);
+    },
   });
 }
 
@@ -108,6 +112,7 @@ export async function startServerProcess(options: StartServerProcessOptions): Pr
     BAYESGROVE_SERVER_PORT: String(serverPort()),
     BAYESGROVE_PROJECT_PATH: options.projectPath,
     BAYESGROVE_R_PATH: options.settings.rExecutablePath,
+    BAYESGROVE_STATE_DIR: options.stateDir,
     BAYESGROVE_EDITOR: await resolveEditorCommand(options.settings),
     NODE_ENV: process.env.NODE_ENV ?? 'production',
   };
@@ -131,8 +136,8 @@ export async function startServerProcess(options: StartServerProcessOptions): Pr
       };
   const child = spawnChildProcess(spawnOptions);
 
-  forwardOutput(child.stdout, process.stdout, logs, 'stdout', options.onLogLine);
-  forwardOutput(child.stderr, process.stderr, logs, 'stderr', options.onLogLine);
+  forwardOutput(child.stdout, process.stdout, logs, options.stateDir, 'stdout', options.onLogLine);
+  forwardOutput(child.stderr, process.stderr, logs, options.stateDir, 'stderr', options.onLogLine);
 
   return {
     child,
@@ -150,24 +155,22 @@ export async function stopServerProcess(handle: ServerProcessHandle | null) {
 }
 
 export async function waitForServer(handle: ServerProcessHandle | null) {
-  let attempts = 0;
-  while (attempts < 120) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     if (handle?.child.exitCode !== null || handle?.child.signalCode !== null) {
       throw new Error('Server process exited before becoming ready.');
     }
 
     try {
-      const response = await fetch(`${serverUrl()}/health`);
-      if (response.ok) {
-        await sleep(100);
-        return;
-      }
+      await waitForHttpReady(`${serverUrl()}/health`, {
+        attempts: 1,
+        delayMs: 0,
+        settleDelayMs: 100,
+      });
+      return;
     } catch {
-      // Ignore network errors and keep retrying
     }
 
     await sleep(250);
-    attempts++;
   }
 
   throw new Error('Timed out waiting for server to become ready.');

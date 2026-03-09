@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.3 - 2026-03-10
+
+- Added the phase 1 runtime hardening foundations: `@glade/shared` now provides reusable logging, networking, and process helpers, desktop/server runtimes persist rotating disk logs, and embedded desktop launches pass an explicit `BAYESGROVE_STATE_DIR`.
+- Standardized the runtime/test toolchain around source-first resolution by adding shared Vitest aliases, moving duplicated runner/test helpers onto the shared runtime utilities, and removing the normal Turbo `test` -> `build` dependency.
+- Fixed review follow-ups around runtime logging robustness by retrying the standalone server log assertion, handling fire-and-forget log write failures safely, preserving more useful failure diagnostics, and tightening shared log/readiness helpers.
+
 ## 0.11.2 - 2026-03-09
 
 - Replaced the remaining legacy command bridge with typed websocket RPC/state plumbing across the server and web app, including safer JSON payload handling, session/bootstrap synchronization, and dedicated client-side stores for connection, REPL, toast, and UI preferences.

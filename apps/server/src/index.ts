@@ -3,8 +3,9 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 
 import { AppServer, AppServerLive } from './app-server';
-import { ServerConfigLive } from './config';
+import { ServerConfig, ServerConfigLive } from './config';
 import { SqliteLive } from './persistence/sqlite';
+import { writeServerLogLine } from './runtime-logging';
 import { BayesgroveSocketLive } from './services/bayesgrove-socket';
 import { GraphStateCacheLive } from './services/graph-state-cache';
 import { ProcessSupervisorLive } from './services/process-supervisor';
@@ -32,8 +33,22 @@ const RuntimeLayer = Layer.provide(AppServerLive, Layer.mergeAll(BaseLayer, Rout
 
 const program = Effect.gen(function* () {
   const server = yield* AppServer;
-  yield* Effect.sync(() => console.log(`Glade server listening at ${server.url}`));
+  const config = yield* ServerConfig;
+  const message = `Glade server listening at ${server.url}`;
+
+  yield* Effect.tryPromise(() => writeServerLogLine(config.stateDir, message)).pipe(
+    Effect.catchAll((error) => Effect.sync(() => {
+      console.warn('Failed to write server startup log line.', {
+        error,
+        stateDir: config.stateDir,
+        message,
+      });
+    })),
+  );
+  yield* Effect.sync(() => console.log(message));
   return yield* Effect.never;
 });
 
-NodeRuntime.runMain(Effect.scoped(Effect.provide(program, RuntimeLayer)).pipe(Effect.orDie));
+NodeRuntime.runMain(
+  Effect.scoped(Effect.provide(program, Layer.mergeAll(BaseLayer, RuntimeLayer))).pipe(Effect.orDie),
+);

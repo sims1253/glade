@@ -1,6 +1,6 @@
 {
   "name": "@glade/shared",
-  "version": "0.11.2",
+  "version": "0.11.3",
   "private": true,
   "type": "module",
   "files": [
@@ -15,6 +15,16 @@
       "import": "./src/index.ts",
       "require": "./dist/index.cjs"
     },
+    "./logging": {
+      "types": "./src/logging.ts",
+      "import": "./src/logging.ts",
+      "require": "./dist/logging.cjs"
+    },
+    "./Net": {
+      "types": "./src/Net.ts",
+      "import": "./src/Net.ts",
+      "require": "./dist/Net.cjs"
+    },
     "./process": {
       "types": "./src/process.ts",
       "import": "./src/process.ts",
@@ -22,10 +32,13 @@
     }
   },
   "scripts": {
-    "dev": "tsdown src/index.ts src/process.ts --format esm,cjs --dts --watch --clean",
-    "build": "tsdown src/index.ts src/process.ts --format esm,cjs --dts --clean",
+    "dev": "tsdown --watch",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

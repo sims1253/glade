@@ -10,6 +10,7 @@ import {
   type DesktopSettings,
   type DesktopUpdateState,
 } from '@glade/shared';
+import { writeRotatingLogLine } from '@glade/shared/logging';
 
 import { runDesktopPreflight } from './preflight';
 import {
@@ -63,6 +64,14 @@ function appendRuntimeLog(line: string) {
   runtimeLogTail.push(line);
   while (runtimeLogTail.length > 160) {
     runtimeLogTail.shift();
+  }
+
+  if (app.isReady()) {
+    void writeRotatingLogLine({
+      directory: path.join(app.getPath('userData'), 'logs'),
+      fileName: 'desktop-main.log',
+      line,
+    }).catch(() => undefined);
   }
 }
 
@@ -329,6 +338,7 @@ async function refreshDesktopState() {
   await stopServerProcess(backendProcess);
   backendProcess = await startServerProcess({
     projectPath,
+    stateDir: app.getPath('userData'),
     settings: desktopSettings,
     onLogLine: (line) => {
       appendRuntimeLog(line);

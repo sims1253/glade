@@ -19,8 +19,8 @@ type Message = Record<string, unknown>;
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ChildProcess>();
 
-afterEach(() => {
-  terminateChildren(children);
+afterEach(async () => {
+  await terminateChildren(children);
   children.clear();
 });
 

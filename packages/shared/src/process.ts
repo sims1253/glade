@@ -1,4 +1,9 @@
 import { spawn, spawnSync, type ChildProcess, type SpawnOptions, type SpawnSyncReturns } from 'node:child_process';
+import { setTimeout as sleep } from 'node:timers/promises';
+
+import { createLineBuffer } from './logging';
+
+export { createLineBuffer } from './logging';
 
 export interface SpawnProcessOptions extends SpawnOptions {
   readonly command: string;
@@ -50,6 +55,23 @@ export type ManagedProcessLike = WaitableProcessLike & {
   kill(signal?: NodeJS.Signals): boolean;
 };
 
+export interface ForwardProcessOutputOptions {
+  readonly stream: NodeJS.ReadableStream | null | undefined;
+  readonly writer?: Pick<NodeJS.WriteStream, 'write'> | null;
+  readonly onLine?: (line: string) => void;
+  readonly stripAnsi?: boolean;
+  readonly includeLine?: (line: string) => boolean;
+}
+
+export interface WaitForHttpReadyOptions {
+  readonly attempts?: number;
+  readonly delayMs?: number;
+  readonly settleDelayMs?: number;
+}
+
+const OSC_SEQUENCE_PATTERN = new RegExp(String.raw`\u001b\][^\u0007]*(?:\u0007|\u001b\\)`, 'g');
+const CSI_SEQUENCE_PATTERN = new RegExp(String.raw`\u001b\[[0-?]*[ -/]*[@-~]`, 'g');
+
 const defaultRuntime: ProcessRuntime = {
   platform: process.platform,
   spawn,
@@ -67,25 +89,41 @@ export function spawnChildProcess(
   return runtime.spawn(command, [...args], spawnOptions);
 }
 
-export function createLineBuffer(onLine: (line: string) => void) {
-  let buffer = '';
+export function stripAnsiControlSequences(chunk: string) {
+  return chunk.replace(OSC_SEQUENCE_PATTERN, '').replace(CSI_SEQUENCE_PATTERN, '');
+}
 
-  return {
-    push(chunk: string) {
-      buffer += chunk.replace(/\r\n/g, '\n');
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-      for (const line of lines) {
-        onLine(line);
-      }
-    },
-    flush() {
-      if (!buffer) {
-        return;
-      }
-      onLine(buffer);
-      buffer = '';
-    },
+export function forwardProcessOutput(options: ForwardProcessOutputOptions) {
+  if (!options.stream) {
+    return () => undefined;
+  }
+
+  const { stream } = options;
+  stream.setEncoding?.('utf8');
+
+  const buffer = createLineBuffer((line) => {
+    const nextLine = options.stripAnsi ? stripAnsiControlSequences(line) : line;
+    if (options.includeLine && !options.includeLine(nextLine)) {
+      return;
+    }
+
+    options.writer?.write(`${nextLine}\n`);
+    options.onLine?.(nextLine);
+  });
+
+  const onData = (chunk: string | Buffer) => {
+    buffer.push(String(chunk));
+  };
+  const onEnd = () => {
+    buffer.flush();
+  };
+
+  stream.on('data', onData);
+  stream.on('end', onEnd);
+
+  return () => {
+    stream.off('data', onData);
+    stream.off('end', onEnd);
   };
 }
 
@@ -289,4 +327,29 @@ export async function waitForBufferedProcess(
       child.stdin?.end();
     }
   });
+}
+
+export async function waitForHttpReady(url: string, options: WaitForHttpReadyOptions = {}) {
+  const attempts = options.attempts ?? 120;
+  const delayMs = options.delayMs ?? 250;
+  const settleDelayMs = options.settleDelayMs ?? 0;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        if (settleDelayMs > 0) {
+          await sleep(settleDelayMs);
+        }
+        return response;
+      }
+
+      await response.body?.cancel();
+    } catch {
+    }
+
+    await sleep(delayMs);
+  }
+
+  throw new Error(`Timed out waiting for ${url}`);
 }

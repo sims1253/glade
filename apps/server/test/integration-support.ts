@@ -1,6 +1,7 @@
 import { spawnSync, type ChildProcess } from 'node:child_process';
-import net from 'node:net';
-import { setTimeout as sleep } from 'node:timers/promises';
+
+import { getAvailablePort as getSharedAvailablePort } from '@glade/shared/Net';
+import { terminateProcessTree, waitForHttpReady, type ManagedProcessLike } from '@glade/shared/process';
 
 export function ensureBayesgroveIntegrationPrerequisites() {
   const probe = spawnSync(
@@ -31,76 +32,15 @@ export function ensureBayesgroveIntegrationPrerequisites() {
 }
 
 export async function waitFor(url: string, attempts = 160) {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return response;
-      }
-    } catch {
-    }
-    await sleep(250);
-  }
-  throw new Error(`Timed out waiting for ${url}`);
+  return await waitForHttpReady(url, { attempts, delayMs: 250 });
 }
 
 export async function getAvailablePort() {
-  return await new Promise<number>((resolve, reject) => {
-    const server = net.createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      if (!address || typeof address === 'string') {
-        server.close(() => reject(new Error('Could not resolve an ephemeral port.')));
-        return;
-      }
-
-      const { port } = address;
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(port);
-      });
-    });
-  });
-}
-
-async function waitForChildExit(child: ChildProcess, timeoutMs = 5_000) {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-
-  await new Promise<void>((resolve) => {
-    const timeout = setTimeout(() => {
-      if (child.exitCode === null && child.signalCode === null) {
-        try {
-          child.kill('SIGKILL');
-        } catch {
-        }
-      }
-    }, timeoutMs);
-
-    const finish = () => {
-      clearTimeout(timeout);
-      resolve();
-    };
-
-    child.once('exit', finish);
-    child.once('error', finish);
-  });
+  return await getSharedAvailablePort();
 }
 
 export async function terminateChildren(children: ReadonlySet<ChildProcess>) {
   await Promise.all(Array.from(children, async (child) => {
-    if (child.exitCode === null && child.signalCode === null && !child.killed) {
-      try {
-        child.kill('SIGTERM');
-      } catch {
-      }
-    }
-
-    await waitForChildExit(child);
+    await terminateProcessTree(child as ManagedProcessLike, { gracePeriodMs: 5_000 }).catch(() => undefined);
   }));
 }
