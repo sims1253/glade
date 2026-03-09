@@ -1,17 +1,18 @@
+import { spawn } from 'node:child_process';
 import { access, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(import.meta.dirname, '..');
+const root = fileURLToPath(new URL('..', import.meta.url));
 const assetsDir = path.join(root, 'assets', 'desktop');
 const iconsDir = path.join(assetsDir, 'icons');
 const svgPath = path.join(assetsDir, 'icon.svg');
 const masterPng = path.join(iconsDir, 'icon-1024.png');
 const sizes = [16, 32, 64, 128, 256, 512];
 
-async function run(command, args, ignoreFailure = false) {
-  await new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+async function run(command: string, args: ReadonlyArray<string>, ignoreFailure = false) {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, [...args], {
       cwd: root,
       env: process.env,
       stdio: 'inherit',
@@ -22,6 +23,7 @@ async function run(command, args, ignoreFailure = false) {
         resolve();
         return;
       }
+
       reject(new Error(`Failed to start ${command}: ${error.message}`));
     });
 
@@ -50,5 +52,5 @@ for (const size of sizes) {
   await run('magick', [masterPng, '-resize', `${size}x${size}`, path.join(iconsDir, `icon-${size}.png`)]);
 }
 
-await run('magick', sizes.map((size) => path.join(iconsDir, `icon-${size}.png`)).concat(path.join(iconsDir, 'icon.ico')));
-await run('magick', sizes.map((size) => path.join(iconsDir, `icon-${size}.png`)).concat(path.join(iconsDir, 'icon.icns')), true);
+await run('magick', [...sizes.map((size) => path.join(iconsDir, `icon-${size}.png`)), path.join(iconsDir, 'icon.ico')]);
+await run('magick', [...sizes.map((size) => path.join(iconsDir, `icon-${size}.png`)), path.join(iconsDir, 'icon.icns')], true);

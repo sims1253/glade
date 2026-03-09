@@ -1,8 +1,9 @@
+import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(import.meta.dirname, '..');
+const root = fileURLToPath(new URL('..', import.meta.url));
 const target = process.env.BAYESGROVE_SERVER_TARGET?.trim() || null;
 const slug = target ?? `${process.platform}-${process.arch}`;
 const outputDir = path.join(root, 'dist', 'standalone', slug);
@@ -10,9 +11,9 @@ const executableName = target?.includes('windows') || (!target && process.platfo
   ? 'glade-server.exe'
   : 'glade-server';
 
-async function run(command, args) {
-  await new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+async function run(command: string, args: ReadonlyArray<string>) {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, [...args], {
       cwd: root,
       env: process.env,
       stdio: 'inherit',
@@ -32,6 +33,7 @@ async function run(command, args) {
         reject(new Error(`${command} ${args.join(' ')} failed with code ${code}`));
         return;
       }
+
       resolve();
     });
   });

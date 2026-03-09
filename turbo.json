@@ -1,21 +1,46 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "PORT",
+    "NODE_ENV",
+    "VITE_DEV_SERVER_URL",
+    "BAYESGROVE_APP_ROOT",
+    "BAYESGROVE_ELECTRON_HEADLESS",
+    "BAYESGROVE_PROJECT_PATH",
+    "BAYESGROVE_R_HOST",
+    "BAYESGROVE_R_PATH",
+    "BAYESGROVE_R_POLL_INTERVAL",
+    "BAYESGROVE_R_PORT",
+    "BAYESGROVE_REPL_REPLAY_LIMIT",
+    "BAYESGROVE_RUNTIME",
+    "BAYESGROVE_SERVER_HOST",
+    "BAYESGROVE_SERVER_PORT",
+    "BAYESGROVE_SERVER_TARGET",
+    "BAYESGROVE_SERVER_TARGETS",
+    "BAYESGROVE_SMOKE_SCENARIO",
+    "BAYESGROVE_SMOKE_TEST",
+    "BAYESGROVE_STATE_DIR",
+    "BAYESGROVE_TOOL_TIMEOUT_MS"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "dist-electron/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build"],
-      "outputs": []
+      "dependsOn": ["^typecheck"],
+      "outputs": [],
+      "cache": false
     },
     "test": {
       "dependsOn": ["build"],
-      "outputs": []
+      "outputs": [],
+      "cache": false
     },
     "smoke-test": {
       "dependsOn": ["build"],
-      "outputs": []
+      "outputs": [],
+      "cache": false
     },
     "dev": {
       "cache": false,

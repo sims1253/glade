@@ -1,7 +1,8 @@
-import path from 'node:path';
 import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(import.meta.dirname, '..');
+const root = fileURLToPath(new URL('..', import.meta.url));
 const binary = path.join(
   root,
   'apps',
@@ -11,7 +12,7 @@ const binary = path.join(
   process.platform === 'win32' ? 'electron-builder.cmd' : 'electron-builder',
 );
 
-await new Promise((resolve, reject) => {
+await new Promise<void>((resolve, reject) => {
   const child = spawn(binary, process.argv.slice(2), {
     cwd: root,
     env: process.env,
@@ -33,6 +34,7 @@ await new Promise((resolve, reject) => {
       reject(new Error(`electron-builder failed with code ${code}`));
       return;
     }
+
     resolve();
   });
 });

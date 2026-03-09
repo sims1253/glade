@@ -1,13 +1,14 @@
 {
   "name": "@glade/server",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "tsdown",
-    "build:standalone": "node ../../scripts/build-standalone-server.mjs",
+    "build:standalone": "node ../../scripts/build-standalone-server.ts",
     "start": "bun run dist/index.mjs",
+    "prepare": "effect-language-service patch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude 'test/*.integration.test.ts'",
     "test:integration": "vitest run test/bridge.integration.test.ts test/interactive-graph.integration.test.ts test/repl.integration.test.ts"
@@ -18,15 +19,15 @@
     "@effect/platform-node": "catalog:",
     "@effect/sql-sqlite-bun": "catalog:",
     "effect": "catalog:",
-    "node-pty": "latest",
-    "open": "latest",
-    "ws": "latest"
+    "node-pty": "1.1.0",
+    "open": "11.0.0",
+    "ws": "8.19.0"
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
-    "@types/ws": "latest",
+    "@types/ws": "8.18.1",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

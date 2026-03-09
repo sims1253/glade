@@ -13,3 +13,4 @@ packages/*/dist/
 *.tsbuildinfo
 *.log
 mockups/
+__screenshots__/

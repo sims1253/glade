@@ -1,13 +1,21 @@
+import { spawn } from 'node:child_process';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(import.meta.dirname, '..');
+const root = fileURLToPath(new URL('..', import.meta.url));
 const serverDir = path.join(root, 'apps', 'desktop', 'dist', 'server');
 const requestedTargets = (process.env.BAYESGROVE_SERVER_TARGETS?.trim() || process.env.BAYESGROVE_SERVER_TARGET?.trim() || '')
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean);
+
+interface BuildTarget {
+  readonly target: string;
+  readonly runtimePlatform: string;
+  readonly arch: 'x64' | 'arm64';
+  readonly executableName: string;
+}
 
 function currentBunTarget() {
   const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux';
@@ -15,14 +23,16 @@ function currentBunTarget() {
   return `bun-${platform}-${arch}-modern`;
 }
 
-function parseTarget(target) {
+function parseTarget(target: string): BuildTarget {
   const normalized = target.replace(/^bun-/, '').replace(/-modern$/, '');
   const [platform, arch] = normalized.split('-');
-  if (!platform || !arch || !['x64', 'arm64'].includes(arch)) {
+  if (!platform || !arch || (arch !== 'x64' && arch !== 'arm64')) {
     throw new Error(`Invalid Bun target: ${target}`);
   }
+
   const runtimePlatform = platform === 'windows' ? 'win32' : platform;
   const extension = runtimePlatform === 'win32' ? '.exe' : '';
+
   return {
     target,
     runtimePlatform,
@@ -31,9 +41,9 @@ function parseTarget(target) {
   };
 }
 
-async function run(command, args) {
-  await new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+async function run(command: string, args: ReadonlyArray<string>) {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, [...args], {
       cwd: root,
       env: process.env,
       stdio: 'inherit',
@@ -53,6 +63,7 @@ async function run(command, args) {
         reject(new Error(`${command} ${args.join(' ')} failed with code ${code}`));
         return;
       }
+
       resolve();
     });
   });
@@ -60,7 +71,7 @@ async function run(command, args) {
 
 const targets = (requestedTargets.length > 0 ? requestedTargets : [currentBunTarget()]).map(parseTarget);
 
-await run(process.execPath, [path.join(root, 'scripts', 'generate-icons.mjs')]);
+await run(process.execPath, [path.join(root, 'scripts', 'generate-icons.ts')]);
 await run('bun', ['run', '--cwd', 'apps/web', 'build']);
 await run('bun', ['run', '--cwd', 'apps/desktop', 'build']);
 await rm(serverDir, { recursive: true, force: true });

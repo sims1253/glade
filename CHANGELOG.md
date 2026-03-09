@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0 - 2026-03-09
+
+- Reworked the monorepo development/tooling baseline: the root `scripts/` folder is now a typed workspace package, internal workspace exports resolve directly to source for faster cross-package feedback, Turbo no longer caches `typecheck`, and runtime/dependency versions are pinned for deterministic installs.
+- Improved desktop-shell iteration speed: Electron main/preload now run under a real watch-and-restart loop during `dev`, replacing the previous one-shot desktop startup path.
+- Enabled the Effect language service properly across the Effect-using packages, while keeping compile-time Effect diagnostics advisory so the repo gains editor/runtime support without blocking builds on the current server cleanup backlog.
+- Added a first real-browser web smoke test with Vitest browser mode and Playwright, plus ignored generated screenshot output so failed browser assertions do not get committed accidentally.
+
 ## 0.10.1 - 2026-03-09
 
 - Fixed the phase 10 CI and packaging follow-up issues: workspace package exports now resolve to built artifacts for Vite/Bun in CI, desktop/server build scripts handle spawn failures more defensively, and Electron build assets now live under `assets/desktop` with tighter macOS entitlements.
