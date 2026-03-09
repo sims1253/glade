@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 - 2026-03-09
+
+- Added the phase 8 extension API with snapshot-carried extension registry metadata, schema-driven node parameters, trusted local GUI bundle loading, and a sample extension package for end-to-end validation.
+- Hardened extension delivery and caching: missing bundle requests now return `404`, cached bundle filenames are collision-safe, repeated snapshot processing avoids unnecessary bundle copies, and sqlite snapshot writes tolerate duplicate extension IDs.
+- Tightened extension/UI contracts and runtime behavior: extension node components now use a strict shared status union, duplicate extension component registrations warn, extension loader subscriptions are scoped by node kind, and schema/file-picker parameter flows handle failure paths more defensively.
+
 ## 0.7.1 - 2026-03-08
 
 - Fixed phase 7 desktop and hosted runtime regressions: health now opens in-app, root dev runners auto-select free app/R ports, and desktop shutdown tears down the spawned server process tree instead of leaving stale `bg_serve()` listeners behind.

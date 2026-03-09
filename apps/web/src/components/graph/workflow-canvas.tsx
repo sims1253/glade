@@ -23,6 +23,7 @@ import { Button } from '../ui/button';
 import { CanvasStatusBanner } from './canvas-status-banner';
 import { NodeDetailDrawer } from './node-detail-drawer';
 import { workflowNodeTypes } from './node-registry';
+import { SchemaDrivenForm } from '../extensions/schema-form';
 import {
   WorkflowCanvasContextProvider,
   type ConnectionPreviewState,
@@ -177,6 +178,10 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
   const selectedNode = useMemo(
     () => graph?.nodes.find((node) => node.id === selectedNodeId) ?? null,
     [graph, selectedNodeId],
+  );
+  const selectedPendingNodeKind = useMemo(
+    () => graph?.nodeKinds.find((kind) => kind.kind === pendingNodeKind) ?? null,
+    [graph, pendingNodeKind],
   );
 
   const downstreamNodes = useMemo(() => {
@@ -342,7 +347,8 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
     cancelRename,
     commitRename,
     setRenameDraft,
-  }), [beginRename, cancelRename, commitRename, connectionPreview, renameDraft, renamePending, renamingNodeId]);
+    dispatchCommand,
+  }), [beginRename, cancelRename, commitRename, connectionPreview, dispatchCommand, renameDraft, renamePending, renamingNodeId]);
 
   const closeMenus = useCallback(() => {
     setContextMenu(null);
@@ -364,7 +370,7 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
     closeMenus();
   }, [closeMenus, graph, pushNotification]);
 
-  const submitAddNode = useCallback(async () => {
+  const submitAddNode = useCallback(async (params?: Record<string, unknown>) => {
     if (!pendingNodeKind) {
       return;
     }
@@ -373,6 +379,7 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
       type: 'AddNode',
       kind: pendingNodeKind,
       label: pendingNodeLabel.trim() || undefined,
+      params,
     });
 
     if (result.success) {
@@ -627,11 +634,29 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
                       className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
                     />
                   </div>
+                  {selectedPendingNodeKind?.parameterSchema ? (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Parameters</p>
+                      <div className="mt-3">
+                        <SchemaDrivenForm
+                          schema={selectedPendingNodeKind.parameterSchema}
+                          resetKey={selectedPendingNodeKind.kind}
+                          nodeOptions={graph?.nodes.map((node) => ({ id: node.id, label: node.label })) ?? []}
+                          submitLabel="Dispatch AddNode"
+                          onSubmit={async (params) => {
+                            await submitAddNode(params);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
                 <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => void submitAddNode()} disabled={!pendingNodeKind}>Dispatch AddNode</Button>
+                {!selectedPendingNodeKind?.parameterSchema ? (
+                  <Button onClick={() => void submitAddNode()} disabled={!pendingNodeKind}>Dispatch AddNode</Button>
+                ) : null}
               </div>
             </div>
           </div>

@@ -105,4 +105,22 @@ describe('GraphStateCache', () => {
     expect(lines[0]).toBe('line 6');
     expect(lines.at(-1)).toBe('line 505');
   });
+
+  it('accepts duplicate extension ids when caching snapshots', async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const cache = yield* GraphStateCache;
+        yield* cache.writeSnapshot({
+          ...sampleSnapshot,
+          extension_registry: [
+            { id: 'dup.extension', package_name: 'dup.extension', version: '0.1.0' },
+            { id: 'dup.extension', package_name: 'dup.extension', version: '0.2.0' },
+          ],
+        });
+        return yield* cache.getSnapshot;
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(Option.isSome(result)).toBe(true);
+  });
 });

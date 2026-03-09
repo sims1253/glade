@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react';
 
+import type { CommandResult, WorkflowCommand } from '@glade/contracts';
+
 export interface ConnectionPreviewState {
   readonly sourceNodeId: string;
   readonly validTargetIds: ReadonlySet<string>;
@@ -15,6 +17,7 @@ interface WorkflowCanvasContextValue {
   readonly cancelRename: () => void;
   readonly commitRename: () => void;
   readonly setRenameDraft: (value: string) => void;
+  readonly dispatchCommand: (command: WorkflowCommand) => Promise<CommandResult>;
 }
 
 const WorkflowCanvasContext = createContext<WorkflowCanvasContextValue | null>(null);

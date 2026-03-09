@@ -42,6 +42,11 @@ describe('contracts', () => {
       id: 'cmd-2',
       command: { type: 'ReplInput', data: '1 + 1\n' },
     });
+
+    roundTrip(CommandEnvelope, {
+      id: 'cmd-3',
+      command: { type: 'UpdateNodeParameters', nodeId: 'node_1', params: { iterations: 4 } },
+    });
   });
 
   it('round-trips graph snapshots with protocol partitions', () => {
@@ -64,6 +69,28 @@ describe('contracts', () => {
       pending_gates: {},
       branches: {},
       branch_goals: {},
+      extension_registry: [
+        {
+          id: 'pkg:test-extension',
+          package_name: 'test.extension',
+          version: '0.1.0',
+          browser_bundle_path: '/extension-bundles/test-extension.js',
+          node_types: [
+            {
+              kind: 'posterior_summary',
+              title: 'Posterior summary',
+              description: 'Summarize posterior draws.',
+              parameter_schema: {
+                type: 'object',
+                properties: {
+                  draws: { type: 'number' },
+                },
+              },
+            },
+          ],
+          domain_packs: [],
+        },
+      ],
       protocol: {
         summary: {
           n_scopes: 1,

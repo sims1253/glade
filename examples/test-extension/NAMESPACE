@@ -1,0 +1,2 @@
+export(glade_register_test_extension)
+export(glade_test_extension_descriptor)

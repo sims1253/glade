@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import {
   AlertTriangle,
@@ -16,6 +16,7 @@ import { useWorkflowCanvasContext } from './workflow-canvas-context';
 interface NodeShellProps extends NodeProps<WorkflowFlowNode> {
   readonly accentClassName: string;
   readonly kindLabel?: string;
+  readonly children?: ReactNode;
 }
 
 const statusIconMap: Record<NodeVisualState, typeof CircleCheckBig> = {
@@ -52,6 +53,7 @@ export const NodeShell = memo(function NodeShell({
   data,
   accentClassName,
   kindLabel,
+  children,
   selected,
 }: NodeShellProps) {
   const {
@@ -160,6 +162,11 @@ export const NodeShell = memo(function NodeShell({
             <span>{data.obligationCount} obligation{data.obligationCount === 1 ? '' : 's'}</span>
             <span className="text-slate-400">{blockReason ?? 'interactive'}</span>
           </div>
+          {children ? (
+            <div className="mt-4 border-t border-white/8 pt-3">
+              {children}
+            </div>
+          ) : null}
         </div>
       </div>
       <Handle

@@ -180,6 +180,27 @@ const extractActions = (snapshot: GraphSnapshot) => {
   return rows;
 };
 
+const extractExtensions = (snapshot: GraphSnapshot) => {
+  const snapshotObject = asObject(snapshot) ?? {};
+  const rawRegistry = Array.isArray(snapshotObject.extension_registry)
+    ? snapshotObject.extension_registry
+    : (Array.isArray(snapshotObject.extensionRegistry) ? snapshotObject.extensionRegistry : []);
+
+  return rawRegistry
+    .map((value, index) => {
+      const extension = asObject(value);
+      if (!extension) {
+        return null;
+      }
+
+      return {
+        id: asString(extension.id) ?? asString(extension.package_name) ?? `extension:${index}`,
+        extensionJson: JSON.stringify(extension),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+};
+
 export const GraphStateCacheLive = Layer.effect(
   GraphStateCache,
   Effect.gen(function* () {
@@ -219,6 +240,10 @@ export const GraphStateCacheLive = Layer.effect(
     const insertProtocolEvent = database.prepare(`
       INSERT OR REPLACE INTO protocol_events (event_id, command_id, event_kind, source, emitted_at, graph_version, event_json)
       VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertExtension = database.prepare(`
+      INSERT OR REPLACE INTO extension_registry (id, extension_json)
+      VALUES (?, ?)
     `);
     const insertReplLine = database.prepare(`
       INSERT INTO repl_buffer (line, created_at)
@@ -322,6 +347,13 @@ export const GraphStateCacheLive = Layer.effect(
               action.payloadJson,
               action.actionJson,
               action.orderingIndex,
+            );
+          }
+
+          for (const extension of extractExtensions(snapshot)) {
+            insertExtension.run(
+              extension.id,
+              extension.extensionJson,
             );
           }
         })();

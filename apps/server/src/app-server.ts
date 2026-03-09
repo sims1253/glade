@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -9,7 +9,7 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 
 import { type HealthResponse } from '@glade/contracts';
-import { HEALTH_PATH, WS_PATH } from '@glade/shared';
+import { EXTENSION_BUNDLES_PATH, HEALTH_PATH, WS_PATH } from '@glade/shared';
 
 import { ServerConfig } from './config';
 import { contentTypeFor } from './lib/content-type';
@@ -26,6 +26,10 @@ function healthResponse(version: string): HealthResponse {
 
 function webDistPath(rootDir: string) {
   return path.join(rootDir, 'apps', 'web', 'dist');
+}
+
+function extensionBundleRoot(stateDir: string) {
+  return path.join(stateDir, 'extensions');
 }
 
 async function proxyToVite(request: http.IncomingMessage, response: http.ServerResponse, target: string) {
@@ -56,6 +60,47 @@ async function serveStatic(rootDir: string, requestPath: string, response: http.
   response.end(buffer);
 }
 
+async function serveExtensionBundle(stateDir: string, requestPath: string, response: http.ServerResponse) {
+  const relativePath = requestPath.slice(EXTENSION_BUNDLES_PATH.length).replace(/^\/+/, '');
+  if (!relativePath) {
+    response.statusCode = 404;
+    response.end('Not Found');
+    return;
+  }
+
+  const bundleRoot = extensionBundleRoot(stateDir);
+  const resolved = path.resolve(bundleRoot, relativePath);
+  const safeRoot = `${bundleRoot}${path.sep}`;
+  if (resolved !== bundleRoot && !resolved.startsWith(safeRoot)) {
+    response.statusCode = 404;
+    response.end('Not Found');
+    return;
+  }
+
+  let stats;
+  try {
+    stats = await stat(resolved);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      response.statusCode = 404;
+      response.end('Not Found');
+      return;
+    }
+    throw error;
+  }
+
+  if (!stats.isFile()) {
+    response.statusCode = 404;
+    response.end('Not Found');
+    return;
+  }
+
+  const buffer = await readFile(resolved);
+  response.statusCode = 200;
+  response.setHeader('Content-Type', contentTypeFor(resolved));
+  response.end(buffer);
+}
+
 export const AppServerLive = Layer.scoped(
   AppServer,
   Effect.gen(function* () {
@@ -71,6 +116,11 @@ export const AppServerLive = Layer.scoped(
             response.statusCode = 200;
             response.setHeader('Content-Type', 'application/json; charset=utf-8');
             response.end(JSON.stringify(healthResponse(config.version)));
+            return;
+          }
+
+          if (requestPath.startsWith(EXTENSION_BUNDLES_PATH)) {
+            await serveExtensionBundle(config.stateDir, requestPath, response);
             return;
           }
 

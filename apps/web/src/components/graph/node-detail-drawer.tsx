@@ -15,6 +15,7 @@ import { formatKindLabel } from '../../lib/graph-types';
 import { hasNativeFilePicker, readDesktopRuntime } from '../../lib/runtime';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
+import { SchemaDrivenForm } from '../extensions/schema-form';
 
 function formatTimestamp(value: string | null) {
   if (!value) {
@@ -228,6 +229,7 @@ export function NodeDetailDrawer({
   const [renamePending, setRenamePending] = useState(false);
   const [notesDraft, setNotesDraft] = useState(node.notes);
   const [notesPending, setNotesPending] = useState(false);
+  const [paramsPending, setParamsPending] = useState(false);
   const [manualPathDraft, setManualPathDraft] = useState(node.linkedFilePath ?? '');
   const [filePending, setFilePending] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -305,6 +307,10 @@ export function NodeDetailDrawer({
         .filter((entry): entry is WorkflowNodeData => entry !== null),
     [graph, node.id],
   );
+  const nodeOptions = useMemo(
+    () => graph.nodes.map((entry) => ({ id: entry.id, label: entry.label })),
+    [graph.nodes],
+  );
 
   async function submitRename() {
     const label = renameDraft.trim();
@@ -341,6 +347,19 @@ export function NodeDetailDrawer({
 
     if (!result.success) {
       setNotesDraft(node.notes);
+    }
+  }
+
+  async function submitParameters(params: Record<string, unknown>) {
+    setParamsPending(true);
+    try {
+      await dispatchCommand({
+        type: 'UpdateNodeParameters',
+        nodeId: node.id,
+        params,
+      });
+    } finally {
+      setParamsPending(false);
     }
   }
 
@@ -495,6 +514,20 @@ export function NodeDetailDrawer({
             />
             <p className="mt-2 text-xs text-slate-400">{notesPending ? 'saving...' : 'Notes save on blur.'}</p>
           </Section>
+
+          {node.parameterSchema ? (
+            <Section title="Parameters" icon={<SquareDashedMousePointer className="size-4" />}>
+              <SchemaDrivenForm
+                schema={node.parameterSchema}
+                initialValue={node.parameters ?? {}}
+                resetKey={node.id}
+                nodeOptions={nodeOptions}
+                submitLabel={paramsPending ? 'Saving…' : 'Save parameters'}
+                pending={paramsPending}
+                onSubmit={submitParameters}
+              />
+            </Section>
+          ) : null}
 
           <Section title="Linked File" icon={<Link2 className="size-4" />}>
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">

@@ -22,6 +22,7 @@ import {
 } from '@glade/contracts';
 
 import { ServerConfig } from '../config';
+import { cacheSnapshotExtensionBundles } from '../lib/extension-registry';
 import {
   CommandDispatchError,
   HostedCapabilityError,
@@ -106,6 +107,12 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
         scopes: [],
       },
     }) as GraphSnapshot['protocol'],
+    extension_registry: (
+      (state.extension_registry ?? state.extensionRegistry ?? []) as GraphSnapshot['extension_registry']
+    ),
+    extensionRegistry: (
+      (state.extensionRegistry ?? state.extension_registry ?? []) as GraphSnapshot['extensionRegistry']
+    ),
   };
 }
 
@@ -165,6 +172,17 @@ function toBayesgroveCommand(id: string, command: WorkflowCommand): BayesgroveCo
           metadata: {
             notes: command.notes,
           },
+        },
+      };
+    case 'UpdateNodeParameters':
+      return {
+        protocol_version: '0.1.0',
+        message_type: 'Command',
+        command_id: id,
+        command: 'bg_update_node',
+        args: {
+          node_id: command.nodeId,
+          params: command.params,
         },
       };
     case 'SetNodeFile':
@@ -254,6 +272,9 @@ export const ProtocolRouterLive = Layer.scoped(
       );
     });
 
+    const prepareSnapshot = (snapshot: GraphSnapshot) =>
+      Effect.tryPromise(() => cacheSnapshotExtensionBundles(snapshot, config.stateDir)).pipe(Effect.orDie);
+
     const handleCommandResult = (result: BayesgroveCommandResult) =>
       Effect.gen(function* () {
         if (result.command_id.startsWith(INTERNAL_SNAPSHOT_PREFIX)) {
@@ -261,9 +282,10 @@ export const ProtocolRouterLive = Layer.scoped(
           if (result.ok) {
             const snapshot = wrapSnapshotResult(result.result, result.protocol_version);
             if (snapshot) {
-              yield* cache.writeSnapshot(snapshot);
+              const preparedSnapshot = yield* prepareSnapshot(snapshot);
+              yield* cache.writeSnapshot(preparedSnapshot);
               yield* publishStatus('ready');
-              yield* broadcast.broadcast(snapshot);
+              yield* broadcast.broadcast(preparedSnapshot);
             }
           }
           return;
@@ -291,9 +313,10 @@ export const ProtocolRouterLive = Layer.scoped(
     const handleBayesgroveMessage = (message: GraphSnapshot | ProtocolEvent | BayesgroveCommandResult) =>
       Effect.gen(function* () {
         if ('message_type' in message && message.message_type === 'GraphSnapshot') {
-          yield* cache.writeSnapshot(message);
+          const preparedSnapshot = yield* prepareSnapshot(message);
+          yield* cache.writeSnapshot(preparedSnapshot);
           yield* publishStatus('ready');
-          yield* broadcast.broadcast(message);
+          yield* broadcast.broadcast(preparedSnapshot);
           return;
         }
 

@@ -2,9 +2,10 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import { Position, ReactFlowProvider, type NodeProps } from '@xyflow/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowFlowNode, WorkflowNodeData } from '../../lib/graph-types';
+import * as extensionLoader from '../../lib/extension-loader';
 import { WorkflowCanvasContextProvider } from './workflow-canvas-context';
 import { CompareNode } from './nodes/compare-node';
 import { CompileNode } from './nodes/compile-node';
@@ -29,6 +30,11 @@ function makeProps(overrides: Partial<WorkflowNodeData>): NodeProps<WorkflowFlow
     branchScopeLabel: null,
     notes: '',
     linkedFilePath: null,
+    parameters: {},
+    parameterSchema: null,
+    extensionId: null,
+    extensionPackageName: null,
+    browserBundlePath: null,
     summaries: [],
     decisions: [],
     metadata: null,
@@ -60,7 +66,13 @@ const contextValue = {
   cancelRename: () => {},
   commitRename: () => {},
   setRenameDraft: () => {},
+  dispatchCommand: vi.fn(),
 };
+
+afterEach(() => {
+  extensionLoader.resetExtensionLoaderForTests();
+  vi.restoreAllMocks();
+});
 
 describe('workflow node renderers', () => {
   it('renders every built-in node kind without crashing', () => {
@@ -139,5 +151,54 @@ describe('workflow node renderers', () => {
     );
 
     expect(screen.queryByLabelText('0 blocking obligations')).not.toBeInTheDocument();
+  });
+
+  it('renders a registered extension component instead of the schema fallback', async () => {
+    const register = vi.fn((api: { registerNodeComponent: (kind: string, component: (props: { label: string }) => unknown) => void }) => {
+      api.registerNodeComponent('custom_extension', ({ label }) => <div>Custom inspector for {label}</div>);
+    });
+    extensionLoader.setExtensionModuleLoaderForTests(async () => ({ register }));
+    await extensionLoader.ensureExtensionModule('/extension-bundles/test-extension.js');
+
+    render(
+      <WorkflowCanvasContextProvider value={contextValue}>
+        <ReactFlowProvider>
+          <GenericNode
+            {...makeProps({
+              kind: 'custom_extension',
+              rendererKind: 'generic',
+              label: 'Custom node',
+              browserBundlePath: '/extension-bundles/test-extension.js',
+              parameterSchema: {
+                type: 'object',
+                properties: {
+                  value: { type: 'string', title: 'Value' },
+                },
+              },
+            })}
+          />
+        </ReactFlowProvider>
+      </WorkflowCanvasContextProvider>,
+    );
+
+    expect(screen.getByText('Custom inspector for Custom node')).toBeInTheDocument();
+    expect(screen.queryByText('Save parameters')).not.toBeInTheDocument();
+    expect(register).toHaveBeenCalledTimes(1);
+    expect(Object.keys(register.mock.calls[0]?.[0] ?? {})).toEqual(['registerNodeComponent']);
+  });
+
+  it('warns when two extensions register the same node kind', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    extensionLoader.setExtensionModuleLoaderForTests(async (browserBundlePath) => ({
+      register(api: { registerNodeComponent: (kind: string, component: (props: { label: string }) => unknown) => void }): void {
+        api.registerNodeComponent('custom_extension', ({ label }) => <div>{browserBundlePath}:{label}</div>);
+      },
+    }));
+
+    await extensionLoader.ensureExtensionModule('/extension-bundles/first.js');
+    await extensionLoader.ensureExtensionModule('/extension-bundles/second.js');
+
+    expect(warning).toHaveBeenCalledWith('Overwriting existing extension node component for kind custom_extension');
   });
 });

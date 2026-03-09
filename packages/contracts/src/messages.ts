@@ -6,6 +6,52 @@ const OptionalString = Schema.optional(Schema.String);
 
 const StatusMessages = Schema.Union(StringArray, Schema.String);
 
+export const NodeTypeDescriptor = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  kind: Schema.String,
+  runtime: Schema.optional(Schema.String),
+  title: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  input_schema: Schema.optional(Schema.Unknown),
+  output_schema: Schema.optional(Schema.Unknown),
+  parameter_schema: Schema.optional(Schema.Unknown),
+  gui_bundle_path: Schema.optional(Schema.String),
+  browser_bundle_path: Schema.optional(Schema.String),
+  metadata: Schema.optional(Schema.Unknown),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+);
+export type NodeTypeDescriptor = Schema.Schema.Type<typeof NodeTypeDescriptor>;
+
+export const DomainPackDescriptor = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  kind: Schema.optional(Schema.String),
+  title: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  metadata: Schema.optional(Schema.Unknown),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+);
+export type DomainPackDescriptor = Schema.Schema.Type<typeof DomainPackDescriptor>;
+
+export const ExtensionDescriptor = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  package_name: Schema.optional(Schema.String),
+  version: Schema.optional(Schema.String),
+  library_path: Schema.optional(Schema.String),
+  gui_bundle_path: Schema.optional(Schema.String),
+  browser_bundle_path: Schema.optional(Schema.String),
+  node_types: Schema.optional(Schema.Array(NodeTypeDescriptor)),
+  domain_packs: Schema.optional(Schema.Array(DomainPackDescriptor)),
+  metadata: Schema.optional(Schema.Unknown),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+);
+export type ExtensionDescriptor = Schema.Schema.Type<typeof ExtensionDescriptor>;
+
+export const ExtensionRegistry = Schema.Array(ExtensionDescriptor);
+export type ExtensionRegistry = Schema.Schema.Type<typeof ExtensionRegistry>;
+
 export const HealthResponse = Schema.Struct({
   status: Schema.Literal('ok'),
   version: Schema.String,
@@ -81,6 +127,8 @@ export const GraphSnapshot = Schema.Struct({
   branches: StringRecord,
   branch_goals: StringRecord,
   protocol: PartitionedProtocol,
+  extension_registry: Schema.optional(ExtensionRegistry),
+  extensionRegistry: Schema.optional(ExtensionRegistry),
 });
 export type GraphSnapshot = Schema.Schema.Type<typeof GraphSnapshot>;
 
@@ -256,6 +304,11 @@ export const UpdateNodeNotesCommand = Schema.Struct({
   nodeId: Schema.String,
   notes: Schema.String,
 });
+export const UpdateNodeParametersCommand = Schema.Struct({
+  type: Schema.Literal('UpdateNodeParameters'),
+  nodeId: Schema.String,
+  params: Schema.Unknown,
+});
 export const SetNodeFileCommand = Schema.Struct({
   type: Schema.Literal('SetNodeFile'),
   nodeId: Schema.String,
@@ -280,6 +333,7 @@ export const WorkflowCommand = Schema.Union(
   RecordDecisionCommand,
   ExecuteActionCommand,
   UpdateNodeNotesCommand,
+  UpdateNodeParametersCommand,
   SetNodeFileCommand,
   RestartSessionCommand,
   ReplInputCommand,

@@ -23,6 +23,11 @@ function makeProps(): NodeProps<WorkflowFlowNode> {
     branchScopeLabel: null,
     notes: '',
     linkedFilePath: null,
+    parameters: {},
+    parameterSchema: null,
+    extensionId: null,
+    extensionPackageName: null,
+    browserBundlePath: null,
     summaries: [],
     decisions: [],
     metadata: null,
@@ -66,6 +71,7 @@ describe('NodeShell rename flow', () => {
             cancelRename: () => setRenamingNodeId(null),
             commitRename,
             setRenameDraft,
+            dispatchCommand: vi.fn(),
           }}
         >
           <ReactFlowProvider>

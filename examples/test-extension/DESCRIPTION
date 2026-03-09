@@ -1,0 +1,11 @@
+Package: glade.testextension
+Title: Glade Test Extension
+Version: 0.1.0
+Authors@R:
+    person("Glade", "Maintainers", email = "maintainers@example.com", role = c("aut", "cre"))
+Description: Example bayesgrove extension package used to exercise Glade's
+    schema-driven extension API and optional GUI bundle loading.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Imports:
+    bayesgrove

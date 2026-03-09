@@ -2,10 +2,19 @@
 
 Glade is the desktop and browser-based GUI for bayesgrove.
 
-Current release: `0.7.1`
+Current release: `0.8.0`
 
-Phase status: phase 7 is implemented.
-The app now includes the workflow canvas, protocol panels, node detail drawer, and a shared-session R REPL terminal with hosted-mode read-only behavior and Electron detach support.
+Phase status: phase 8 is implemented.
+The app now includes:
+
+- workflow canvas
+- protocol panels
+- node detail drawer
+- shared-session R REPL terminal
+- schema-driven extension forms
+- lazy GUI extension loading from trusted local bundles
+
+Phase 8 also adds an extension registry flowing through the snapshot/cache layers, a schema-backed `UpdateNodeParameters` command path, and a sample extension package at [`examples/test-extension`](/home/m0hawk/Documents/glade/examples/test-extension).
 
 ## Workspace
 

@@ -84,6 +84,20 @@ export interface WorkflowNodeKindSpec {
   readonly description: string;
   readonly inputTypes: ReadonlyArray<string>;
   readonly outputTypes: ReadonlyArray<string>;
+  readonly parameterSchema?: Record<string, unknown> | null;
+  readonly extensionId?: string | null;
+  readonly extensionPackageName?: string | null;
+  readonly browserBundlePath?: string | null;
+  readonly raw: Record<string, unknown>;
+}
+
+export interface WorkflowExtensionDescriptor {
+  readonly id: string;
+  readonly packageName: string;
+  readonly version: string | null;
+  readonly browserBundlePath: string | null;
+  readonly nodeKinds: ReadonlyArray<string>;
+  readonly domainPacks: ReadonlyArray<string>;
   readonly raw: Record<string, unknown>;
 }
 
@@ -120,6 +134,11 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   readonly branchScopeLabel: string | null;
   readonly notes: string;
   readonly linkedFilePath: string | null;
+  readonly parameters?: Record<string, unknown>;
+  readonly parameterSchema?: Record<string, unknown> | null;
+  readonly extensionId?: string | null;
+  readonly extensionPackageName?: string | null;
+  readonly browserBundlePath?: string | null;
   readonly summaries: ReadonlyArray<WorkflowNodeSummaryRecord>;
   readonly decisions: ReadonlyArray<WorkflowNodeDecisionRecord>;
   readonly metadata: Record<string, unknown> | null;
@@ -147,6 +166,8 @@ export interface WorkflowGraph {
   readonly edges: ReadonlyArray<WorkflowEdgeData>;
   readonly nodeKinds: ReadonlyArray<WorkflowNodeKindSpec>;
   readonly nodeKindsByKind: Record<string, WorkflowNodeKindSpec>;
+  readonly extensionRegistry?: ReadonlyArray<WorkflowExtensionDescriptor>;
+  readonly extensionRegistryById?: Record<string, WorkflowExtensionDescriptor>;
   readonly protocolScopes: ReadonlyArray<WorkflowProtocolScope>;
   readonly obligations: ReadonlyArray<WorkflowObligationRecord>;
   readonly actions: ReadonlyArray<WorkflowActionRecord>;

@@ -35,6 +35,8 @@ export function describeCommand(command: Command) {
       return 'Executed workflow action';
     case 'UpdateNodeNotes':
       return 'Saved node notes';
+    case 'UpdateNodeParameters':
+      return 'Saved node parameters';
     case 'SetNodeFile':
       return command.path ? 'Linked node file' : 'Removed node file link';
     case 'RestartSession':
