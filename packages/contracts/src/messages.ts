@@ -128,7 +128,6 @@ export const GraphSnapshot = Schema.Struct({
   branch_goals: StringRecord,
   protocol: PartitionedProtocol,
   extension_registry: Schema.optional(ExtensionRegistry),
-  extensionRegistry: Schema.optional(ExtensionRegistry),
 });
 export type GraphSnapshot = Schema.Schema.Type<typeof GraphSnapshot>;
 

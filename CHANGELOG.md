@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1 - 2026-03-09
+
+- Cleaned up the phase 8 extension boundary so `GraphSnapshot` now carries only canonical `extension_registry` data, with shared contract-side normalization used by both server and web.
+- Fixed Layer 2 extension bundle loading in the browser by exposing host React runtime shims through a local import map, so trusted GUI bundles can resolve `react` and JSX runtime imports outside Vite.
+- Refactored the schema-driven fallback form onto `react-hook-form`, added stable array field handling, integer-aware coercion, explicit submit-error affordances, and safer non-submit button behavior inside the generic extension UI.
+- Reduced extension bundle cache churn by memoizing repeated identical registry snapshots instead of re-running the full file-system cache path on every broadcast.
+
 ## 0.8.0 - 2026-03-09
 
 - Added the phase 8 extension API with snapshot-carried extension registry metadata, schema-driven node parameters, trusted local GUI bundle loading, and a sample extension package for end-to-end validation.

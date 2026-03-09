@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  useFieldArray,
+  useForm,
+  type Control,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from 'react-hook-form';
 
-import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { hasNativeFilePicker, readDesktopRuntime } from '../../lib/runtime';
+import { Button } from '../ui/button';
 
 type JsonRecord = Record<string, unknown>;
-type PathSegment = string | number;
+type FormValues = Record<string, unknown>;
 
 export interface SchemaNodeOption {
   readonly id: string;
@@ -20,7 +27,24 @@ interface SchemaDrivenFormProps {
   readonly submitLabel: string;
   readonly pending?: boolean;
   readonly compact?: boolean;
+  readonly submitError?: string | null;
   readonly onSubmit: (value: JsonRecord) => Promise<void> | void;
+}
+
+interface FormFieldProps {
+  readonly schema: JsonRecord;
+  readonly name: string;
+  readonly fieldKey: string;
+  readonly control: Control<FormValues>;
+  readonly register: UseFormRegister<FormValues>;
+  readonly setValue: UseFormSetValue<FormValues>;
+  readonly nodeOptions: ReadonlyArray<SchemaNodeOption>;
+  readonly compact: boolean;
+}
+
+interface ArrayFieldProps extends FormFieldProps {
+  readonly label: string;
+  readonly description: string | null;
 }
 
 function asObject(value: unknown): JsonRecord | null {
@@ -31,18 +55,6 @@ function asObject(value: unknown): JsonRecord | null {
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function asBoolean(value: unknown): boolean | null {
-  return typeof value === 'boolean' ? value : null;
-}
-
-function asArray(value: unknown): Array<unknown> {
-  return Array.isArray(value) ? value : [];
 }
 
 function fieldLabel(name: string, schema: JsonRecord) {
@@ -86,71 +98,6 @@ function initializeValue(schema: JsonRecord, initialValue: unknown): unknown {
   return schemaDefault(schema);
 }
 
-function getPathValue(value: unknown, path: ReadonlyArray<PathSegment>) {
-  let current = value;
-  for (const segment of path) {
-    if (typeof segment === 'number') {
-      if (!Array.isArray(current)) {
-        return undefined;
-      }
-      current = current[segment];
-      continue;
-    }
-
-    const currentObject = asObject(current);
-    if (!currentObject) {
-      return undefined;
-    }
-    current = currentObject[segment];
-  }
-  return current;
-}
-
-function setPathValue(current: unknown, path: ReadonlyArray<PathSegment>, nextValue: unknown): unknown {
-  if (path.length === 0) {
-    return nextValue;
-  }
-
-  const [head, ...tail] = path as readonly [PathSegment, ...Array<PathSegment>];
-  if (typeof head === 'number') {
-    const array = Array.isArray(current) ? [...current] : [];
-    array[head] = setPathValue(array[head], tail, nextValue);
-    return array;
-  }
-
-  const currentObject = asObject(current);
-  const object = currentObject ? { ...currentObject } : {};
-  object[head] = setPathValue(object[head], tail, nextValue);
-  return object;
-}
-
-function removeArrayIndex(value: unknown, path: ReadonlyArray<PathSegment>, index: number): unknown {
-  const array = getPathValue(value, path);
-  if (!Array.isArray(array)) {
-    return value;
-  }
-
-  return setPathValue(
-    value,
-    path,
-    array.filter((_, entryIndex) => entryIndex !== index),
-  );
-}
-
-function coerceInputValue(schema: JsonRecord, rawValue: string) {
-  const type = asString(schema.type);
-  if (type === 'number') {
-    if (rawValue === '') {
-      return '';
-    }
-
-    const parsed = Number(rawValue);
-    return Number.isNaN(parsed) ? rawValue : parsed;
-  }
-
-  return rawValue;
-}
-
 function normalizeForSubmit(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => normalizeForSubmit(entry));
@@ -168,25 +115,98 @@ function normalizeForSubmit(value: unknown): unknown {
   return value === '' ? undefined : value;
 }
 
-function FormField({
+function submitErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Could not submit the form.';
+}
+
+function isNumericSchemaType(type: string) {
+  return type === 'number' || type === 'integer';
+}
+
+function ArrayField({
   schema,
-  path,
-  value,
+  name,
+  fieldKey,
+  label,
+  description,
+  control,
+  register,
+  setValue,
   nodeOptions,
   compact,
-  onChange,
-}: {
-  readonly schema: JsonRecord;
-  readonly path: ReadonlyArray<PathSegment>;
-  readonly value: unknown;
-  readonly nodeOptions: ReadonlyArray<SchemaNodeOption>;
-  readonly compact: boolean;
-  readonly onChange: (nextValue: unknown) => void;
-}) {
+}: ArrayFieldProps) {
+  const items = asObject(schema.items) ?? { type: 'string' };
+  const fieldArray = useFieldArray({
+    control,
+    name: name as never,
+  });
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">{label}</p>
+          {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          className="px-2 py-1 text-xs"
+          onClick={() => fieldArray.append(initializeValue(items, undefined))}
+        >
+          Add item
+        </Button>
+      </div>
+      {fieldArray.fields.length > 0 ? (
+        <div className="space-y-3">
+          {fieldArray.fields.map((field, index) => (
+            <div key={field.id} className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3">
+              <div className="mb-3 flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="px-2 py-1 text-xs"
+                  onClick={() => fieldArray.remove(index)}
+                >
+                  Remove
+                </Button>
+              </div>
+              <FormField
+                schema={items}
+                name={`${name}.${index}`}
+                fieldKey={asString(items.title) ?? `${fieldKey}_${index + 1}`}
+                control={control}
+                register={register}
+                setValue={setValue}
+                nodeOptions={nodeOptions}
+                compact={compact}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">No items yet.</p>
+      )}
+    </div>
+  );
+}
+
+function FormField({
+  schema,
+  name,
+  fieldKey,
+  control,
+  register,
+  setValue,
+  nodeOptions,
+  compact,
+}: FormFieldProps) {
   const type = asString(schema.type) ?? 'string';
-  const label = fieldLabel(String(path[path.length - 1] ?? 'value'), schema);
+  const label = fieldLabel(fieldKey, schema);
   const description = asString(schema.description);
-  const enumValues = asArray(schema.enum).filter((entry): entry is string => typeof entry === 'string');
+  const enumValues = Array.isArray(schema.enum)
+    ? schema.enum.filter((entry): entry is string => typeof entry === 'string')
+    : [];
   const format = asString(schema.format);
   const runtimeSupportsFilePicker = hasNativeFilePicker();
 
@@ -206,11 +226,13 @@ function FormField({
               <FormField
                 key={propertyName}
                 schema={propertySchema}
-                path={[...path, propertyName]}
-                value={getPathValue(value, [propertyName])}
+                name={`${name}.${propertyName}`}
+                fieldKey={propertyName}
+                control={control}
+                register={register}
+                setValue={setValue}
                 nodeOptions={nodeOptions}
                 compact={compact}
-                onChange={(nextValue) => onChange(setPathValue(value, [propertyName], nextValue))}
               />
             );
           })}
@@ -220,51 +242,19 @@ function FormField({
   }
 
   if (type === 'array') {
-    const items = asObject(schema.items) ?? { type: 'string' };
-    const entries = Array.isArray(value) ? value : [];
     return (
-      <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">{label}</p>
-            {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}
-          </div>
-          <Button
-            variant="ghost"
-            className="px-2 py-1 text-xs"
-            onClick={() => onChange([...entries, initializeValue(items, undefined)])}
-          >
-            Add item
-          </Button>
-        </div>
-        {entries.length > 0 ? (
-          <div className="space-y-3">
-            {entries.map((entry, index) => (
-              <div key={`${path.join('.')}:${index}`} className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3">
-                <div className="mb-3 flex justify-end">
-                  <Button
-                    variant="ghost"
-                    className="px-2 py-1 text-xs"
-                    onClick={() => onChange(removeArrayIndex(entries, [], index))}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <FormField
-                  schema={items}
-                  path={[...path, index]}
-                  value={entry}
-                  nodeOptions={nodeOptions}
-                  compact={compact}
-                  onChange={(nextValue) => onChange(setPathValue(entries, [index], nextValue))}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">No items yet.</p>
-        )}
-      </div>
+      <ArrayField
+        schema={schema}
+        name={name}
+        fieldKey={fieldKey}
+        label={label}
+        description={description}
+        control={control}
+        register={register}
+        setValue={setValue}
+        nodeOptions={nodeOptions}
+        compact={compact}
+      />
     );
   }
 
@@ -273,8 +263,7 @@ function FormField({
       <label className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 px-3 py-3 text-sm text-slate-100">
         <input
           type="checkbox"
-          checked={asBoolean(value) ?? false}
-          onChange={(event) => onChange(event.target.checked)}
+          {...register(name)}
         />
         <span>
           <span className="block font-medium">{label}</span>
@@ -290,8 +279,7 @@ function FormField({
       {description ? <span className="mt-1 block text-xs text-slate-500">{description}</span> : null}
       {enumValues.length > 0 ? (
         <select
-          value={asString(value) ?? ''}
-          onChange={(event) => onChange(event.target.value)}
+          {...register(name)}
           className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
         >
           <option value="">Select an option</option>
@@ -301,8 +289,7 @@ function FormField({
         </select>
       ) : format === 'node-ref' ? (
         <select
-          value={asString(value) ?? ''}
-          onChange={(event) => onChange(event.target.value)}
+          {...register(name)}
           className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
         >
           <option value="">Select a node</option>
@@ -314,19 +301,22 @@ function FormField({
         <div className="mt-2 flex gap-2">
           <input
             type="text"
-            value={asString(value) ?? ''}
-            onChange={(event) => onChange(event.target.value)}
+            {...register(name)}
             className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
           />
           {runtimeSupportsFilePicker ? (
             <Button
+              type="button"
               variant="ghost"
               className={cn('px-3 py-2 text-xs', compact && 'px-2')}
               onClick={async () => {
                 try {
                   const nextPath = await readDesktopRuntime()?.selectFilePath?.();
                   if (nextPath) {
-                    onChange(nextPath);
+                    setValue(name, nextPath, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    });
                   }
                 } catch (error) {
                   console.error('Failed to select file path', error);
@@ -339,9 +329,28 @@ function FormField({
         </div>
       ) : (
         <input
-          type={type === 'number' ? 'number' : 'text'}
-          value={type === 'number' ? String(asNumber(value) ?? value ?? '') : (asString(value) ?? '')}
-          onChange={(event) => onChange(coerceInputValue(schema, event.target.value))}
+          type={isNumericSchemaType(type) ? 'number' : 'text'}
+          step={type === 'integer' ? 1 : undefined}
+          {...register(name, isNumericSchemaType(type)
+            ? {
+                setValueAs: (rawValue) => {
+                  if (rawValue === '') {
+                    return undefined;
+                  }
+
+                  const parsed = Number(rawValue);
+                  if (Number.isNaN(parsed)) {
+                    return undefined;
+                  }
+
+                  if (type === 'integer' && !Number.isInteger(parsed)) {
+                    return undefined;
+                  }
+
+                  return parsed;
+                },
+              }
+            : undefined)}
           className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
         />
       )}
@@ -357,27 +366,47 @@ export function SchemaDrivenForm({
   submitLabel,
   pending = false,
   compact = false,
+  submitError = null,
   onSubmit,
 }: SchemaDrivenFormProps) {
   const initialObject = useMemo(
     () => asObject(initializeValue(schema, initialValue)) ?? {},
     [initialValue, schema],
   );
-  const [formValue, setFormValue] = useState<JsonRecord>(initialObject);
+  const [localSubmitError, setLocalSubmitError] = useState<string | null>(null);
+  const {
+    control,
+    formState,
+    handleSubmit,
+    register,
+    reset,
+    setValue,
+  } = useForm<FormValues>({
+    defaultValues: initialObject,
+  });
 
   useEffect(() => {
-    setFormValue(initialObject);
-  }, [initialObject, resetKey]);
+    // resetKey is an external reset signal for upstream snapshot rehydration.
+    reset(initialObject);
+    setLocalSubmitError(null);
+  }, [initialObject, reset, resetKey]);
 
   const properties = asObject(schema.properties) ?? {};
+  const visibleSubmitError = submitError ?? localSubmitError;
+  const isBusy = pending || formState.isSubmitting;
 
   return (
     <form
       className="space-y-3"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        await onSubmit((normalizeForSubmit(formValue) as JsonRecord | undefined) ?? {});
-      }}
+      aria-busy={isBusy}
+      onSubmit={handleSubmit(async (value) => {
+        setLocalSubmitError(null);
+        try {
+          await onSubmit((normalizeForSubmit(value) as JsonRecord | undefined) ?? {});
+        } catch (error) {
+          setLocalSubmitError(submitErrorMessage(error));
+        }
+      })}
     >
       {Object.entries(properties).map(([propertyName, propertyValue]) => {
         const propertySchema = asObject(propertyValue);
@@ -389,19 +418,24 @@ export function SchemaDrivenForm({
           <FormField
             key={propertyName}
             schema={propertySchema}
-            path={[propertyName]}
-            value={formValue[propertyName]}
+            name={propertyName}
+            fieldKey={propertyName}
+            control={control}
+            register={register}
+            setValue={setValue}
             nodeOptions={nodeOptions}
             compact={compact}
-            onChange={(nextValue) => setFormValue((current) => ({
-              ...current,
-              [propertyName]: nextValue,
-            }))}
           />
         );
       })}
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>{submitLabel}</Button>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-h-5 text-sm">
+          {visibleSubmitError ? <p role="alert" className="text-rose-200">{visibleSubmitError}</p> : null}
+          {!visibleSubmitError && isBusy ? <p className="text-slate-400">Applying changes...</p> : null}
+        </div>
+        <Button type="submit" disabled={isBusy} aria-busy={isBusy}>
+          {submitLabel}
+        </Button>
       </div>
     </form>
   );

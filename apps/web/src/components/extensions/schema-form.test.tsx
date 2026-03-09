@@ -10,6 +10,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const schema = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', title: 'Title' },
+    draws: { type: 'integer', title: 'Draws' },
+    enabled: { type: 'boolean', title: 'Enabled' },
+    method: { type: 'string', title: 'Method', enum: ['mean', 'median'] },
+    data_path: { type: 'string', title: 'Data path', format: 'file-path' },
+    source_node: { type: 'string', title: 'Source node', format: 'node-ref' },
+    nested: {
+      type: 'object',
+      title: 'Nested settings',
+      properties: {
+        label: { type: 'string', title: 'Nested label' },
+      },
+    },
+    metrics: {
+      type: 'array',
+      title: 'Metrics',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', title: 'Metric name' },
+        },
+      },
+    },
+  },
+} as const;
+
 describe('SchemaDrivenForm', () => {
   it('renders supported field types and submits normalized parameters', async () => {
     const onSubmit = vi.fn();
@@ -22,39 +51,12 @@ describe('SchemaDrivenForm', () => {
     render(
       <SchemaDrivenForm
         resetKey="schema-test"
-        submitLabel="Submit parameters"
+        submitLabel="Save parameters"
         nodeOptions={[
           { id: 'node_1', label: 'Posterior source' },
           { id: 'node_2', label: 'Alternative source' },
         ]}
-        schema={{
-          type: 'object',
-          properties: {
-            title: { type: 'string', title: 'Title' },
-            draws: { type: 'number', title: 'Draws' },
-            enabled: { type: 'boolean', title: 'Enabled' },
-            method: { type: 'string', title: 'Method', enum: ['mean', 'median'] },
-            data_path: { type: 'string', title: 'Data path', format: 'file-path' },
-            source_node: { type: 'string', title: 'Source node', format: 'node-ref' },
-            nested: {
-              type: 'object',
-              title: 'Nested settings',
-              properties: {
-                label: { type: 'string', title: 'Nested label' },
-              },
-            },
-            metrics: {
-              type: 'array',
-              title: 'Metrics',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string', title: 'Metric name' },
-                },
-              },
-            },
-          },
-        }}
+        schema={schema}
         onSubmit={onSubmit}
       />,
     );
@@ -68,9 +70,8 @@ describe('SchemaDrivenForm', () => {
     fireEvent.change(screen.getByLabelText('Source node'), { target: { value: 'node_2' } });
     fireEvent.change(screen.getByLabelText('Nested label'), { target: { value: 'credible interval' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
-    const metricNameInput = await screen.findByLabelText('Metric name');
-    fireEvent.change(metricNameInput, { target: { value: 'rmse' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Submit parameters' }));
+    fireEvent.change(await screen.findByLabelText('Metric name'), { target: { value: 'rmse' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save parameters' }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({
@@ -90,5 +91,102 @@ describe('SchemaDrivenForm', () => {
         ],
       }),
     );
+  });
+
+  it('rejects non-integer values for integer fields', async () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <SchemaDrivenForm
+        resetKey="schema-test"
+        submitLabel="Save parameters"
+        schema={schema}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Draws'), { target: { value: '3.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save parameters' }));
+
+    await waitFor(() => expect(onSubmit).not.toHaveBeenCalled());
+  });
+
+  it('resets from upstream changes and keeps array entries aligned after removal', async () => {
+    const { rerender } = render(
+      <SchemaDrivenForm
+        resetKey="schema-test:1"
+        submitLabel="Save parameters"
+        schema={schema}
+        initialValue={{
+          title: 'Original',
+          metrics: [
+            { name: 'rmse' },
+            { name: 'loo' },
+          ],
+        }}
+        onSubmit={() => {}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Locally edited' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]!);
+
+    await waitFor(() => {
+      const metricInputs = screen.getAllByLabelText('Metric name');
+      expect(metricInputs).toHaveLength(1);
+      expect(metricInputs[0]).toHaveValue('loo');
+    });
+
+    rerender(
+      <SchemaDrivenForm
+        resetKey="schema-test:2"
+        submitLabel="Save parameters"
+        schema={schema}
+        initialValue={{
+          title: 'Server refreshed',
+          metrics: [
+            { name: 'waic' },
+          ],
+        }}
+        onSubmit={() => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Title')).toHaveValue('Server refreshed');
+      expect(screen.getByLabelText('Metric name')).toHaveValue('waic');
+    });
+  });
+
+  it('shows pending and submit-error feedback in the fallback form', async () => {
+    const onSubmit = vi.fn(async () => {
+      throw new Error('Save failed.');
+    });
+
+    const { rerender } = render(
+      <SchemaDrivenForm
+        resetKey="schema-test"
+        submitLabel="Save parameters"
+        schema={schema}
+        pending
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Save parameters' })).toBeDisabled();
+    expect(screen.getByText('Applying changes...')).toBeInTheDocument();
+
+    rerender(
+      <SchemaDrivenForm
+        resetKey="schema-test"
+        submitLabel="Save parameters"
+        schema={schema}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save parameters' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Save failed.'));
   });
 });

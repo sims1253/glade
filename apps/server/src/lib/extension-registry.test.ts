@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm, stat, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -59,16 +59,19 @@ afterEach(async () => {
 });
 
 describe('extension registry snapshot helpers', () => {
-  it('normalizes registry aliases onto the snapshot payload', () => {
+  it('normalizes snake_case extension metadata onto the snapshot payload', () => {
     const normalized = normalizeGraphSnapshotExtensions({
       ...snapshot,
-      extensionRegistry: [
-        {
-          packageName: 'test.extension',
+      extension_registry: {
+        test_extension: {
+          package_name: 'test.extension',
           version: '0.1.0',
-          nodeTypes: [{ kind: 'posterior_summary' }],
+          library_path: '/tmp/test.extension',
+          node_types: {
+            posterior_summary: { name: 'posterior_summary' },
+          },
         },
-      ],
+      } as unknown as GraphSnapshot['extension_registry'],
     });
 
     expect(normalized.extension_registry).toEqual([
@@ -76,9 +79,14 @@ describe('extension registry snapshot helpers', () => {
         id: 'test.extension',
         package_name: 'test.extension',
         version: '0.1.0',
+        gui_bundle_path: '/tmp/test.extension/inst/gui/index.js',
+        node_types: [
+          expect.objectContaining({
+            kind: 'posterior_summary',
+          }),
+        ],
       }),
     ]);
-    expect(normalized.extensionRegistry).toEqual(normalized.extension_registry);
   });
 
   it('copies gui bundles into the state cache and exposes a browser path', async () => {
@@ -180,5 +188,37 @@ describe('extension registry snapshot helpers', () => {
     const afterStats = await stat(copiedPath);
 
     expect(afterStats.mtimeMs).toBe(beforeStats.mtimeMs);
+  });
+
+  it('memoizes cached registry bundles for repeated identical snapshots', async () => {
+    const sourceDir = await mkdtemp(path.join(tmpdir(), 'glade-extension-memo-src-'));
+    const stateDir = await mkdtemp(path.join(tmpdir(), 'glade-extension-memo-state-'));
+    tempDirs.push(sourceDir, stateDir);
+
+    const bundlePath = path.join(sourceDir, 'index.js');
+    await writeFile(bundlePath, 'export const memoized = true;', 'utf8');
+
+    const inputSnapshot: GraphSnapshot = {
+      ...snapshot,
+      extension_registry: [
+        {
+          id: 'pkg:test.extension',
+          package_name: 'test.extension',
+          version: '0.1.0',
+          gui_bundle_path: bundlePath,
+          node_types: [{ kind: 'posterior_summary' }],
+          domain_packs: [],
+        },
+      ],
+    };
+
+    const firstCached = await cacheSnapshotExtensionBundles(inputSnapshot, stateDir);
+    const firstBrowserBundlePath = firstCached.extension_registry?.[0]?.browser_bundle_path;
+    expect(firstBrowserBundlePath).toBeDefined();
+
+    await unlink(bundlePath);
+
+    const secondCached = await cacheSnapshotExtensionBundles(inputSnapshot, stateDir);
+    expect(secondCached.extension_registry?.[0]?.browser_bundle_path).toBe(firstBrowserBundlePath);
   });
 });

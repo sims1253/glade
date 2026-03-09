@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ExternalLink, FolderOpen, GitBranch, Link2, NotebookPen, PanelRightClose, SquareDashedMousePointer, Unlink2 } from 'lucide-react';
+import { ExternalLink, FolderOpen, GitBranch, Link2, NotebookPen, PanelRightClose, SlidersHorizontal, SquareDashedMousePointer, Unlink2 } from 'lucide-react';
 
 import type { CommandResult, HostCommand, WorkflowCommand } from '@glade/contracts';
 
@@ -353,11 +353,14 @@ export function NodeDetailDrawer({
   async function submitParameters(params: Record<string, unknown>) {
     setParamsPending(true);
     try {
-      await dispatchCommand({
+      const result = await dispatchCommand({
         type: 'UpdateNodeParameters',
         nodeId: node.id,
         params,
       });
+      if (!result.success) {
+        throw new Error(result.error?.message ?? 'Could not update node parameters.');
+      }
     } finally {
       setParamsPending(false);
     }
@@ -516,13 +519,13 @@ export function NodeDetailDrawer({
           </Section>
 
           {node.parameterSchema ? (
-            <Section title="Parameters" icon={<SquareDashedMousePointer className="size-4" />}>
+            <Section title="Parameters" icon={<SlidersHorizontal className="size-4" />}>
               <SchemaDrivenForm
                 schema={node.parameterSchema}
                 initialValue={node.parameters ?? {}}
                 resetKey={node.id}
                 nodeOptions={nodeOptions}
-                submitLabel={paramsPending ? 'Saving…' : 'Save parameters'}
+                submitLabel={paramsPending ? 'Saving parameters...' : 'Save parameters'}
                 pending={paramsPending}
                 onSubmit={submitParameters}
               />

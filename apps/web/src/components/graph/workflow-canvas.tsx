@@ -169,6 +169,7 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [pendingNodeKind, setPendingNodeKind] = useState('');
   const [pendingNodeLabel, setPendingNodeLabel] = useState('');
+  const [addNodePending, setAddNodePending] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [connectionPreview, setConnectionPreview] = useState<ConnectionPreviewState | null>(null);
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
@@ -366,25 +367,33 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
 
     setPendingNodeKind((current) => current || graph.nodeKinds[0]?.kind || '');
     setPendingNodeLabel('');
+    setAddNodePending(false);
     setIsAddDialogOpen(true);
     closeMenus();
   }, [closeMenus, graph, pushNotification]);
 
   const submitAddNode = useCallback(async (params?: Record<string, unknown>) => {
     if (!pendingNodeKind) {
-      return;
+      return null;
     }
 
-    const result = await dispatchCommand({
-      type: 'AddNode',
-      kind: pendingNodeKind,
-      label: pendingNodeLabel.trim() || undefined,
-      params,
-    });
+    setAddNodePending(true);
+    try {
+      const result = await dispatchCommand({
+        type: 'AddNode',
+        kind: pendingNodeKind,
+        label: pendingNodeLabel.trim() || undefined,
+        params,
+      });
 
-    if (result.success) {
-      setIsAddDialogOpen(false);
-      setPendingNodeLabel('');
+      if (result.success) {
+        setIsAddDialogOpen(false);
+        setPendingNodeLabel('');
+      }
+
+      return result;
+    } finally {
+      setAddNodePending(false);
     }
   }, [dispatchCommand, pendingNodeKind, pendingNodeLabel]);
 
@@ -642,9 +651,13 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
                           schema={selectedPendingNodeKind.parameterSchema}
                           resetKey={selectedPendingNodeKind.kind}
                           nodeOptions={graph?.nodes.map((node) => ({ id: node.id, label: node.label })) ?? []}
-                          submitLabel="Dispatch AddNode"
+                          submitLabel={addNodePending ? 'Adding node...' : 'Add node'}
+                          pending={addNodePending}
                           onSubmit={async (params) => {
-                            await submitAddNode(params);
+                            const result = await submitAddNode(params);
+                            if (!result?.success) {
+                              throw new Error(result?.error?.message ?? 'Could not add node.');
+                            }
                           }}
                         />
                       </div>
@@ -655,7 +668,9 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
               <div className="mt-6 flex justify-end gap-3">
                 <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
                 {!selectedPendingNodeKind?.parameterSchema ? (
-                  <Button onClick={() => void submitAddNode()} disabled={!pendingNodeKind}>Dispatch AddNode</Button>
+                  <Button onClick={() => void submitAddNode()} disabled={!pendingNodeKind || addNodePending}>
+                    {addNodePending ? 'Adding node...' : 'Add node'}
+                  </Button>
                 ) : null}
               </div>
             </div>

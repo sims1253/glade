@@ -1,4 +1,9 @@
-import type { GraphSnapshot } from '@glade/contracts';
+import {
+  readExtensionRegistry,
+  type ExtensionDescriptor,
+  type GraphSnapshot,
+  type NodeTypeDescriptor,
+} from '@glade/contracts';
 
 import {
   type WorkflowActionRecord,
@@ -66,19 +71,6 @@ function asStringArray(value: unknown): Array<string> {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
-function asObjectArray(value: unknown): Array<JsonRecord> {
-  return Array.isArray(value)
-    ? value.map((entry) => asObject(entry)).filter((entry): entry is JsonRecord => entry !== null)
-    : [];
-}
-
-function asObjectValues(value: unknown): Array<JsonRecord> {
-  const record = asObject(value);
-  return record
-    ? Object.values(record).map((entry) => asObject(entry)).filter((entry): entry is JsonRecord => entry !== null)
-    : [];
-}
-
 function normalizeTypeList(value: unknown): Array<string> {
   if (typeof value === 'string') {
     return value.trim() ? [value] : [];
@@ -91,33 +83,19 @@ function normalizeTypeList(value: unknown): Array<string> {
   return [];
 }
 
-function stableExtensionId(rawExtension: JsonRecord, index: number) {
-  return firstString(
-    rawExtension.id,
-    rawExtension.extension_id,
-    rawExtension.package_name,
-    rawExtension.packageName,
-    rawExtension.name,
-  ) ?? `extension:${index}`;
-}
-
-function extractParameterSchema(rawKind: JsonRecord | null, rawExtensionNode: JsonRecord | null) {
+function extractParameterSchema(rawKind: JsonRecord | null, rawExtensionNode: NodeTypeDescriptor | null) {
   return firstObject(
     rawKind?.parameter_schema,
-    rawKind?.parameterSchema,
     rawExtensionNode?.parameter_schema,
-    rawExtensionNode?.parameterSchema,
   );
 }
 
-function extractBrowserBundlePath(rawExtension: JsonRecord, rawExtensionNode: JsonRecord | null) {
+function extractBrowserBundlePath(rawExtension: ExtensionDescriptor, rawExtensionNode: NodeTypeDescriptor | null) {
   const nodeGui = asObject(rawExtensionNode?.gui);
   const extensionGui = asObject(rawExtension.gui);
   return firstString(
     rawExtensionNode?.browser_bundle_path,
-    rawExtensionNode?.browserBundlePath,
     rawExtension.browser_bundle_path,
-    rawExtension.browserBundlePath,
     nodeGui?.browser_path,
     extensionGui?.browser_path,
   );
@@ -181,6 +159,25 @@ function firstString(...values: Array<unknown>): string | null {
   }
 
   return null;
+}
+
+function extensionIdentity(rawExtension: ExtensionDescriptor, index: number, warnIfMissing: boolean) {
+  const id = firstString(rawExtension.id, rawExtension.package_name);
+  if (id) {
+    return {
+      id,
+      packageName: rawExtension.package_name ?? rawExtension.id ?? id,
+    };
+  }
+
+  const fallbackId = `extension:${index}`;
+  if (warnIfMissing) {
+    console.warn(`Extension descriptor is missing both id and package_name; using generated id ${fallbackId}`);
+  }
+  return {
+    id: fallbackId,
+    packageName: fallbackId,
+  };
 }
 
 function firstArray(...values: Array<unknown>): Array<unknown> {
@@ -336,65 +333,39 @@ function extractDecisionEntries(rawNode: JsonRecord, metadata: JsonRecord | null
 }
 
 function extractExtensionRegistry(snapshot: GraphSnapshot): Array<WorkflowExtensionDescriptor> {
-  const snapshotObject = asObject(snapshot) ?? {};
-  const registrySource = Array.isArray(snapshotObject.extension_registry) && snapshotObject.extension_registry.length > 0
-    ? snapshotObject.extension_registry
-    : (snapshotObject.extensionRegistry ?? snapshotObject.extension_registry);
-  const rawRegistry = Array.isArray(registrySource) ? registrySource : [];
-  const registryEntries = rawRegistry.length > 0
-    ? asObjectArray(rawRegistry)
-    : asObjectValues(registrySource);
-
-  return registryEntries
+  return readExtensionRegistry(snapshot)
     .map((rawExtension, index) => {
-      const extensionId = stableExtensionId(rawExtension, index);
-      const rawNodeTypes = asObjectArray(firstArray(rawExtension.node_types, rawExtension.nodeTypes));
-      const rawDomainPacks = asObjectArray(firstArray(rawExtension.domain_packs, rawExtension.domainPacks));
-
+      const rawNodeTypes = rawExtension.node_types ?? [];
+      const rawDomainPacks = rawExtension.domain_packs ?? [];
+      const identity = extensionIdentity(rawExtension, index, true);
       return {
-        id: extensionId,
-        packageName: firstString(
-          rawExtension.package_name,
-          rawExtension.packageName,
-          rawExtension.name,
-          extensionId,
-        ) ?? extensionId,
+        id: identity.id,
+        packageName: identity.packageName,
         version: firstString(rawExtension.version),
         browserBundlePath: extractBrowserBundlePath(rawExtension, null),
-        nodeKinds: rawNodeTypes.map((nodeType) => firstString(nodeType.kind, nodeType.name)).filter((kind): kind is string => Boolean(kind)),
-        domainPacks: rawDomainPacks.map((domainPack) => firstString(domainPack.id, domainPack.kind, domainPack.name)).filter((kind): kind is string => Boolean(kind)),
-        raw: rawExtension,
+        nodeKinds: rawNodeTypes.map((nodeType) => nodeType.kind).filter((kind): kind is string => Boolean(kind)),
+        domainPacks: rawDomainPacks.map((domainPack) => firstString(domainPack.id, domainPack.kind)).filter((kind): kind is string => Boolean(kind)),
+        raw: rawExtension as Record<string, unknown>,
       } satisfies WorkflowExtensionDescriptor;
     })
     .sort((left, right) => left.packageName.localeCompare(right.packageName));
 }
 
 function extensionNodeKindsByKind(snapshot: GraphSnapshot) {
-  const snapshotObject = asObject(snapshot) ?? {};
-  const rawRegistryValue = Array.isArray(snapshotObject.extension_registry) && snapshotObject.extension_registry.length > 0
-    ? snapshotObject.extension_registry
-    : (snapshotObject.extensionRegistry ?? snapshotObject.extension_registry);
-  const rawRegistry = Array.isArray(rawRegistryValue)
-    ? asObjectArray(rawRegistryValue)
-    : asObjectValues(rawRegistryValue);
   const result = new Map<string, {
     readonly extensionId: string;
     readonly extensionPackageName: string;
     readonly browserBundlePath: string | null;
-    readonly rawNodeType: JsonRecord;
+    readonly rawNodeType: NodeTypeDescriptor;
   }>();
 
-  for (const [index, rawExtension] of rawRegistry.entries()) {
-    const extensionId = stableExtensionId(rawExtension, index);
-    const packageName = firstString(
-      rawExtension.package_name,
-      rawExtension.packageName,
-      rawExtension.name,
-      extensionId,
-    ) ?? extensionId;
+  for (const [index, rawExtension] of readExtensionRegistry(snapshot).entries()) {
+    const identity = extensionIdentity(rawExtension, index, false);
+    const extensionId = identity.id;
+    const packageName = identity.packageName;
     const browserBundlePath = extractBrowserBundlePath(rawExtension, null);
-    for (const rawNodeType of asObjectArray(firstArray(rawExtension.node_types, rawExtension.nodeTypes))) {
-      const kind = firstString(rawNodeType.kind, rawNodeType.name);
+    for (const rawNodeType of rawExtension.node_types ?? []) {
+      const kind = rawNodeType.kind;
       if (!kind) {
         continue;
       }

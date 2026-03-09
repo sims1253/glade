@@ -36,17 +36,20 @@ function GenericNodeAutoForm({ data }: { readonly data: WorkflowFlowNode['data']
       initialValue={data.parameters ?? {}}
       resetKey={data.id}
       nodeOptions={nodeOptions}
-      submitLabel={pending ? 'Saving…' : 'Save parameters'}
+      submitLabel={pending ? 'Saving parameters...' : 'Save parameters'}
       pending={pending}
       compact
       onSubmit={async (params) => {
         setPending(true);
         try {
-          await dispatchCommand({
+          const result = await dispatchCommand({
             type: 'UpdateNodeParameters',
             nodeId: data.id,
             params,
           });
+          if (!result.success) {
+            throw new Error(result.error?.message ?? 'Could not update node parameters.');
+          }
         } finally {
           setPending(false);
         }

@@ -10,6 +10,7 @@ import * as Stream from 'effect/Stream';
 
 import {
   decodeCommandEnvelope,
+  normalizeGraphSnapshotExtensions,
   type BayesgroveCommand,
   type BayesgroveCommandResult,
   type CommandEnvelope,
@@ -79,7 +80,8 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
   if (!state) {
     return null;
   }
-  return {
+
+  return normalizeGraphSnapshotExtensions({
     protocol_version: protocolVersion,
     message_type: 'GraphSnapshot',
     emitted_at: new Date().toISOString(),
@@ -107,13 +109,8 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
         scopes: [],
       },
     }) as GraphSnapshot['protocol'],
-    extension_registry: (
-      (state.extension_registry ?? state.extensionRegistry ?? []) as GraphSnapshot['extension_registry']
-    ),
-    extensionRegistry: (
-      (state.extensionRegistry ?? state.extension_registry ?? []) as GraphSnapshot['extensionRegistry']
-    ),
-  };
+    extension_registry: (state.extension_registry ?? []) as GraphSnapshot['extension_registry'],
+  });
 }
 
 function toBayesgroveCommand(id: string, command: WorkflowCommand): BayesgroveCommand {

@@ -3,7 +3,7 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 
-import type { GraphSnapshot, ProtocolEvent } from '@glade/contracts';
+import { readExtensionRegistry, type GraphSnapshot, type ProtocolEvent } from '@glade/contracts';
 
 import { SqliteDatabase } from '../persistence/sqlite';
 
@@ -181,12 +181,7 @@ const extractActions = (snapshot: GraphSnapshot) => {
 };
 
 const extractExtensions = (snapshot: GraphSnapshot) => {
-  const snapshotObject = asObject(snapshot) ?? {};
-  const rawRegistry = Array.isArray(snapshotObject.extension_registry)
-    ? snapshotObject.extension_registry
-    : (Array.isArray(snapshotObject.extensionRegistry) ? snapshotObject.extensionRegistry : []);
-
-  return rawRegistry
+  return readExtensionRegistry(snapshot)
     .map((value, index) => {
       const extension = asObject(value);
       if (!extension) {

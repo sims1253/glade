@@ -1,6 +1,8 @@
+import * as Effect from 'effect/Effect';
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 
+import { decodeExtensionDescriptor, decodeGraphSnapshot } from './decode';
 import {
   BayesgroveCommand,
   CommandEnvelope,
@@ -114,5 +116,136 @@ describe('contracts', () => {
       type: 'SessionStatus',
       state: 'connecting',
     });
+  });
+
+  it('decodes extension registry descriptors into canonical snake_case fields', async () => {
+    const snapshot = await Effect.runPromise(decodeGraphSnapshot({
+      protocol_version: '0.1.0',
+      message_type: 'GraphSnapshot',
+      emitted_at: '2026-03-09T10:00:00.000Z',
+      project_id: 'proj_1',
+      project_name: 'demo',
+      graph: { version: 1, nodes: {}, edges: {} },
+      status: {
+        workflow_state: 'open',
+        runnable_nodes: 0,
+        blocked_nodes: 0,
+        pending_gates: 0,
+        active_jobs: 0,
+        health: 'ok',
+        messages: ['ready'],
+      },
+      pending_gates: {},
+      branches: {},
+      branch_goals: {},
+      protocol: {
+        summary: {
+          n_scopes: 1,
+          n_obligations: 0,
+          n_actions: 0,
+          n_blocking: 0,
+          scopes: ['project'],
+        },
+        project: {
+          scope: 'project',
+          scope_label: 'Project',
+          obligations: {},
+          actions: {},
+        },
+      },
+      extension_registry: {
+        test_extension: {
+          name: 'test.extension',
+          library_path: '/tmp/test.extension',
+          node_types: {
+            posterior_summary: {
+              name: 'posterior_summary',
+              title: 'Posterior summary',
+            },
+          },
+          domain_packs: {
+            reporting: {
+              title: 'Reporting',
+            },
+          },
+        },
+      },
+    }));
+
+    expect(snapshot.extension_registry).toEqual([
+      {
+        id: 'test.extension',
+        name: 'test.extension',
+        package_name: 'test.extension',
+        library_path: '/tmp/test.extension',
+        gui_bundle_path: '/tmp/test.extension/inst/gui/index.js',
+        node_types: [
+          {
+            kind: 'posterior_summary',
+            name: 'posterior_summary',
+            title: 'Posterior summary',
+          },
+        ],
+        domain_packs: [
+          {
+            title: 'Reporting',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('ignores extensionRegistry when extension_registry is absent', async () => {
+    const snapshot = await Effect.runPromise(decodeGraphSnapshot({
+      protocol_version: '0.1.0',
+      message_type: 'GraphSnapshot',
+      emitted_at: '2026-03-09T10:00:00.000Z',
+      project_id: 'proj_1',
+      project_name: 'demo',
+      graph: { version: 1, nodes: {}, edges: {} },
+      status: {
+        workflow_state: 'open',
+        runnable_nodes: 0,
+        blocked_nodes: 0,
+        pending_gates: 0,
+        active_jobs: 0,
+        health: 'ok',
+        messages: ['ready'],
+      },
+      pending_gates: {},
+      branches: {},
+      branch_goals: {},
+      protocol: {
+        summary: {
+          n_scopes: 1,
+          n_obligations: 0,
+          n_actions: 0,
+          n_blocking: 0,
+          scopes: ['project'],
+        },
+        project: {
+          scope: 'project',
+          scope_label: 'Project',
+          obligations: {},
+          actions: {},
+        },
+      },
+      extensionRegistry: [],
+    }));
+
+    expect(snapshot.extension_registry).toBeUndefined();
+  });
+
+  it('accepts an explicit fallback index when decoding a single extension descriptor', async () => {
+    const descriptor = await Effect.runPromise(decodeExtensionDescriptor({
+      node_types: [
+        {
+          kind: 'posterior_summary',
+        },
+      ],
+    }, 7));
+
+    expect(descriptor.id).toBe('extension:7');
+    expect(descriptor.package_name).toBe('extension:7');
   });
 });
