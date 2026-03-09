@@ -3,24 +3,27 @@ import { Schema } from 'effect';
 import {
   BayesgroveCommand,
   BayesgroveCommandResult,
-  Command,
-  CommandEnvelope,
   type DomainPackDescriptor,
   type ExtensionDescriptor,
   ExtensionDescriptor as ExtensionDescriptorSchema,
   ExtensionRegistry,
   GraphSnapshot,
   HealthResponse,
-  HostCommand,
   type NodeInputSerializer,
   type NodeOutputParser,
   type NodeRuntime,
   type NodeTypeDescriptor,
   ProtocolEvent,
-  ServerMessage,
-  SessionStatus,
-  WorkflowCommand,
 } from './messages';
+import {
+  RpcError,
+  ServerBootstrap,
+  SessionStatus,
+  WebSocketRequest,
+  WebSocketResponse,
+  WsMessage,
+  WsPush,
+} from './ws';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -244,8 +247,9 @@ export const decodeGraphSnapshot = (value: unknown) =>
 export const decodeProtocolEvent = makeDecoder(ProtocolEvent);
 export const decodeBayesgroveCommand = makeDecoder(BayesgroveCommand);
 export const decodeBayesgroveCommandResult = makeDecoder(BayesgroveCommandResult);
-export const decodeWorkflowCommand = makeDecoder(WorkflowCommand);
-export const decodeHostCommand = makeDecoder(HostCommand);
-export const decodeCommand = makeDecoder(Command);
-export const decodeCommandEnvelope = makeDecoder(CommandEnvelope);
-export const decodeServerMessage = makeDecoder(ServerMessage);
+export const decodeRpcError = makeDecoder(RpcError);
+export const decodeServerBootstrap = makeDecoder(ServerBootstrap);
+export const decodeWebSocketRequest = makeDecoder(WebSocketRequest);
+export const decodeWebSocketResponse = makeDecoder(WebSocketResponse);
+export const decodeWsPush = makeDecoder(WsPush);
+export const decodeWsMessage = makeDecoder(WsMessage);

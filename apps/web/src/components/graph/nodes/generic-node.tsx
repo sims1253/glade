@@ -3,6 +3,8 @@ import type { NodeProps } from '@xyflow/react';
 
 import type { NodeComponentProps } from '@glade/contracts';
 
+import { workflowRpcFromLegacyDispatch } from '../../../lib/legacy-commands';
+import { toJsonObject } from '../../../lib/json';
 import { useGraphStore } from '../../../store/graph';
 import { useNodeExtensionComponent } from '../../../lib/extension-loader';
 import type { WorkflowFlowNode } from '../../../lib/graph-types';
@@ -17,7 +19,8 @@ function asObject(value: unknown): Record<string, unknown> | null {
 }
 
 function GenericNodeAutoForm({ data }: { readonly data: WorkflowFlowNode['data'] }) {
-  const { dispatchCommand } = useWorkflowCanvasContext();
+  const context = useWorkflowCanvasContext();
+  const workflow = context.workflow ?? (context.dispatchCommand ? workflowRpcFromLegacyDispatch(context.dispatchCommand) : null);
   const graph = useGraphStore((state) => state.graph);
   const [pending, setPending] = useState(false);
   const schema = useMemo(() => asObject(data.parameterSchema), [data.parameterSchema]);
@@ -42,13 +45,17 @@ function GenericNodeAutoForm({ data }: { readonly data: WorkflowFlowNode['data']
       onSubmit={async (params) => {
         setPending(true);
         try {
-          const result = await dispatchCommand({
-            type: 'UpdateNodeParameters',
+          const nextParams = toJsonObject(params);
+          if (!nextParams) {
+            throw new Error('Could not serialize node parameters.');
+          }
+
+          const result = await workflow?.updateNodeParameters({
             nodeId: data.id,
-            params,
+            params: nextParams,
           });
-          if (!result.success) {
-            throw new Error(result.error?.message ?? 'Could not update node parameters.');
+          if (!result?.success) {
+            throw new Error(result?.error?.message ?? 'Could not update node parameters.');
           }
         } finally {
           setPending(false);

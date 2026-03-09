@@ -1,6 +1,8 @@
 import { Schema } from 'effect';
 
-const StringRecord = Schema.Record({ key: Schema.String, value: Schema.Unknown });
+import { JsonObject, JsonValue } from './json';
+
+const StringRecord = Schema.Record({ key: Schema.String, value: JsonValue });
 const StringArray = Schema.Array(Schema.String);
 const OptionalString = Schema.optional(Schema.String);
 
@@ -26,14 +28,14 @@ export const NodeTypeDescriptor = Schema.Struct({
   allowShell: Schema.optional(Schema.Boolean),
   title: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
-  input_schema: Schema.optional(Schema.Unknown),
-  output_schema: Schema.optional(Schema.Unknown),
-  parameter_schema: Schema.optional(Schema.Unknown),
+  input_schema: Schema.optional(JsonValue),
+  output_schema: Schema.optional(JsonValue),
+  parameter_schema: Schema.optional(JsonValue),
   gui_bundle_path: Schema.optional(Schema.String),
   browser_bundle_path: Schema.optional(Schema.String),
-  metadata: Schema.optional(Schema.Unknown),
+  metadata: Schema.optional(JsonValue),
 }).pipe(
-  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
 );
 export type NodeTypeDescriptor = Schema.Schema.Type<typeof NodeTypeDescriptor>;
 
@@ -42,9 +44,9 @@ export const DomainPackDescriptor = Schema.Struct({
   kind: Schema.optional(Schema.String),
   title: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
-  metadata: Schema.optional(Schema.Unknown),
+  metadata: Schema.optional(JsonValue),
 }).pipe(
-  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
 );
 export type DomainPackDescriptor = Schema.Schema.Type<typeof DomainPackDescriptor>;
 
@@ -57,9 +59,9 @@ export const ExtensionDescriptor = Schema.Struct({
   browser_bundle_path: Schema.optional(Schema.String),
   node_types: Schema.optional(Schema.Array(NodeTypeDescriptor)),
   domain_packs: Schema.optional(Schema.Array(DomainPackDescriptor)),
-  metadata: Schema.optional(Schema.Unknown),
+  metadata: Schema.optional(JsonValue),
 }).pipe(
-  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
 );
 export type ExtensionDescriptor = Schema.Schema.Type<typeof ExtensionDescriptor>;
 
@@ -90,9 +92,9 @@ export const ObligationItem = Schema.Struct({
   scope: Schema.String,
   severity: Schema.String,
   title: Schema.String,
-  basis: Schema.Unknown,
-  explanation: Schema.optional(Schema.Unknown),
-  metadata: Schema.optional(Schema.Unknown),
+  basis: JsonValue,
+  explanation: Schema.optional(JsonValue),
+  metadata: Schema.optional(JsonValue),
 });
 export type ObligationItem = Schema.Schema.Type<typeof ObligationItem>;
 
@@ -101,10 +103,10 @@ export const ActionItem = Schema.Struct({
   kind: Schema.String,
   scope: Schema.String,
   title: Schema.String,
-  basis: Schema.Unknown,
-  payload: Schema.optional(Schema.Unknown),
-  explanation: Schema.optional(Schema.Unknown),
-  metadata: Schema.optional(Schema.Unknown),
+  basis: JsonValue,
+  payload: Schema.optional(JsonValue),
+  explanation: Schema.optional(JsonValue),
+  metadata: Schema.optional(JsonValue),
 });
 export type ActionItem = Schema.Schema.Type<typeof ActionItem>;
 
@@ -125,7 +127,7 @@ export const PartitionedProtocol = Schema.Struct({
     scopes: StringArray,
   }),
 }).pipe(
-  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
 );
 export type PartitionedProtocol = Schema.Schema.Type<typeof PartitionedProtocol>;
 
@@ -135,7 +137,7 @@ export const GraphSnapshot = Schema.Struct({
   emitted_at: Schema.String,
   project_id: Schema.String,
   project_name: Schema.String,
-  graph: Schema.Unknown,
+  graph: JsonObject,
   status: BayesgroveStatus,
   pending_gates: StringRecord,
   branches: StringRecord,
@@ -171,7 +173,7 @@ export const BayesgroveCommandResult = Schema.Struct({
   command_id: Schema.String,
   ok: Schema.Boolean,
   emitted_at: Schema.String,
-  result: Schema.optional(Schema.Unknown),
+  result: Schema.optional(JsonValue),
   error: Schema.optional(BayesgroveCommandError),
 });
 export type BayesgroveCommandResult = Schema.Schema.Type<typeof BayesgroveCommandResult>;
@@ -206,9 +208,9 @@ export const BayesgroveCommand = Schema.Union(
     Schema.Struct({
       kind: Schema.String,
       label: Schema.optional(Schema.String),
-      params: Schema.optional(Schema.Unknown),
+      params: Schema.optional(JsonObject),
       inputs: Schema.optional(StringArray),
-      metadata: Schema.optional(Schema.Unknown),
+      metadata: Schema.optional(JsonObject),
     }),
   ),
   rawCommandSchema(
@@ -217,7 +219,7 @@ export const BayesgroveCommand = Schema.Union(
       from: Schema.String,
       to: Schema.String,
       edge_type: Schema.optional(Schema.String),
-      metadata: Schema.optional(Schema.Unknown),
+      metadata: Schema.optional(JsonObject),
     }),
   ),
   rawCommandSchema(
@@ -225,8 +227,8 @@ export const BayesgroveCommand = Schema.Union(
     Schema.Struct({
       node_id: Schema.String,
       label: Schema.optional(Schema.String),
-      params: Schema.optional(Schema.Unknown),
-      metadata: Schema.optional(Schema.Unknown),
+      params: Schema.optional(JsonObject),
+      metadata: Schema.optional(JsonObject),
     }),
   ),
   rawCommandSchema('bg_remove_node', Schema.Struct({ node_id: Schema.String })),
@@ -236,7 +238,7 @@ export const BayesgroveCommand = Schema.Union(
       id: Schema.String,
       choice: Schema.String,
       rationale: Schema.String,
-      refs: Schema.optional(Schema.Array(Schema.Unknown)),
+      refs: Schema.optional(Schema.Array(JsonValue)),
       evidence: Schema.optional(StringArray),
     }),
   ),
@@ -248,10 +250,10 @@ export const BayesgroveCommand = Schema.Union(
       choice: Schema.String,
       alternatives: Schema.optional(StringArray),
       rationale: Schema.String,
-      refs: Schema.optional(Schema.Array(Schema.Unknown)),
+      refs: Schema.optional(Schema.Array(JsonValue)),
       evidence: Schema.optional(StringArray),
       kind: Schema.optional(Schema.String),
-      metadata: Schema.optional(Schema.Unknown),
+      metadata: Schema.optional(JsonObject),
     }),
   ),
   rawCommandSchema(
@@ -263,156 +265,3 @@ export const BayesgroveCommand = Schema.Union(
   rawCommandSchema('bg_cancel', Schema.Struct({ run_id: Schema.String })),
 );
 export type BayesgroveCommand = Schema.Schema.Type<typeof BayesgroveCommand>;
-
-export const SessionStatus = Schema.Struct({
-  type: Schema.Literal('SessionStatus'),
-  state: Schema.Literal('connecting', 'ready', 'error'),
-  reason: Schema.optional(Schema.String),
-});
-export type SessionStatus = Schema.Schema.Type<typeof SessionStatus>;
-
-export const AddNodeCommand = Schema.Struct({
-  type: Schema.Literal('AddNode'),
-  kind: Schema.String,
-  label: Schema.optional(Schema.String),
-  params: Schema.optional(Schema.Unknown),
-  inputs: Schema.optional(StringArray),
-  metadata: Schema.optional(Schema.Unknown),
-});
-export const DeleteNodeCommand = Schema.Struct({
-  type: Schema.Literal('DeleteNode'),
-  nodeId: Schema.String,
-});
-export const ConnectNodesCommand = Schema.Struct({
-  type: Schema.Literal('ConnectNodes'),
-  from: Schema.String,
-  to: Schema.String,
-  edgeType: Schema.optional(Schema.String),
-  metadata: Schema.optional(Schema.Unknown),
-});
-export const RenameNodeCommand = Schema.Struct({
-  type: Schema.Literal('RenameNode'),
-  nodeId: Schema.String,
-  label: Schema.String,
-});
-export const RecordDecisionCommand = Schema.Struct({
-  type: Schema.Literal('RecordDecision'),
-  scope: Schema.String,
-  prompt: Schema.String,
-  choice: Schema.String,
-  alternatives: Schema.optional(StringArray),
-  rationale: Schema.String,
-  refs: Schema.optional(Schema.Array(Schema.Unknown)),
-  evidence: Schema.optional(StringArray),
-  kind: Schema.optional(Schema.String),
-  metadata: Schema.optional(Schema.Unknown),
-});
-export const ExecuteActionCommand = Schema.Struct({
-  type: Schema.Literal('ExecuteAction'),
-  actionId: Schema.String,
-  payload: Schema.optional(Schema.Unknown),
-});
-export const ExecuteNodeCommand = Schema.Struct({
-  type: Schema.Literal('ExecuteNode'),
-  nodeId: Schema.String,
-  confirmNonLocalExecution: Schema.optional(Schema.Boolean),
-});
-export const UpdateNodeNotesCommand = Schema.Struct({
-  type: Schema.Literal('UpdateNodeNotes'),
-  nodeId: Schema.String,
-  notes: Schema.String,
-});
-export const UpdateNodeParametersCommand = Schema.Struct({
-  type: Schema.Literal('UpdateNodeParameters'),
-  nodeId: Schema.String,
-  params: Schema.Unknown,
-});
-export const SetNodeFileCommand = Schema.Struct({
-  type: Schema.Literal('SetNodeFile'),
-  nodeId: Schema.String,
-  path: Schema.NullOr(Schema.String),
-});
-export const RestartSessionCommand = Schema.Struct({
-  type: Schema.Literal('RestartSession'),
-});
-export const ReplInputCommand = Schema.Struct({
-  type: Schema.Literal('ReplInput'),
-  data: Schema.String,
-});
-export const ClearReplCommand = Schema.Struct({
-  type: Schema.Literal('ClearRepl'),
-});
-
-export const WorkflowCommand = Schema.Union(
-  AddNodeCommand,
-  DeleteNodeCommand,
-  ConnectNodesCommand,
-  RenameNodeCommand,
-  RecordDecisionCommand,
-  ExecuteActionCommand,
-  ExecuteNodeCommand,
-  UpdateNodeNotesCommand,
-  UpdateNodeParametersCommand,
-  SetNodeFileCommand,
-  RestartSessionCommand,
-  ReplInputCommand,
-  ClearReplCommand,
-);
-export type WorkflowCommand = Schema.Schema.Type<typeof WorkflowCommand>;
-
-export const OpenFileInEditorCommand = Schema.Struct({
-  type: Schema.Literal('OpenFileInEditor'),
-  path: Schema.String,
-});
-export const SelectDirectoryCommand = Schema.Struct({
-  type: Schema.Literal('SelectDirectory'),
-});
-export const GetSystemInfoCommand = Schema.Struct({
-  type: Schema.Literal('GetSystemInfo'),
-});
-
-export const HostCommand = Schema.Union(
-  OpenFileInEditorCommand,
-  SelectDirectoryCommand,
-  GetSystemInfoCommand,
-);
-export type HostCommand = Schema.Schema.Type<typeof HostCommand>;
-
-export const Command = Schema.Union(WorkflowCommand, HostCommand);
-export type Command = Schema.Schema.Type<typeof Command>;
-
-export const CommandEnvelope = Schema.Struct({
-  id: Schema.String,
-  command: Command,
-});
-export type CommandEnvelope = Schema.Schema.Type<typeof CommandEnvelope>;
-
-export const CommandResult = Schema.Struct({
-  type: Schema.Literal('CommandResult'),
-  id: Schema.String,
-  success: Schema.Boolean,
-  payload: Schema.optional(Schema.Unknown),
-  error: Schema.optional(
-    Schema.Struct({
-      code: Schema.String,
-      message: Schema.String,
-      data: Schema.optional(Schema.Unknown),
-    }),
-  ),
-});
-export type CommandResult = Schema.Schema.Type<typeof CommandResult>;
-
-export const ReplOutput = Schema.Struct({
-  type: Schema.Literal('ReplOutput'),
-  line: Schema.String,
-});
-export type ReplOutput = Schema.Schema.Type<typeof ReplOutput>;
-
-export const ServerMessage = Schema.Union(
-  SessionStatus,
-  CommandResult,
-  ReplOutput,
-  GraphSnapshot,
-  ProtocolEvent,
-);
-export type ServerMessage = Schema.Schema.Type<typeof ServerMessage>;

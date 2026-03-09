@@ -10,8 +10,11 @@ import { useAppStore } from '../store/app';
 import { useGraphStore } from '../store/graph';
 import { IndexRoute } from './index';
 
-const dispatchCommand = vi.fn();
-const dispatchHostCommand = vi.fn();
+const workflowExecuteAction = vi.fn();
+const hostOpenInEditor = vi.fn();
+const reconnect = vi.fn();
+const replWrite = vi.fn();
+const replClear = vi.fn();
 const fitMock = vi.fn();
 const getDesktopState = vi.fn<() => Promise<DesktopRuntimeSnapshot>>();
 
@@ -62,11 +65,34 @@ vi.mock('@xterm/addon-fit', () => ({
   },
 }));
 
-vi.mock('../hooks/useServerConnection', () => ({
-  useServerConnection: () => ({
-    dispatchCommand,
-    dispatchHostCommand,
-    reconnect: vi.fn(),
+vi.mock('../hooks/useRpcClient', () => ({
+  useRpcClient: () => ({
+    workflow: {
+      addNode: vi.fn(),
+      deleteNode: vi.fn(),
+      connectNodes: vi.fn(),
+      renameNode: vi.fn(),
+      recordDecision: vi.fn(),
+      executeAction: workflowExecuteAction,
+      executeNode: vi.fn(),
+      updateNodeNotes: vi.fn(),
+      updateNodeParameters: vi.fn(),
+      setNodeFile: vi.fn(),
+    },
+    session: {
+      restart: vi.fn(),
+    },
+    repl: {
+      write: replWrite,
+      clear: replClear,
+    },
+    host: {
+      openInEditor: hostOpenInEditor,
+    },
+    system: {
+      getInfo: vi.fn(),
+    },
+    reconnect,
   }),
 }));
 
@@ -199,8 +225,11 @@ const reviewActionPayload = (
 
 describe('IndexRoute phase 5 workflow UI', () => {
   beforeEach(() => {
-    dispatchCommand.mockReset();
-    dispatchHostCommand.mockReset();
+    workflowExecuteAction.mockReset();
+    hostOpenInEditor.mockReset();
+    reconnect.mockReset();
+    replWrite.mockReset();
+    replClear.mockReset();
     getDesktopState.mockReset();
     getDesktopState.mockResolvedValue(desktopSnapshot);
     useGraphStore.getState().clear();
@@ -240,10 +269,11 @@ describe('IndexRoute phase 5 workflow UI', () => {
   });
 
   it('shows an action preview, dispatches ExecuteAction on confirm, and surfaces updated guidance', async () => {
-    dispatchCommand.mockResolvedValue({
-      type: 'CommandResult',
-      id: 'cmd_1',
+    workflowExecuteAction.mockResolvedValue({
       success: true,
+      result: {
+        _tag: 'AckResult',
+      },
     });
     useGraphStore.getState().applySnapshot(baseSnapshot);
 
@@ -262,8 +292,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm and run' }));
 
     await waitFor(() =>
-      expect(dispatchCommand).toHaveBeenCalledWith({
-        type: 'ExecuteAction',
+      expect(workflowExecuteAction).toHaveBeenCalledWith({
         actionId: 'act_review',
         payload: reviewActionPayload,
       }),
@@ -289,7 +318,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
     fireEvent.click(runButton);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(dispatchCommand).not.toHaveBeenCalled();
+    expect(workflowExecuteAction).not.toHaveBeenCalled();
     expect(screen.queryByText('Action Preview')).not.toBeInTheDocument();
   });
 

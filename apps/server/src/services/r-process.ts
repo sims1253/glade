@@ -1,18 +1,18 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Ref from 'effect/Ref';
 import * as Runtime from 'effect/Runtime';
 
-import type { ReplOutput, SessionStatus } from '@glade/contracts';
+import type { ReplOutput, SessionStatus, WsPush } from '@glade/contracts';
+import { createLineBuffer } from '@glade/shared/process';
 
 import { ServerConfig } from '../config';
 import { RProcessInputError } from '../errors';
-import { FrontendBroadcast } from './frontend-broadcast';
 import { GraphStateCache } from './graph-state-cache';
+import { ProcessSupervisor, type SupervisedProcessHandle } from './process-supervisor';
 import { SessionStatusStore } from './session-status';
+import { WebSocketHub } from './websocket-hub';
 
 export const R_READY_SIGNAL = '__GLADE_READY__';
 const PROTOCOL_MESSAGE_TYPES = new Set(['GraphSnapshot', 'ProtocolEvent', 'CommandResult']);
@@ -46,7 +46,7 @@ export function classifyReplLine(line: string) {
 }
 
 function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
-  return reason ? { type: 'SessionStatus', state, reason } : { type: 'SessionStatus', state };
+  return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
 }
 
 function makeRExpression(projectPath: string, host: string, port: number, pollInterval: number) {
@@ -92,13 +92,6 @@ repeat {
 `.trim();
 }
 
-function flushBufferedLines(buffer: string) {
-  const normalized = buffer.replace(/\r\n/g, '\n');
-  const parts = normalized.split('\n');
-  const tail = normalized.endsWith('\n') ? '' : parts.pop() ?? '';
-  return { lines: parts, tail };
-}
-
 export class RProcessService extends Context.Tag('glade/RProcessService')<
   RProcessService,
   {
@@ -115,27 +108,28 @@ export const RProcessServiceLive = Layer.scoped(
   Effect.gen(function* () {
     const config = yield* ServerConfig;
     const statusStore = yield* SessionStatusStore;
-    const broadcast = yield* FrontendBroadcast;
+    const hub = yield* WebSocketHub;
     const cache = yield* GraphStateCache;
+    const supervisor = yield* ProcessSupervisor;
     const effectRuntime = yield* Effect.runtime<never>();
-    const childRef = yield* Ref.make<ChildProcess | null>(null);
+    const processRef = yield* Ref.make<SupervisedProcessHandle | null>(null);
     const stoppingRef = yield* Ref.make(false);
-    const stdoutBufferRef = yield* Ref.make('');
-    const stderrBufferRef = yield* Ref.make('');
     const readySeenRef = yield* Ref.make(false);
 
     const publishStatus = (state: SessionStatus['state'], reason?: string) =>
       Effect.gen(function* () {
         const next = statusMessage(state, reason);
         yield* statusStore.set(next);
-        yield* broadcast.broadcast(next);
+        const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
+        yield* hub.broadcast(push);
       });
 
     const publishReplLine = (line: string) =>
       Effect.gen(function* () {
         yield* cache.appendReplLine(line);
-        const message: ReplOutput = { type: 'ReplOutput', line };
-        yield* broadcast.broadcast(message);
+        const payload: ReplOutput = { _tag: 'ReplOutput', line };
+        const push: WsPush = { _tag: 'WsPush', channel: 'repl.output', payload };
+        yield* hub.broadcast(push);
       });
 
     const handleLine = (line: string) =>
@@ -158,24 +152,17 @@ export const RProcessServiceLive = Layer.scoped(
         }
       });
 
-    const handleStreamChunk = (stream: 'stdout' | 'stderr', chunk: string) => {
-      void Runtime.runPromise(
-        effectRuntime,
-        Effect.gen(function* () {
-          const ref = stream === 'stdout' ? stdoutBufferRef : stderrBufferRef;
-          const current = yield* Ref.get(ref);
-          const { lines, tail } = flushBufferedLines(current + chunk);
-          yield* Ref.set(ref, tail);
-          for (const line of lines) {
-            yield* handleLine(line);
-          }
-        }),
-      );
+    const onLine = (line: string) => {
+      void Runtime.runPromise(effectRuntime, handleLine(line)).catch((error) => {
+        console.error('[r-process] failed to handle REPL line', error);
+      });
     };
+    const stdoutLines = createLineBuffer(onLine);
+    const stderrLines = createLineBuffer(onLine);
 
     const sendInput = (data: string) =>
       Effect.gen(function* () {
-        const child = yield* Ref.get(childRef);
+        const child = (yield* Ref.get(processRef))?.child ?? null;
         if (!child?.stdin || child.stdin.destroyed) {
           return yield* new RProcessInputError({
             message: 'R process stdin is not available.',
@@ -199,27 +186,13 @@ export const RProcessServiceLive = Layer.scoped(
 
     const stop = Effect.gen(function* () {
       yield* Ref.set(stoppingRef, true);
-      const current = yield* Ref.get(childRef);
+      const current = yield* Ref.get(processRef);
       if (!current) {
         return;
       }
 
-      yield* Effect.tryPromise(
-        () =>
-          new Promise<void>((resolve) => {
-            current.once('exit', () => resolve());
-            current.kill('SIGTERM');
-            setTimeout(() => {
-              if (current.exitCode === null && current.signalCode === null) {
-                current.kill('SIGKILL');
-              }
-              resolve();
-            }, 2_000).unref();
-          }),
-      ).pipe(Effect.orDie);
-      yield* Ref.set(childRef, null);
-      yield* Ref.set(stdoutBufferRef, '');
-      yield* Ref.set(stderrBufferRef, '');
+      yield* current.terminate;
+      yield* Ref.set(processRef, null);
       yield* Ref.set(readySeenRef, false);
     });
 
@@ -229,7 +202,7 @@ export const RProcessServiceLive = Layer.scoped(
         return;
       }
 
-      const current = yield* Ref.get(childRef);
+      const current = yield* Ref.get(processRef);
       if (current) {
         return;
       }
@@ -238,24 +211,32 @@ export const RProcessServiceLive = Layer.scoped(
       yield* Ref.set(readySeenRef, false);
       yield* publishStatus('connecting');
 
-      const child = yield* Effect.sync(() =>
-        spawn(config.rExecutable, ['-e', makeRExpression(config.projectPath!, config.rHost, config.rPort, config.rPollInterval)], {
+      const currentProcess = yield* supervisor.spawn({
+        command: config.rExecutable,
+        args: ['-e', makeRExpression(config.projectPath!, config.rHost, config.rPort, config.rPollInterval)],
           cwd: config.rootDir,
           env: process.env,
           stdio: ['pipe', 'pipe', 'pipe'],
-        }),
-      );
+      });
+      const child = currentProcess.child;
+      if (!child.stdin || !child.stdout || !child.stderr) {
+        yield* currentProcess.terminate;
+        yield* Ref.set(processRef, null);
+        return yield* publishStatus('error', 'r_process_stdio_unavailable');
+      }
 
       child.stdin.setDefaultEncoding('utf8');
       child.stdout.setEncoding('utf8');
       child.stderr.setEncoding('utf8');
-      child.stdout.on('data', (chunk) => handleStreamChunk('stdout', String(chunk)));
-      child.stderr.on('data', (chunk) => handleStreamChunk('stderr', String(chunk)));
+      child.stdout.on('data', (chunk) => stdoutLines.push(String(chunk)));
+      child.stderr.on('data', (chunk) => stderrLines.push(String(chunk)));
+      child.stdout.on('end', () => stdoutLines.flush());
+      child.stderr.on('end', () => stderrLines.flush());
       child.once('error', (error) => {
         void Runtime.runPromise(
           effectRuntime,
           Effect.gen(function* () {
-            yield* Ref.set(childRef, null);
+            yield* Ref.set(processRef, null);
             yield* publishStatus('error', `r_process_error:${error.message}`);
           }),
         );
@@ -265,7 +246,7 @@ export const RProcessServiceLive = Layer.scoped(
           effectRuntime,
           Effect.gen(function* () {
             const stopping = yield* Ref.get(stoppingRef);
-            yield* Ref.set(childRef, null);
+            yield* Ref.set(processRef, null);
             if (!stopping) {
               yield* publishStatus('error', `r_process_exit:${code ?? 'null'}:${signal ?? 'null'}`);
             }
@@ -273,7 +254,7 @@ export const RProcessServiceLive = Layer.scoped(
         );
       });
 
-      yield* Ref.set(childRef, child);
+      yield* Ref.set(processRef, currentProcess);
     });
 
     const restart = Effect.gen(function* () {
@@ -282,7 +263,7 @@ export const RProcessServiceLive = Layer.scoped(
       yield* start;
     });
 
-    const isRunning = Ref.get(childRef).pipe(Effect.map((child) => child !== null));
+    const isRunning = Ref.get(processRef).pipe(Effect.map((child) => child !== null));
 
     yield* Effect.addFinalizer(() => stop);
 

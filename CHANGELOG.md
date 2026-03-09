@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.2 - 2026-03-09
+
+- Replaced the remaining legacy command bridge with typed websocket RPC/state plumbing across the server and web app, including safer JSON payload handling, session/bootstrap synchronization, and dedicated client-side stores for connection, REPL, toast, and UI preferences.
+- Added shared supervised process-tree utilities for desktop and server runtimes, fixing buffered child-process tracking, timeout/termination behavior, reusable `@glade/shared/process` exports, and non-local tool execution/shutdown robustness.
+- Hardened follow-up runtime behavior after review: REPL history is capped client-side, disconnect/session races and duplicate toast IDs are guarded, storage and shutdown failures are handled safely, and focused tests/contracts were tightened around process, action, and websocket flows.
+
 ## 0.11.1 - 2026-03-09
 
 - Enforced Effect diagnostics across the active Effect packages: `apps/server`, `packages/contracts`, and `apps/web` now share a common `tsconfig.effect.json`, server-side Effect diagnostic debt was cleaned up, and CI now runs an explicit repo-level Effect diagnostics sweep.

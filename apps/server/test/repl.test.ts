@@ -37,9 +37,11 @@ it('rejects interactive repl input in hosted mode', async () => {
   });
 
   socket.send(JSON.stringify({
+    _tag: 'WebSocketRequest',
     id: 'cmd.repl.hosted',
-    command: {
-      type: 'ReplInput',
+    method: 'repl.write',
+    body: {
+      _tag: 'repl.write',
       data: '1 + 1\n',
     },
   }));
@@ -48,7 +50,7 @@ it('rejects interactive repl input in hosted mode', async () => {
     const timeout = setTimeout(() => reject(new Error('Timed out waiting for hosted REPL rejection.')), 15_000);
     socket.on('message', (payload) => {
       const message = JSON.parse(String(payload)) as Record<string, unknown>;
-      if (message.type === 'CommandResult' && message.id === 'cmd.repl.hosted') {
+      if (message._tag === 'WebSocketError' && message.id === 'cmd.repl.hosted') {
         clearTimeout(timeout);
         resolve(message);
       }
@@ -60,10 +62,10 @@ it('rejects interactive repl input in hosted mode', async () => {
   });
 
   expect(result).toMatchObject({
-    type: 'CommandResult',
+    _tag: 'WebSocketError',
     id: 'cmd.repl.hosted',
-    success: false,
     error: {
+      _tag: 'RpcError',
       code: 'interactive_repl_unavailable',
       message: 'Interactive REPL is unavailable in hosted mode.',
     },

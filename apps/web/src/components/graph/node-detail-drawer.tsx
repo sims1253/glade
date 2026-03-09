@@ -2,16 +2,21 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ExternalLink, FolderOpen, GitBranch, Link2, NotebookPen, PanelRightClose, SlidersHorizontal, SquareDashedMousePointer, Unlink2 } from 'lucide-react';
 
-import type { CommandResult, HostCommand, WorkflowCommand } from '@glade/contracts';
-
 import { getDownstreamNodeIds, getUpstreamNodeIds } from '../../lib/graph-interactions';
+import { toJsonObject } from '../../lib/json';
+import type { LegacyHostDispatch, LegacyWorkflowDispatch } from '../../lib/legacy-commands';
 import type {
   WorkflowGraph,
   WorkflowNodeData,
   WorkflowNodeDecisionRecord,
   WorkflowNodeSummaryRecord,
 } from '../../lib/graph-types';
+import {
+  hostRpcFromLegacyDispatch,
+  workflowRpcFromLegacyDispatch,
+} from '../../lib/legacy-commands';
 import { formatKindLabel } from '../../lib/graph-types';
+import type { HostRpc, WorkflowRpc } from '../../lib/rpc';
 import { hasNativeFilePicker, readDesktopRuntime } from '../../lib/runtime';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -212,6 +217,8 @@ function Section({
 export function NodeDetailDrawer({
   graph,
   node,
+  workflow,
+  host,
   dispatchCommand,
   dispatchHostCommand,
   onClose,
@@ -219,11 +226,15 @@ export function NodeDetailDrawer({
 }: {
   readonly graph: WorkflowGraph;
   readonly node: WorkflowNodeData;
-  readonly dispatchCommand: (command: WorkflowCommand) => Promise<CommandResult>;
-  readonly dispatchHostCommand: (command: HostCommand) => Promise<CommandResult>;
+  readonly workflow?: WorkflowRpc;
+  readonly host?: HostRpc;
+  readonly dispatchCommand?: LegacyWorkflowDispatch;
+  readonly dispatchHostCommand?: LegacyHostDispatch;
   readonly onClose: () => void;
   readonly onSelectNode: (nodeId: string) => void;
 }) {
+  const workflowClient = workflow ?? (dispatchCommand ? workflowRpcFromLegacyDispatch(dispatchCommand) : null);
+  const hostClient = host ?? (dispatchHostCommand ? hostRpcFromLegacyDispatch(dispatchHostCommand) : null);
   const summaryParentRef = useRef<HTMLDivElement | null>(null);
   const [renameDraft, setRenameDraft] = useState(node.label);
   const [renamePending, setRenamePending] = useState(false);
@@ -326,14 +337,13 @@ export function NodeDetailDrawer({
     }
 
     setRenamePending(true);
-    const result = await dispatchCommand({
-      type: 'RenameNode',
+    const result = await workflowClient?.renameNode({
       nodeId: node.id,
       label,
     });
     setRenamePending(false);
 
-    if (!result.success) {
+    if (!result?.success) {
       setRenameDraft(node.label);
     }
   }
@@ -344,14 +354,13 @@ export function NodeDetailDrawer({
     }
 
     setNotesPending(true);
-    const result = await dispatchCommand({
-      type: 'UpdateNodeNotes',
+    const result = await workflowClient?.updateNodeNotes({
       nodeId: node.id,
       notes: notesDraft,
     });
     setNotesPending(false);
 
-    if (!result.success) {
+    if (!result?.success) {
       setNotesDraft(node.notes);
     }
   }
@@ -359,13 +368,17 @@ export function NodeDetailDrawer({
   async function submitParameters(params: Record<string, unknown>) {
     setParamsPending(true);
     try {
-      const result = await dispatchCommand({
-        type: 'UpdateNodeParameters',
+      const nextParams = toJsonObject(params);
+      if (!nextParams) {
+        throw new Error('Could not serialize node parameters.');
+      }
+
+      const result = await workflowClient?.updateNodeParameters({
         nodeId: node.id,
-        params,
+        params: nextParams,
       });
-      if (!result.success) {
-        throw new Error(result.error?.message ?? 'Could not update node parameters.');
+      if (!result?.success) {
+        throw new Error(result?.error?.message ?? 'Could not update node parameters.');
       }
     } finally {
       setParamsPending(false);
@@ -375,15 +388,14 @@ export function NodeDetailDrawer({
   async function setLinkedFile(path: string | null) {
     setFilePending(true);
     setFileError(null);
-    const result = await dispatchCommand({
-      type: 'SetNodeFile',
+    const result = await workflowClient?.setNodeFile({
       nodeId: node.id,
       path,
     });
     setFilePending(false);
 
-    if (!result.success) {
-      setFileError(result.error?.message ?? 'Could not update the linked file.');
+    if (!result?.success) {
+      setFileError(result?.error?.message ?? 'Could not update the linked file.');
       setManualPathDraft(node.linkedFilePath ?? '');
     }
   }
@@ -395,14 +407,13 @@ export function NodeDetailDrawer({
 
     setFilePending(true);
     setFileError(null);
-    const result = await dispatchHostCommand({
-      type: 'OpenFileInEditor',
+    const result = await hostClient?.openInEditor({
       path: node.linkedFilePath,
     });
     setFilePending(false);
 
-    if (!result.success) {
-      setFileError(result.error?.message ?? 'Could not open the linked file in an editor.');
+    if (!result?.success) {
+      setFileError(result?.error?.message ?? 'Could not open the linked file in an editor.');
     }
   }
 
@@ -425,19 +436,18 @@ export function NodeDetailDrawer({
     setExecutePending(true);
     setExecuteError(null);
     try {
-      const result = await dispatchCommand({
-        type: 'ExecuteNode',
+      const result = await workflowClient?.executeNode({
         nodeId: node.id,
         ...(confirmNonLocalExecution ? { confirmNonLocalExecution: true } : {}),
       });
 
-      if (!result.success) {
-        if (result.error?.code === 'tool_execution_confirmation_required') {
+      if (!result?.success) {
+        if (result?.error?.code === 'tool_execution_confirmation_required') {
           setAwaitingExecutionTrust(true);
           return;
         }
 
-        throw new Error(result.error?.message ?? 'Could not execute node.');
+        throw new Error(result?.error?.message ?? 'Could not execute node.');
       }
 
       setAwaitingExecutionTrust(false);

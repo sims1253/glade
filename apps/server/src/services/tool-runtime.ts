@@ -1,14 +1,12 @@
-import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import type { NodeInputSerializer, NodeOutputParser, NodeRuntime } from '@glade/contracts';
+import type { JsonObject, JsonValue, NodeInputSerializer, NodeOutputParser, NodeRuntime } from '@glade/contracts';
+import { ProcessTimeoutError, runBufferedProcess, type BufferedProcessResult } from '@glade/shared/process';
 
 import { CommandDispatchError } from '../errors';
-
-type JsonObject = Record<string, unknown>;
 
 export interface ToolExecutionRequest {
   readonly nodeId: string;
@@ -30,11 +28,21 @@ export interface ToolExecutionResult {
   readonly args: ReadonlyArray<string>;
   readonly stdout: string;
   readonly stderr: string;
-  readonly output: unknown;
+  readonly output: JsonValue;
   readonly artifactPath: string | null;
   readonly artifactHash: string | null;
   readonly metrics: JsonObject;
   readonly executedAt: string;
+}
+
+export interface ToolRuntimeDependencies {
+  readonly runProcess?: (options: {
+    readonly command: string;
+    readonly args: ReadonlyArray<string>;
+    readonly env: NodeJS.ProcessEnv;
+    readonly stdin: string | null;
+    readonly timeoutMs: number;
+  }) => Promise<BufferedProcessResult>;
 }
 
 interface PreparedInvocation {
@@ -213,7 +221,7 @@ export async function parseToolOutput(
   parser: NodeOutputParser,
   stdout: string,
   artifactPath: string | null,
-) {
+): Promise<JsonValue> {
   switch (parser) {
     case 'json_file':
       if (!artifactPath) {
@@ -222,7 +230,7 @@ export async function parseToolOutput(
           message: 'json_file output parsing requires an output artifact path.',
         });
       }
-      return JSON.parse(await readFile(artifactPath, 'utf8')) as unknown;
+      return JSON.parse(await readFile(artifactPath, 'utf8')) as JsonValue;
     case 'json_stdout': {
       const trimmed = stdout.trim();
       if (!trimmed) {
@@ -231,14 +239,17 @@ export async function parseToolOutput(
           message: 'The tool did not emit JSON on stdout.',
         });
       }
-      return JSON.parse(trimmed) as unknown;
+      return JSON.parse(trimmed) as JsonValue;
     }
     case 'lines_stdout':
       return stdout.split(/\r?\n/u).filter((line) => line.length > 0);
   }
 }
 
-export async function executeToolNode(request: ToolExecutionRequest): Promise<ToolExecutionResult> {
+export async function executeToolNode(
+  request: ToolExecutionRequest,
+  dependencies: ToolRuntimeDependencies = {},
+): Promise<ToolExecutionResult> {
   if (!request.command.trim()) {
     throw new CommandDispatchError({
       code: 'missing_tool_command',
@@ -254,83 +265,49 @@ export async function executeToolNode(request: ToolExecutionRequest): Promise<To
   );
 
   try {
-    const outcome = await new Promise<{
-      readonly stdout: string;
-      readonly stderr: string;
-      readonly exitCode: number;
-    }>((resolve, reject) => {
-      const child = spawn(prepared.executable, prepared.args, {
-        env: prepared.env,
+    const runProcess = dependencies.runProcess ?? ((options) =>
+      runBufferedProcess({
+        command: options.command,
+        args: options.args,
+        env: options.env,
+        stdin: options.stdin,
         stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      let stdout = '';
-      let stderr = '';
-      let finished = false;
-      const timeout = setTimeout(() => {
-        if (finished) {
-          return;
-        }
-        finished = true;
-        child.kill('SIGKILL');
-        reject(new CommandDispatchError({
+        timeoutMs: options.timeoutMs,
+      }));
+    const outcome = await runProcess({
+      command: prepared.executable,
+      args: prepared.args,
+      env: prepared.env,
+      stdin: prepared.stdin,
+      timeoutMs: request.timeoutMs,
+    }).catch((error) => {
+      if (error instanceof ProcessTimeoutError) {
+        throw new CommandDispatchError({
           code: 'tool_execution_timeout',
           message: `Tool execution timed out after ${request.timeoutMs}ms.`,
-        }));
-      }, request.timeoutMs);
-
-      child.once('error', (error) => {
-        clearTimeout(timeout);
-        if (finished) {
-          return;
-        }
-        finished = true;
-        const nodeError = (error as NodeJS.ErrnoException).code === 'ENOENT'
-          ? toolResolutionError(request.runtime, request.command)
-          : new CommandDispatchError({
-              code: 'tool_execution_failed',
-              message: error instanceof Error ? error.message : String(error),
-              cause: error,
-            });
-        reject(nodeError);
-      });
-
-      child.stdout.setEncoding('utf8');
-      child.stderr.setEncoding('utf8');
-      child.stdout.on('data', (chunk) => {
-        stdout += String(chunk);
-      });
-      child.stderr.on('data', (chunk) => {
-        stderr += String(chunk);
-      });
-      child.once('close', (exitCode) => {
-        clearTimeout(timeout);
-        if (finished) {
-          return;
-        }
-        finished = true;
-        if (exitCode && exitCode !== 0) {
-          reject(new CommandDispatchError({
-            code: 'tool_execution_failed',
-            message: stderr.trim().length > 0
-              ? `Command exited with code ${exitCode}: ${stderr.trim()}`
-              : `Command exited with code ${exitCode}.`,
-          }));
-          return;
-        }
-        resolve({
-          stdout,
-          stderr,
-          exitCode: exitCode ?? 0,
+          cause: error,
         });
-      });
-
-      if (prepared.stdin) {
-        child.stdin.end(prepared.stdin, 'utf8');
-      } else {
-        child.stdin.end();
       }
+      if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+        throw toolResolutionError(request.runtime, request.command);
+      }
+      if (error instanceof CommandDispatchError) {
+        throw error;
+      }
+      throw new CommandDispatchError({
+        code: 'tool_execution_failed',
+        message: error instanceof Error ? error.message : String(error),
+        cause: error,
+      });
     });
+    if (outcome.exitCode !== 0) {
+      throw new CommandDispatchError({
+        code: 'tool_execution_failed',
+        message: outcome.stderr.trim().length > 0
+          ? `Command exited with code ${outcome.exitCode}: ${outcome.stderr.trim()}`
+          : `Command exited with code ${outcome.exitCode}.`,
+      });
+    }
 
     const output = await parseToolOutput(request.outputParser, outcome.stdout, prepared.artifactPath);
     const artifactHash = prepared.artifactPath ? await hashFile(prepared.artifactPath) : null;

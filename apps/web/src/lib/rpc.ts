@@ -1,0 +1,170 @@
+import type {
+  AckResult,
+  HostOpenInEditorInput,
+  RpcError,
+  SessionRestartInput,
+  SystemGetInfoInput,
+  SystemInfoResult,
+  WebSocketRequest,
+  WebSocketResponse,
+  WorkflowAddNodeInput,
+  WorkflowConnectNodesInput,
+  WorkflowDeleteNodeInput,
+  WorkflowExecuteActionInput,
+  WorkflowExecuteNodeInput,
+  WorkflowRecordDecisionInput,
+  WorkflowRenameNodeInput,
+  WorkflowSetNodeFileInput,
+  WorkflowUpdateNodeNotesInput,
+  WorkflowUpdateNodeParametersInput,
+} from '@glade/contracts';
+
+type WithoutTag<T extends { readonly _tag: string }> = Omit<T, '_tag'>;
+
+export type RpcCallResult<TResult> =
+  | { readonly success: true; readonly result: TResult }
+  | { readonly success: false; readonly error: RpcError };
+
+export interface WorkflowRpc {
+  readonly addNode: (input: WithoutTag<WorkflowAddNodeInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly deleteNode: (input: WithoutTag<WorkflowDeleteNodeInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly connectNodes: (input: WithoutTag<WorkflowConnectNodesInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly renameNode: (input: WithoutTag<WorkflowRenameNodeInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly recordDecision: (input: WithoutTag<WorkflowRecordDecisionInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly executeAction: (input: WithoutTag<WorkflowExecuteActionInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly executeNode: (input: WithoutTag<WorkflowExecuteNodeInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly updateNodeNotes: (input: WithoutTag<WorkflowUpdateNodeNotesInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly updateNodeParameters: (input: WithoutTag<WorkflowUpdateNodeParametersInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly setNodeFile: (input: WithoutTag<WorkflowSetNodeFileInput>) => Promise<RpcCallResult<AckResult>>;
+}
+
+export interface SessionRpc {
+  readonly restart: (input?: WithoutTag<SessionRestartInput>) => Promise<RpcCallResult<AckResult>>;
+}
+
+export interface ReplRpc {
+  readonly write: (data: string) => Promise<RpcCallResult<AckResult>>;
+  readonly clear: () => Promise<RpcCallResult<AckResult>>;
+}
+
+export interface HostRpc {
+  readonly openInEditor: (input: WithoutTag<HostOpenInEditorInput>) => Promise<RpcCallResult<AckResult>>;
+}
+
+export interface SystemRpc {
+  readonly getInfo: (input?: WithoutTag<SystemGetInfoInput>) => Promise<RpcCallResult<SystemInfoResult>>;
+}
+
+export interface RpcClient {
+  readonly workflow: WorkflowRpc;
+  readonly session: SessionRpc;
+  readonly repl: ReplRpc;
+  readonly host: HostRpc;
+  readonly system: SystemRpc;
+  readonly reconnect: () => void;
+}
+
+function assertUnreachable(value: never): never {
+  throw new Error(`Unhandled RPC method: ${String(value)}`);
+}
+
+export function makeRequest<TMethod extends RpcMethod>(
+  method: TMethod,
+  body: RpcRequestBody<TMethod>,
+  id = crypto.randomUUID(),
+): WebSocketRequest {
+  return {
+    _tag: 'WebSocketRequest',
+    id,
+    method,
+    body,
+  } as WebSocketRequest;
+}
+
+export function describeRpcCall(method: WebSocketRequest['method'], body: WebSocketRequest['body']) {
+  switch (method) {
+    case 'workflow.addNode': {
+      const request = body as WorkflowAddNodeInput;
+      return `Added ${request.label?.trim() || request.kind}`;
+    }
+    case 'workflow.deleteNode':
+      return 'Deleted node';
+    case 'workflow.connectNodes':
+      return 'Connected nodes';
+    case 'workflow.renameNode':
+      return `Renamed node to ${(body as WorkflowRenameNodeInput).label}`;
+    case 'workflow.recordDecision':
+      return 'Recorded workflow decision';
+    case 'workflow.executeAction':
+      return 'Executed workflow action';
+    case 'workflow.executeNode':
+      return 'Executed node';
+    case 'workflow.updateNodeNotes':
+      return 'Saved node notes';
+    case 'workflow.updateNodeParameters':
+      return 'Saved node parameters';
+    case 'workflow.setNodeFile':
+      return (body as WorkflowSetNodeFileInput).path ? 'Linked node file' : 'Removed node file link';
+    case 'session.restart':
+      return 'Restarted session';
+    case 'repl.write':
+      return 'Sent REPL input';
+    case 'repl.clear':
+      return 'Cleared REPL terminal';
+    case 'host.openInEditor':
+      return 'Opened linked file in editor';
+    case 'system.getInfo':
+      return 'Loaded system info';
+    default:
+      return assertUnreachable(method);
+  }
+}
+
+export function shouldSuppressSuccessToast(method: WebSocketRequest['method']) {
+  return method === 'repl.write' || method === 'repl.clear' || method === 'system.getInfo';
+}
+
+export function failureTitle(method: WebSocketRequest['method']) {
+  switch (method) {
+    case 'workflow.addNode':
+      return 'Could not add node';
+    case 'workflow.deleteNode':
+      return 'Could not delete node';
+    case 'workflow.connectNodes':
+      return 'Could not connect nodes';
+    case 'workflow.renameNode':
+      return 'Could not rename node';
+    case 'workflow.recordDecision':
+      return 'Could not record workflow decision';
+    case 'workflow.executeAction':
+      return 'Could not execute workflow action';
+    case 'workflow.executeNode':
+      return 'Could not execute node';
+    case 'workflow.updateNodeNotes':
+      return 'Could not save node notes';
+    case 'workflow.updateNodeParameters':
+      return 'Could not save node parameters';
+    case 'workflow.setNodeFile':
+      return 'Could not update linked file';
+    case 'session.restart':
+      return 'Could not restart session';
+    case 'repl.write':
+      return 'Could not send REPL input';
+    case 'repl.clear':
+      return 'Could not clear REPL terminal';
+    case 'host.openInEditor':
+      return 'Could not open file in editor';
+    case 'system.getInfo':
+      return 'Could not load system info';
+    default:
+      return assertUnreachable(method);
+  }
+}
+
+export type RpcMethod = WebSocketRequest['method'];
+export type RpcRequestBody<TMethod extends RpcMethod> = Extract<WebSocketRequest, { method: TMethod }>['body'];
+export type RpcSuccessResponse<TMethod extends RpcMethod> = Extract<
+  Extract<WebSocketResponse, { method: TMethod }>,
+  { _tag: 'WebSocketSuccess' }
+>;
+export type RpcResultValue<TMethod extends RpcMethod> = RpcSuccessResponse<TMethod>['result'];

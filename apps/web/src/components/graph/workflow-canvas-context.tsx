@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
-import type { CommandResult, WorkflowCommand } from '@glade/contracts';
+import type { LegacyWorkflowDispatch } from '../../lib/legacy-commands';
+import type { WorkflowRpc } from '../../lib/rpc';
 
 export interface ConnectionPreviewState {
   readonly sourceNodeId: string;
@@ -17,7 +18,8 @@ interface WorkflowCanvasContextValue {
   readonly cancelRename: () => void;
   readonly commitRename: () => void;
   readonly setRenameDraft: (value: string) => void;
-  readonly dispatchCommand: (command: WorkflowCommand) => Promise<CommandResult>;
+  readonly workflow?: WorkflowRpc;
+  readonly dispatchCommand?: LegacyWorkflowDispatch;
 }
 
 const WorkflowCanvasContext = createContext<WorkflowCanvasContextValue | null>(null);

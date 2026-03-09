@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { AlertTriangle, CircleCheckBig } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
-import { useAppStore } from '../../store/app';
+import { useToastStore } from '../../store/toast';
 
 const toneClassName = {
   success: 'border-emerald-500/40 bg-emerald-950/70 text-emerald-50',
@@ -15,8 +15,8 @@ const toneIcon = {
 } as const;
 
 export function ToastViewport() {
-  const notifications = useAppStore((state) => state.notifications);
-  const dismissNotification = useAppStore((state) => state.dismissNotification);
+  const notifications = useToastStore((state) => state.notifications);
+  const dismissNotification = useToastStore((state) => state.dismissNotification);
 
   useEffect(() => {
     const timeouts = notifications.map((notification) =>

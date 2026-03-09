@@ -19,12 +19,14 @@ import {
   useTransientGuidanceReset,
 } from '../components/workflow/protocol-panels';
 import type { WorkflowActionRecord } from '../lib/graph-types';
+import { toJsonObject } from '../lib/json';
 import { readDesktopRuntime } from '../lib/runtime';
 import { Button } from '../components/ui/button';
 import { ToastViewport } from '../components/ui/toast-viewport';
-import { useServerConnection } from '../hooks/useServerConnection';
-import { useAppStore } from '../store/app';
+import { useRpcClient } from '../hooks/useRpcClient';
+import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
+import { useToastStore } from '../store/toast';
 
 export const Route = createFileRoute('/')({
   component: IndexRoute,
@@ -64,13 +66,13 @@ function trimCommand(command: string | null | undefined) {
 }
 
 export function IndexRoute() {
-  const { dispatchCommand, dispatchHostCommand, reconnect } = useServerConnection();
+  const rpc = useRpcClient();
   const detachedTerminalView = new URLSearchParams(window.location.search).get('terminal') === 'detached';
-  const serverConnected = useAppStore((state) => state.serverConnected);
-  const serverVersion = useAppStore((state) => state.serverVersion);
-  const sessionState = useAppStore((state) => state.sessionState);
-  const sessionReason = useAppStore((state) => state.sessionReason);
-  const pushNotification = useAppStore((state) => state.pushNotification);
+  const serverConnected = useConnectionStore((state) => state.serverConnected);
+  const serverVersion = useConnectionStore((state) => state.serverVersion);
+  const sessionState = useConnectionStore((state) => state.sessionState);
+  const sessionReason = useConnectionStore((state) => state.sessionReason);
+  const pushNotification = useToastStore((state) => state.pushNotification);
   const graph = useGraphStore((state) => state.graph);
   const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
   const setHighlightedNodeIds = useGraphStore((state) => state.setHighlightedNodeIds);
@@ -148,10 +150,9 @@ export function IndexRoute() {
     setRunningActionId(previewAction.id);
     const snapshotAt = graph.emittedAt;
     const previousActionSignature = actionSignature;
-    const result = await dispatchCommand({
-      type: 'ExecuteAction',
+    const result = await rpc.workflow.executeAction({
       actionId: previewAction.id,
-      payload: previewAction.payload ?? undefined,
+      payload: toJsonObject(previewAction.payload),
     });
     setRunningActionId(null);
     setPreviewAction(null);
@@ -163,7 +164,7 @@ export function IndexRoute() {
         actionSignature: previousActionSignature,
       });
     }
-  }, [actionSignature, dispatchCommand, graph, previewAction]);
+  }, [actionSignature, graph, previewAction, rpc.workflow]);
 
   useEffect(() => {
     if (detachedTerminalView) {
@@ -196,7 +197,7 @@ export function IndexRoute() {
       const snapshot = await action();
       setDesktopState(snapshot);
       setSettingsDraft(snapshot.settings);
-      await reconnect();
+      rpc.reconnect();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[desktop] action failed', error);
@@ -213,7 +214,7 @@ export function IndexRoute() {
   if (detachedTerminalView) {
     return (
       <section className="min-h-screen bg-[#050b14]">
-        <ReplTerminalPanel detachedView dispatchCommand={dispatchCommand} />
+        <ReplTerminalPanel detachedView repl={rpc.repl} />
       </section>
     );
   }
@@ -486,7 +487,7 @@ export function IndexRoute() {
               Settings
             </Button>
           ) : null}
-          <Button onClick={reconnect}>
+          <Button onClick={rpc.reconnect}>
             <RefreshCw className="size-4" />
             Refresh connection
           </Button>
@@ -520,8 +521,8 @@ export function IndexRoute() {
         <div className="min-h-[40rem]">
           <WorkflowCanvas
             className="h-[calc(100vh-18rem)] min-h-[40rem]"
-            dispatchCommand={dispatchCommand}
-            dispatchHostCommand={dispatchHostCommand}
+            workflow={rpc.workflow}
+            host={rpc.host}
           />
         </div>
         <WorkflowActionsPanel
@@ -531,7 +532,7 @@ export function IndexRoute() {
         />
       </div>
 
-      <ReplTerminalPanel dispatchCommand={dispatchCommand} />
+      <ReplTerminalPanel repl={rpc.repl} />
     </section>
   );
 }

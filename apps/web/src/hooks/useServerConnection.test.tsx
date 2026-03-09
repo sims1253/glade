@@ -5,10 +5,13 @@ import type { ReactNode } from 'react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { GraphSnapshot } from '@glade/contracts';
+import type { GraphSnapshot, ServerBootstrap } from '@glade/contracts';
 
 import { useAppStore } from '../store/app';
+import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
+import { useReplStore } from '../store/repl';
+import { useToastStore } from '../store/toast';
 import { useServerConnection } from './useServerConnection';
 
 const snapshot: GraphSnapshot = {
@@ -131,12 +134,20 @@ class MockWebSocket {
 beforeEach(() => {
   MockWebSocket.instances = [];
   useAppStore.setState({ notifications: [] });
+  useConnectionStore.setState({
+    serverConnected: false,
+    serverVersion: null,
+    sessionState: 'connecting',
+    sessionReason: null,
+    runtime: null,
+    hostedMode: null,
+    projectPath: null,
+    bootstrapped: false,
+  });
   useGraphStore.getState().clear();
+  useReplStore.setState({ replLines: [], replDetached: false });
+  useToastStore.setState({ notifications: [] });
   vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket);
-  vi.stubGlobal('fetch', vi.fn(async () => ({
-    ok: true,
-    json: async () => ({ status: 'ok', version: '0.4.0' }),
-  })));
 });
 
 afterEach(() => {
@@ -144,6 +155,20 @@ afterEach(() => {
 });
 
 describe('useServerConnection', () => {
+  const bootstrap: ServerBootstrap = {
+    _tag: 'ServerBootstrap',
+    version: '0.4.0',
+    runtime: 'server',
+    hostedMode: true,
+    projectPath: null,
+    sessionStatus: {
+      _tag: 'SessionStatus',
+      state: 'ready',
+    },
+    snapshot,
+    replHistory: [],
+  };
+
   it('surfaces command failures as toasts and leaves the graph unchanged', async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -164,7 +189,11 @@ describe('useServerConnection', () => {
 
     act(() => {
       socket!.emitOpen();
-      socket!.emitMessage(snapshot);
+      socket!.emitMessage({
+        _tag: 'WsPush',
+        channel: 'server.bootstrap',
+        payload: bootstrap,
+      });
     });
 
     await waitFor(() => expect(useGraphStore.getState().graph?.nodes[0]?.label).toBe('Source'));
@@ -176,13 +205,23 @@ describe('useServerConnection', () => {
       label: 'Rejected rename',
     });
 
-    const envelope = JSON.parse(socket!.sent.at(-1) ?? '{}') as { id: string };
+    const envelope = JSON.parse(socket!.sent.at(-1) ?? '{}') as { id: string; method: string; body: { _tag: string } };
+    expect(envelope).toMatchObject({
+      _tag: 'WebSocketRequest',
+      method: 'workflow.renameNode',
+      body: {
+        _tag: 'workflow.renameNode',
+        nodeId: 'source',
+        label: 'Rejected rename',
+      },
+    });
     act(() => {
       socket!.emitMessage({
-        type: 'CommandResult',
+        _tag: 'WebSocketError',
         id: envelope.id,
-        success: false,
+        method: 'workflow.renameNode',
         error: {
+          _tag: 'RpcError',
           code: 'validation_failed',
           message: 'Rename rejected by bayesgrove.',
         },
@@ -217,7 +256,11 @@ describe('useServerConnection', () => {
 
     act(() => {
       socket!.emitOpen();
-      socket!.emitMessage(snapshot);
+      socket!.emitMessage({
+        _tag: 'WsPush',
+        channel: 'server.bootstrap',
+        payload: bootstrap,
+      });
     });
 
     await waitFor(() => expect(useGraphStore.getState().graph?.actions[0]?.id).toBe('act_review'));
@@ -228,41 +271,52 @@ describe('useServerConnection', () => {
       payload: actionPayload,
     });
 
-    const envelope = JSON.parse(socket!.sent.at(-1) ?? '{}') as { id: string; command: { type: string; actionId: string } };
-    expect(envelope.command).toMatchObject({
-      type: 'ExecuteAction',
-      actionId: 'act_review',
+    const envelope = JSON.parse(socket!.sent.at(-1) ?? '{}') as { id: string; method: string; body: { _tag: string; actionId: string } };
+    expect(envelope).toMatchObject({
+      _tag: 'WebSocketRequest',
+      method: 'workflow.executeAction',
+      body: {
+        _tag: 'workflow.executeAction',
+        actionId: 'act_review',
+      },
     });
 
     act(() => {
       socket!.emitMessage({
-        type: 'CommandResult',
+        _tag: 'WebSocketSuccess',
         id: envelope.id,
-        success: true,
+        method: 'workflow.executeAction',
+        result: {
+          _tag: 'AckResult',
+        },
       });
       socket!.emitMessage({
-        ...snapshot,
-        emitted_at: new Date(Date.now() + 1_000).toISOString(),
-        protocol: {
-          summary: {
-            n_scopes: 1,
-            n_obligations: 0,
-            n_actions: 1,
-            n_blocking: 0,
-            scopes: ['project'],
-          },
-          project: {
-            scope: 'project',
-            scope_label: 'Project',
-            obligations: {},
-            actions: {
-              act_compare: {
-                action_id: 'act_compare',
-                kind: 'create_node_from_template',
-                scope: 'project',
-                title: 'Compare fits',
-                basis: { node_ids: ['source'] },
-                payload: { template_ref: 'branch_comparison', inputs: ['source'], node_kind: 'compare' },
+        _tag: 'WsPush',
+        channel: 'workflow.snapshot',
+        payload: {
+          ...snapshot,
+          emitted_at: new Date(Date.now() + 1_000).toISOString(),
+          protocol: {
+            summary: {
+              n_scopes: 1,
+              n_obligations: 0,
+              n_actions: 1,
+              n_blocking: 0,
+              scopes: ['project'],
+            },
+            project: {
+              scope: 'project',
+              scope_label: 'Project',
+              obligations: {},
+              actions: {
+                act_compare: {
+                  action_id: 'act_compare',
+                  kind: 'create_node_from_template',
+                  scope: 'project',
+                  title: 'Compare fits',
+                  basis: { node_ids: ['source'] },
+                  payload: { template_ref: 'branch_comparison', inputs: ['source'], node_kind: 'compare' },
+                },
               },
             },
           },

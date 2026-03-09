@@ -17,7 +17,7 @@ export const SessionStatusStoreLive = Layer.effect(
   SessionStatusStore,
   Effect.gen(function* () {
     const ref = yield* Ref.make<SessionStatus>({
-      type: 'SessionStatus',
+      _tag: 'SessionStatus',
       state: 'connecting',
     });
 

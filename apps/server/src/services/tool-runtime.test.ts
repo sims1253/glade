@@ -134,4 +134,23 @@ describe('tool-runtime', () => {
       message: 'Binary `definitely-missing-glade-binary` not found on PATH.',
     } satisfies Partial<CommandDispatchError>);
   });
+
+  it('terminates tools that exceed the timeout budget', async () => {
+    const stateDir = await createStateDir();
+    await expect(executeToolNode({
+      nodeId: 'node_timeout',
+      runtime: 'binary',
+      command: 'node',
+      argsTemplate: ['-e', 'setTimeout(() => {}, 5_000);'],
+      inputSerializer: 'json_stdin',
+      outputParser: 'json_stdout',
+      allowShell: false,
+      inputs: {},
+      stateDir,
+      timeoutMs: 50,
+    })).rejects.toMatchObject({
+      code: 'tool_execution_timeout',
+      message: 'Tool execution timed out after 50ms.',
+    } satisfies Partial<CommandDispatchError>);
+  });
 });

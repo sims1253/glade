@@ -1,13 +1,14 @@
 import type {
   BayesgroveCommand,
   GraphSnapshot,
-  WorkflowCommand,
+  JsonObject,
+  JsonValue,
+  WorkflowExecuteActionInput,
 } from '@glade/contracts';
 
 import { CommandDispatchError } from '../errors';
 
-type JsonObject = Record<string, unknown>;
-type ExecuteActionCommand = Extract<WorkflowCommand, { type: 'ExecuteAction' }>;
+type ExecuteActionCommand = WorkflowExecuteActionInput;
 
 function asObject(value: unknown): JsonObject | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -23,8 +24,43 @@ function asStringArray(value: unknown): Array<string> {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
-function asUnknownArray(value: unknown): Array<unknown> | undefined {
-  return Array.isArray(value) ? value : undefined;
+function isJsonValue(value: unknown): value is JsonValue {
+  if (value === null) {
+    return true;
+  }
+
+  switch (typeof value) {
+    case 'string':
+    case 'boolean':
+      return true;
+    case 'number':
+      return Number.isFinite(value);
+    case 'object':
+      if (Array.isArray(value)) {
+        return value.every(isJsonValue);
+      }
+
+      return Object.values(value).every(isJsonValue);
+    default:
+      return false;
+  }
+}
+
+function asJsonValueArray(value: unknown): ReadonlyArray<JsonValue> | undefined {
+  return Array.isArray(value) && value.every(isJsonValue) ? value : undefined;
+}
+
+function pickJsonFields(source: JsonObject, keys: ReadonlyArray<string>): JsonObject {
+  const result: Record<string, JsonValue> = {};
+
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+
+  return result;
 }
 
 function requireString(value: unknown, code: string, message: string) {
@@ -94,13 +130,15 @@ function buildActionMetadata(actionId: string, templateRef: string | null, paylo
     ...baseMetadata,
     action_id: actionId,
     ...(templateRef ? { template_ref: templateRef } : {}),
-    ...(payload.summary_ids ? { summary_ids: payload.summary_ids } : {}),
-    ...(payload.node_ids ? { node_ids: payload.node_ids } : {}),
-    ...(payload.fit_node_ids ? { fit_node_ids: payload.fit_node_ids } : {}),
-    ...(payload.branch_ids ? { branch_ids: payload.branch_ids } : {}),
-    ...(payload.candidate_signature ? { candidate_signature: payload.candidate_signature } : {}),
-    ...(payload.comparison_signature ? { comparison_signature: payload.comparison_signature } : {}),
-    ...(payload.comparison_context ? { comparison_context: payload.comparison_context } : {}),
+    ...pickJsonFields(payload, [
+      'summary_ids',
+      'node_ids',
+      'fit_node_ids',
+      'branch_ids',
+      'candidate_signature',
+      'comparison_signature',
+      'comparison_context',
+    ]),
   } satisfies JsonObject;
 }
 
@@ -128,7 +166,7 @@ function toRecordDecisionCommand(id: string, actionId: string, scope: string, pa
       choice,
       alternatives: asStringArray(payload.alternatives),
       rationale,
-      refs: asUnknownArray(payload.refs),
+      refs: asJsonValueArray(payload.refs),
       evidence: asStringArray(payload.evidence),
       kind: asString(payload.decision_type) ?? asString(payload.kind) ?? undefined,
       metadata: buildActionMetadata(actionId, templateRef, payload, metadata),

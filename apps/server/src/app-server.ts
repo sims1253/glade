@@ -3,6 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 
+import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
@@ -14,7 +15,7 @@ import { EXTENSION_BUNDLES_PATH, HEALTH_PATH, WS_PATH } from '@glade/shared';
 
 import { ServerConfig } from './config';
 import { contentTypeFor } from './lib/content-type';
-import { ProtocolRouter } from './services/protocol-router';
+import { ServerEdge } from './services/server-edge';
 
 export class AppServer extends Context.Tag('glade/AppServer')<
   AppServer,
@@ -106,10 +107,10 @@ export const AppServerLive = Layer.scoped(
   AppServer,
   Effect.gen(function* () {
     const config = yield* ServerConfig;
-    const router = yield* ProtocolRouter;
+    const router = yield* ServerEdge;
     const effectRuntime = yield* Effect.runtime<never>();
-    yield* router.startSession;
-    const httpServer = http.createServer((request, response) => {
+
+    const requestHandler = (request: http.IncomingMessage, response: http.ServerResponse) => {
       void Runtime.runPromise(
         effectRuntime,
         Effect.tryPromise(async () => {
@@ -142,11 +143,16 @@ export const AppServerLive = Layer.scoped(
           ),
         ),
       );
-    });
+    };
 
+    const httpServer = http.createServer(requestHandler);
     const webSocketServer = new WebSocketServer({ noServer: true });
 
-    httpServer.on('upgrade', (request, socket, head) => {
+    const upgradeHandler = (
+      request: http.IncomingMessage,
+      socket: Parameters<typeof webSocketServer.handleUpgrade>[1],
+      head: Buffer,
+    ) => {
       const pathname = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`).pathname;
       if (pathname !== WS_PATH) {
         socket.destroy();
@@ -156,43 +162,38 @@ export const AppServerLive = Layer.scoped(
       webSocketServer.handleUpgrade(request, socket, head, (client) => {
         webSocketServer.emit('connection', client, request);
       });
-    });
+    };
 
+    httpServer.on('upgrade', upgradeHandler);
     webSocketServer.on('connection', (socket: WebSocket) => {
       void Runtime.runPromise(effectRuntime, router.attachClient(socket));
     });
 
-    yield* Effect.acquireRelease(
+    yield* NodeHttpServer.make(() => httpServer, {
+      host: config.host,
+      port: config.port,
+    });
+    yield* Effect.addFinalizer(() =>
       Effect.tryPromise(
         () =>
-          new Promise<{ url: string }>((resolve, reject) => {
-            httpServer.once('error', reject);
-            httpServer.listen(config.port, config.host, () => {
-              resolve({ url: `http://${config.host}:${config.port}` });
+          new Promise<void>((resolve, reject) => {
+            httpServer.off('upgrade', upgradeHandler);
+            webSocketServer.close((error) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+              resolve();
             });
           }),
-      ),
-      () =>
-        Effect.tryPromise(
-          () =>
-            new Promise<void>((resolve, reject) => {
-              webSocketServer.close((webSocketError) => {
-                if (webSocketError) {
-                  reject(webSocketError);
-                  return;
-                }
-                httpServer.close((httpError) => {
-                  if (httpError) {
-                    reject(httpError);
-                    return;
-                  }
-                  resolve();
-                });
-              });
-            }),
-        ).pipe(Effect.orDie),
-    );
+      ).pipe(Effect.orDie));
+    yield* router.startSession;
 
-    return { url: `http://${config.host}:${config.port}` };
+    const address = httpServer.address();
+    const url = typeof address === 'string'
+      ? address
+      : `http://${address?.address === '::' ? '127.0.0.1' : address?.address ?? config.host}:${address?.port ?? config.port}`;
+
+    return { url };
   }),
 );

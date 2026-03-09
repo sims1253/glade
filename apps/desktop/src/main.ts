@@ -326,7 +326,7 @@ async function refreshDesktopState() {
   };
   broadcastDesktopState();
 
-  stopServerProcess(backendProcess);
+  await stopServerProcess(backendProcess);
   backendProcess = await startServerProcess({
     projectPath,
     settings: desktopSettings,
@@ -428,7 +428,11 @@ function shutdown() {
     desktopStateBroadcastTimer = null;
   }
   detachedTerminalWindow?.close();
-  stopServerProcess(backendProcess);
+  void stopServerProcess(backendProcess).catch((error) => {
+    appendRuntimeLog(
+      `[desktop] failed to stop server during shutdown: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  });
   backendProcess = null;
 }
 

@@ -4,19 +4,23 @@ import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import 'xterm/css/xterm.css';
 
-import type { CommandResult, WorkflowCommand } from '@glade/contracts';
-
 import {
   canDetachTerminal,
   isDesktopRuntime,
   readDesktopRuntime,
   subscribeToDetachedTerminalState,
 } from '../../lib/runtime';
-import { useAppStore } from '../../store/app';
+import type { LegacyWorkflowDispatch } from '../../lib/legacy-commands';
+import { replRpcFromLegacyDispatch } from '../../lib/legacy-commands';
+import type { ReplRpc } from '../../lib/rpc';
+import { useConnectionStore } from '../../store/connection';
+import { useReplStore } from '../../store/repl';
+import { useUiPrefsStore } from '../../store/ui-prefs';
 import { Button } from '../ui/button';
 
 interface ReplTerminalPanelProps {
-  readonly dispatchCommand: (command: WorkflowCommand) => Promise<CommandResult>;
+  readonly repl?: ReplRpc;
+  readonly dispatchCommand?: LegacyWorkflowDispatch;
   readonly detachedView?: boolean;
 }
 
@@ -36,18 +40,18 @@ function openDetachedTerminalFallback() {
 }
 
 function TerminalSurface({
-  dispatchCommand,
+  repl,
   interactive,
   detachedView,
 }: {
-  readonly dispatchCommand: (command: WorkflowCommand) => Promise<CommandResult>;
+  readonly repl: ReplRpc;
   readonly interactive: boolean;
   readonly detachedView: boolean;
 }) {
-  const replLines = useAppStore((state) => state.replLines);
-  const replDetached = useAppStore((state) => state.replDetached);
-  const sessionState = useAppStore((state) => state.sessionState);
-  const sessionReason = useAppStore((state) => state.sessionReason);
+  const replLines = useReplStore((state) => state.replLines);
+  const replDetached = useReplStore((state) => state.replDetached);
+  const sessionState = useConnectionStore((state) => state.sessionState);
+  const sessionReason = useConnectionStore((state) => state.sessionReason);
   const terminalHostRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const renderedLineCountRef = useRef(0);
@@ -124,7 +128,7 @@ function TerminalSurface({
     };
     requestAnimationFrame(() => fitTerminal());
 
-    const initialLines = useAppStore.getState().replLines;
+    const initialLines = useReplStore.getState().replLines;
     for (const line of initialLines) {
       writeLine(line);
     }
@@ -141,7 +145,7 @@ function TerminalSurface({
           terminal.write('\r\n');
           const payload = `${inputBufferRef.current}\n`;
           inputBufferRef.current = '';
-          void dispatchCommand({ type: 'ReplInput', data: payload });
+          void repl.write(payload);
           return;
         }
 
@@ -175,7 +179,7 @@ function TerminalSurface({
       renderedLineCountRef.current = 0;
       inputBufferRef.current = '';
     };
-  }, [dispatchCommand, interactive, writeLine]);
+  }, [interactive, repl, writeLine]);
 
   useEffect(() => {
     for (const line of replLines.slice(renderedLineCountRef.current)) {
@@ -221,15 +225,16 @@ function TerminalSurface({
   );
 }
 
-export function ReplTerminalPanel({ dispatchCommand, detachedView = false }: ReplTerminalPanelProps) {
-  const replPanelOpen = useAppStore((state) => state.replPanelOpen);
-  const setReplPanelOpen = useAppStore((state) => state.setReplPanelOpen);
-  const replPanelHeight = useAppStore((state) => state.replPanelHeight);
-  const setReplPanelHeight = useAppStore((state) => state.setReplPanelHeight);
-  const replDetached = useAppStore((state) => state.replDetached);
-  const setReplDetached = useAppStore((state) => state.setReplDetached);
-  const replLines = useAppStore((state) => state.replLines);
-  const sessionState = useAppStore((state) => state.sessionState);
+export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false }: ReplTerminalPanelProps) {
+  const replClient = repl ?? (dispatchCommand ? replRpcFromLegacyDispatch(dispatchCommand) : null);
+  const replPanelOpen = useUiPrefsStore((state) => state.replPanelOpen);
+  const setReplPanelOpen = useUiPrefsStore((state) => state.setReplPanelOpen);
+  const replPanelHeight = useUiPrefsStore((state) => state.replPanelHeight);
+  const setReplPanelHeight = useUiPrefsStore((state) => state.setReplPanelHeight);
+  const replDetached = useReplStore((state) => state.replDetached);
+  const setReplDetached = useReplStore((state) => state.setReplDetached);
+  const replLines = useReplStore((state) => state.replLines);
+  const sessionState = useConnectionStore((state) => state.sessionState);
   const [interactive, setInteractive] = useState(() => isDesktopRuntime());
   const detachable = interactive && canDetachTerminal() && !detachedView;
 
@@ -272,7 +277,7 @@ export function ReplTerminalPanel({ dispatchCommand, detachedView = false }: Rep
 
       if ((event.ctrlKey || event.metaKey) && event.key === '`') {
         event.preventDefault();
-        setReplPanelOpen(!useAppStore.getState().replPanelOpen);
+        setReplPanelOpen(!useUiPrefsStore.getState().replPanelOpen);
       }
     };
 
@@ -310,7 +315,11 @@ export function ReplTerminalPanel({ dispatchCommand, detachedView = false }: Rep
   }, [detachedView, replDetached, replPanelOpen, setReplPanelHeight]);
 
   const handleClear = async () => {
-    await dispatchCommand({ type: 'ClearRepl' });
+    try {
+      await replClient?.clear();
+    } catch (error) {
+      console.error('[repl] failed to clear terminal', error);
+    }
   };
 
   const handleCopyLogs = async () => {
@@ -409,7 +418,15 @@ export function ReplTerminalPanel({ dispatchCommand, detachedView = false }: Rep
       <div className={['min-h-0 flex-1 p-4', detachedView ? 'pt-6' : ''].join(' ').trim()}>
         <TerminalSurface
           detachedView={detachedView}
-          dispatchCommand={dispatchCommand}
+          repl={replClient ?? replRpcFromLegacyDispatch(async () => ({
+            type: 'CommandResult',
+            id: 'missing-repl',
+            success: false,
+            error: {
+              code: 'missing_repl_client',
+              message: 'No REPL client was provided.',
+            },
+          }))}
           interactive={interactive}
         />
       </div>

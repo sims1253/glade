@@ -84,7 +84,7 @@ export async function cacheSnapshotExtensionBundles(
       return {
         ...extension,
         browser_bundle_path: `${EXTENSION_BUNDLES_PATH}/${fileName}`,
-      } satisfies NormalizedExtensionDescriptor;
+      } as NormalizedExtensionDescriptor;
     }
 
     try {
@@ -97,7 +97,7 @@ export async function cacheSnapshotExtensionBundles(
     return {
       ...extension,
       browser_bundle_path: `${EXTENSION_BUNDLES_PATH}/${fileName}`,
-    } satisfies NormalizedExtensionDescriptor;
+    } as NormalizedExtensionDescriptor;
   }));
 
   cachedRegistryByKey.set(cacheKey, cachedRegistry);

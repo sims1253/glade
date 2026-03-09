@@ -1,11 +1,18 @@
-import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
+import {
+  createLineBuffer,
+  spawnChildProcess,
+  terminateProcessTree,
+  type ManagedProcessLike,
+  type SpawnProcessOptions,
+} from '@glade/shared/process';
 import { DEFAULT_SERVER_PORT } from '@glade/shared';
 
 import type { DesktopSettings } from '@glade/shared';
+import type { ChildProcess } from 'node:child_process';
 
 import { resolveEditorCommand } from './settings';
 
@@ -76,22 +83,16 @@ function forwardOutput(
   }
 
   stream.setEncoding?.('utf8');
-  let buffer = '';
+  const buffer = createLineBuffer((line) => {
+    appendLog(logs, `[server:${prefix}] ${line}`, onLogLine);
+  });
   stream.on('data', (chunk) => {
     const text = String(chunk);
     writer.write(text);
-    buffer += text.replace(/\r\n/g, '\n');
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      appendLog(logs, `[server:${prefix}] ${line}`, onLogLine);
-    }
+    buffer.push(text);
   });
   stream.on('end', () => {
-    if (buffer) {
-      appendLog(logs, `[server:${prefix}] ${buffer}`, onLogLine);
-      buffer = '';
-    }
+    buffer.flush();
   });
 }
 
@@ -112,19 +113,23 @@ export async function startServerProcess(options: StartServerProcessOptions): Pr
   };
   const logs: string[] = [];
 
-  const child = useCompiledBinary
-    ? spawn(binaryPath, [], {
+  const spawnOptions: SpawnProcessOptions = useCompiledBinary
+    ? {
+        command: binaryPath,
         cwd: envRoot,
         env,
         detached: process.platform !== 'win32',
         stdio: ['ignore', 'pipe', 'pipe'],
-      })
-    : spawn('bun', ['run', serverEntry()], {
+      }
+    : {
+        command: 'bun',
+        args: ['run', serverEntry()],
         cwd: root,
         env,
         detached: process.platform !== 'win32',
         stdio: ['ignore', 'pipe', 'pipe'],
-      });
+      };
+  const child = spawnChildProcess(spawnOptions);
 
   forwardOutput(child.stdout, process.stdout, logs, 'stdout', options.onLogLine);
   forwardOutput(child.stderr, process.stderr, logs, 'stderr', options.onLogLine);
@@ -135,32 +140,13 @@ export async function startServerProcess(options: StartServerProcessOptions): Pr
   };
 }
 
-export function stopServerProcess(handle: ServerProcessHandle | null) {
+export async function stopServerProcess(handle: ServerProcessHandle | null) {
   const child = handle?.child ?? null;
   if (!child || child.killed || child.exitCode !== null || child.signalCode !== null) {
     return;
   }
 
-  if (process.platform !== 'win32' && child.pid) {
-    try {
-      process.kill(-child.pid, 'SIGTERM');
-      setTimeout(() => {
-        try {
-          process.kill(-child.pid!, 'SIGKILL');
-        } catch {
-        }
-      }, 2_000).unref();
-      return;
-    } catch {
-    }
-  }
-
-  child.kill('SIGTERM');
-  setTimeout(() => {
-    if (child.exitCode === null && child.signalCode === null) {
-      child.kill('SIGKILL');
-    }
-  }, 2_000).unref();
+  await terminateProcessTree(child as ManagedProcessLike);
 }
 
 export async function waitForServer(handle: ServerProcessHandle | null) {

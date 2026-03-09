@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { watch, type FSWatcher } from 'node:fs';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
@@ -6,12 +6,13 @@ import process from 'node:process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { spawnChildProcess, terminateProcessTree, type ManagedProcessLike } from '@glade/shared/process';
+
 const desktopDir = fileURLToPath(new URL('..', import.meta.url));
 const distDir = path.join(desktopDir, 'dist-electron');
 const requiredFiles = ['main.cjs', 'preload.cjs', 'server-process.cjs'];
 const forcedShutdownTimeoutMs = 1_500;
 const restartDebounceMs = 120;
-const childTreeGracePeriodMs = 1_200;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL?.trim() || `http://localhost:${process.env.PORT ?? 5173}`;
 
 const childEnv = { ...process.env };
@@ -49,20 +50,14 @@ async function waitForRequiredFiles() {
   }
 }
 
-function killChildTreeByPid(pid: number, signal: 'TERM' | 'KILL') {
-  if (process.platform === 'win32') {
-    return;
-  }
-
-  spawnSync('pkill', [`-${signal}`, '-P', String(pid)], { stdio: 'ignore' });
-}
-
 function startApp() {
   if (shuttingDown || currentApp) {
     return;
   }
 
-  const app = spawn(resolveElectronCommand(), ['./dist-electron/main.cjs'], {
+  const app = spawnChildProcess({
+    command: resolveElectronCommand(),
+    args: ['./dist-electron/main.cjs'],
     cwd: desktopDir,
     env: {
       ...childEnv,
@@ -106,48 +101,7 @@ async function stopApp() {
   expectedExits.add(app);
 
   await new Promise<void>((resolve) => {
-    let settled = false;
-
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      resolve();
-    };
-
-    app.once('exit', finish);
-
-    try {
-      if (process.platform !== 'win32' && app.pid) {
-        process.kill(-app.pid, 'SIGTERM');
-        killChildTreeByPid(app.pid, 'TERM');
-      } else {
-        app.kill('SIGTERM');
-      }
-    } catch {
-      app.kill('SIGTERM');
-    }
-
-    setTimeout(() => {
-      if (settled) {
-        return;
-      }
-
-      try {
-        if (process.platform !== 'win32' && app.pid) {
-          process.kill(-app.pid, 'SIGKILL');
-          killChildTreeByPid(app.pid, 'KILL');
-        } else {
-          app.kill('SIGKILL');
-        }
-      } catch {
-        app.kill('SIGKILL');
-      }
-
-      finish();
-    }, forcedShutdownTimeoutMs).unref();
+    void terminateProcessTree(app as ManagedProcessLike, { gracePeriodMs: forcedShutdownTimeoutMs }).finally(resolve);
   });
 }
 
@@ -187,14 +141,6 @@ function startWatchers() {
   watchers.push(watcher);
 }
 
-function killChildTree(signal: 'TERM' | 'KILL') {
-  if (process.platform === 'win32') {
-    return;
-  }
-
-  spawnSync('pkill', [`-${signal}`, '-P', String(process.pid)], { stdio: 'ignore' });
-}
-
 async function shutdown(exitCode: number) {
   if (shuttingDown) {
     return;
@@ -212,9 +158,6 @@ async function shutdown(exitCode: number) {
   }
 
   await stopApp();
-  killChildTree('TERM');
-  await sleep(childTreeGracePeriodMs);
-  killChildTree('KILL');
 
   process.exit(exitCode);
 }

@@ -11,14 +11,15 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 
-import type { CommandResult, HostCommand, WorkflowCommand } from '@glade/contracts';
-
 import { canConnectNodes, getConnectionPreview, getDownstreamNodeIds } from '../../lib/graph-interactions';
 import { layoutWorkflowGraph, toReactFlowEdges, toReactFlowNodes } from '../../lib/graph-layout';
+import { toJsonObject } from '../../lib/json';
+import type { HostRpc, WorkflowRpc } from '../../lib/rpc';
 import { formatKindLabel, type WorkflowFlowNode, type WorkflowGraph, type WorkflowNodeData } from '../../lib/graph-types';
 import { cn } from '../../lib/utils';
-import { useAppStore } from '../../store/app';
+import { useConnectionStore } from '../../store/connection';
 import { useGraphStore } from '../../store/graph';
+import { useToastStore } from '../../store/toast';
 import { Button } from '../ui/button';
 import { CanvasStatusBanner } from './canvas-status-banner';
 import { NodeDetailDrawer } from './node-detail-drawer';
@@ -143,23 +144,23 @@ function CanvasKeyboardShortcuts() {
 
 interface WorkflowCanvasProps {
   readonly className?: string;
-  readonly dispatchCommand: (command: WorkflowCommand) => Promise<CommandResult>;
-  readonly dispatchHostCommand: (command: HostCommand) => Promise<CommandResult>;
+  readonly workflow: WorkflowRpc;
+  readonly host: HostRpc;
 }
 
 type ContextMenuState =
   | { readonly mode: 'pane'; readonly x: number; readonly y: number }
   | { readonly mode: 'node'; readonly x: number; readonly y: number; readonly nodeId: string; readonly label: string };
 
-export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand }: WorkflowCanvasProps) {
+export function WorkflowCanvas({ className, workflow, host }: WorkflowCanvasProps) {
   const graph = useGraphStore((state) => state.graph);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
   const setSelectedNodeId = useGraphStore((state) => state.setSelectedNodeId);
   const setHighlightedNodeIds = useGraphStore((state) => state.setHighlightedNodeIds);
-  const sessionState = useAppStore((state) => state.sessionState);
-  const sessionReason = useAppStore((state) => state.sessionReason);
-  const pushNotification = useAppStore((state) => state.pushNotification);
+  const sessionState = useConnectionStore((state) => state.sessionState);
+  const sessionReason = useConnectionStore((state) => state.sessionReason);
+  const pushNotification = useToastStore((state) => state.pushNotification);
   const topologySignatureRef = useRef<string | null>(null);
   const positionsRef = useRef<Record<string, { x: number; y: number }>>({});
   const reactFlowRef = useRef<ReactFlowInstance<WorkflowFlowNode> | null>(null);
@@ -320,8 +321,7 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
     }
 
     setRenamePending(true);
-    const result = await dispatchCommand({
-      type: 'RenameNode',
+    const result = await workflow.renameNode({
       nodeId: renamingNodeId,
       label,
     });
@@ -330,7 +330,7 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
     if (result.success) {
       cancelRename();
     }
-  }, [cancelRename, dispatchCommand, pushNotification, renameDraft, renamingNodeId]);
+  }, [cancelRename, pushNotification, renameDraft, renamingNodeId, workflow]);
 
   const helpText = useMemo(() => {
     if (!graph) {
@@ -348,8 +348,8 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
     cancelRename,
     commitRename,
     setRenameDraft,
-    dispatchCommand,
-  }), [beginRename, cancelRename, commitRename, connectionPreview, dispatchCommand, renameDraft, renamePending, renamingNodeId]);
+    workflow,
+  }), [beginRename, cancelRename, commitRename, connectionPreview, renameDraft, renamePending, renamingNodeId, workflow]);
 
   const closeMenus = useCallback(() => {
     setContextMenu(null);
@@ -379,11 +379,10 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
 
     setAddNodePending(true);
     try {
-      const result = await dispatchCommand({
-        type: 'AddNode',
+      const result = await workflow.addNode({
         kind: pendingNodeKind,
         label: pendingNodeLabel.trim() || undefined,
-        params,
+        params: toJsonObject(params),
       });
 
       if (result.success) {
@@ -395,15 +394,14 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
     } finally {
       setAddNodePending(false);
     }
-  }, [dispatchCommand, pendingNodeKind, pendingNodeLabel]);
+  }, [pendingNodeKind, pendingNodeLabel, workflow]);
 
   const submitDeleteNode = useCallback(async () => {
     if (!selectedNodeId) {
       return;
     }
 
-    const result = await dispatchCommand({
-      type: 'DeleteNode',
+    const result = await workflow.deleteNode({
       nodeId: selectedNodeId,
     });
 
@@ -411,7 +409,7 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
       setIsDeleteDialogOpen(false);
       setSelectedNodeId(null);
     }
-  }, [dispatchCommand, selectedNodeId, setSelectedNodeId]);
+  }, [selectedNodeId, setSelectedNodeId, workflow]);
 
   const onConnect = useCallback(async (connection: Connection) => {
     if (!graph || !connection.source || !connection.target) {
@@ -428,12 +426,11 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
       return;
     }
 
-    await dispatchCommand({
-      type: 'ConnectNodes',
+    await workflow.connectNodes({
       from: connection.source,
       to: connection.target,
     });
-  }, [dispatchCommand, graph, pushNotification]);
+  }, [graph, pushNotification, workflow]);
 
   const autoArrange = useCallback(async () => {
     if (!graph) {
@@ -703,8 +700,8 @@ export function WorkflowCanvas({ className, dispatchCommand, dispatchHostCommand
           <NodeDetailDrawer
             graph={graph}
             node={selectedNode}
-            dispatchCommand={dispatchCommand}
-            dispatchHostCommand={dispatchHostCommand}
+            workflow={workflow}
+            host={host}
             onClose={() => setSelectedNodeId(null)}
             onSelectNode={(nodeId) => setSelectedNodeId(nodeId)}
           />

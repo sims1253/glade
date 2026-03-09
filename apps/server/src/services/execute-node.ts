@@ -1,6 +1,8 @@
 import type {
   BayesgroveCommand,
   GraphSnapshot,
+  JsonObject,
+  JsonValue,
   NodeInputSerializer,
   NodeOutputParser,
   NodeRuntime,
@@ -9,8 +11,6 @@ import type {
 import { readExtensionRegistry } from '@glade/contracts';
 
 import { CommandDispatchError } from '../errors';
-
-type JsonObject = Record<string, unknown>;
 
 interface ExtensionNodeDescriptorMatch {
   readonly extensionId: string | null;
@@ -44,7 +44,7 @@ export interface ToolExecutionSummary {
   readonly args: ReadonlyArray<string>;
   readonly stdout: string;
   readonly stderr: string;
-  readonly output: unknown;
+  readonly output: JsonValue;
   readonly artifactPath: string | null;
   readonly artifactHash: string | null;
   readonly metrics: JsonObject;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphSnapshot, WorkflowCommand } from '@glade/contracts';
+import type { GraphSnapshot, JsonObject, WorkflowExecuteActionInput } from '@glade/contracts';
 
 import { CommandDispatchError } from '../errors';
 import { toExecuteActionCommand } from './execute-action';
@@ -75,10 +75,10 @@ const snapshot: GraphSnapshot = {
   },
 };
 
-function executeAction(actionId: string, payload?: unknown) {
+function executeAction(actionId: string, payload?: JsonObject) {
   return toExecuteActionCommand(
     'cmd_1',
-    { type: 'ExecuteAction', actionId, payload } as Extract<WorkflowCommand, { type: 'ExecuteAction' }>,
+    { _tag: 'workflow.executeAction', actionId, payload } satisfies WorkflowExecuteActionInput,
     snapshot,
   );
 }
@@ -113,9 +113,9 @@ describe('toExecuteActionCommand', () => {
     });
   });
 
-  it('rejects actions that are missing required execution inputs', () => {
+  it('rejects actions with empty required execution inputs', () => {
     expect(() =>
-      executeAction('act_decision', { choice: 'accept', rationale: undefined, prompt: undefined }),
+      executeAction('act_decision', { prompt: '', choice: 'accept', rationale: '' }),
     ).toThrowError(CommandDispatchError);
   });
 

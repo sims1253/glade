@@ -16,6 +16,7 @@ export class GraphStateCache extends Context.Tag('glade/GraphStateCache')<
     readonly clear: Effect.Effect<void>;
     readonly getSnapshot: Effect.Effect<Option.Option<GraphSnapshot>>;
     readonly getReplLines: (limit?: number) => Effect.Effect<ReadonlyArray<string>>;
+    readonly clearReplLines: Effect.Effect<void>;
     readonly writeSnapshot: (snapshot: GraphSnapshot) => Effect.Effect<void>;
     readonly writeProtocolEvent: (event: ProtocolEvent) => Effect.Effect<void>;
     readonly appendReplLine: (line: string) => Effect.Effect<void>;
@@ -253,6 +254,7 @@ export const GraphStateCacheLive = Layer.effect(
       INSERT INTO repl_buffer (line, created_at)
       VALUES (?, ?)
     `);
+    const clearReplBuffer = database.prepare('DELETE FROM repl_buffer');
 
     const clearTables = () => {
       database.exec(`
@@ -296,6 +298,21 @@ export const GraphStateCacheLive = Layer.effect(
           .map((row) => row.line)
           .reverse(),
       ).pipe(Effect.orDie);
+
+    const clearReplLines = Effect.try({
+      try: () => {
+        clearReplBuffer.run();
+      },
+      catch: (cause) =>
+        new GraphStateCacheError({
+          operation: 'clearReplLines',
+          message: `Failed to clear REPL buffer: ${cause instanceof Error ? cause.message : String(cause)}`,
+          cause,
+        }),
+    }).pipe(
+      Effect.catchIf(isDatabaseClosedError, () => Effect.void),
+      Effect.orDie,
+    );
 
     const writeSnapshot = (snapshot: GraphSnapshot) =>
       Effect.sync(() => {
@@ -404,6 +421,7 @@ export const GraphStateCacheLive = Layer.effect(
       clear,
       getSnapshot,
       getReplLines,
+      clearReplLines,
       writeSnapshot,
       writeProtocolEvent,
       appendReplLine,

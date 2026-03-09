@@ -18,12 +18,13 @@ import {
   type GraphSnapshot,
   type ProtocolEvent,
   type SessionStatus,
+  type WsPush,
 } from '@glade/contracts';
 
 import { ServerConfig } from '../config';
 import { ProtocolDecodeError, SessionStartupError } from '../errors';
-import { FrontendBroadcast } from './frontend-broadcast';
 import { SessionStatusStore } from './session-status';
+import { WebSocketHub } from './websocket-hub';
 
 export type BayesgroveInboundMessage = GraphSnapshot | ProtocolEvent | BayesgroveCommandResult;
 
@@ -39,7 +40,7 @@ export class BayesgroveSocket extends Context.Tag('glade/BayesgroveSocket')<
 >() {}
 
 function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
-  return reason ? { type: 'SessionStatus', state, reason } : { type: 'SessionStatus', state };
+  return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
 }
 
 const decodeJsonString = Schema.decodeUnknown(Schema.parseJson());
@@ -49,7 +50,7 @@ export const BayesgroveSocketLive = Layer.scoped(
   Effect.gen(function* () {
     const config = yield* ServerConfig;
     const statusStore = yield* SessionStatusStore;
-    const broadcast = yield* FrontendBroadcast;
+    const hub = yield* WebSocketHub;
     const effectRuntime = yield* Effect.runtime<never>();
     const socketRef = yield* Ref.make<WebSocket | null>(null);
     const closingRef = yield* Ref.make(false);
@@ -59,7 +60,8 @@ export const BayesgroveSocketLive = Layer.scoped(
       Effect.gen(function* () {
         const next = statusMessage(state, reason);
         yield* statusStore.set(next);
-        yield* broadcast.broadcast(next);
+        const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
+        yield* hub.broadcast(push);
       });
 
     const parseInbound = (raw: string) =>
