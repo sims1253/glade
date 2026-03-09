@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.1 - 2026-03-09
+
+- Fixed the phase 10 CI and packaging follow-up issues: workspace package exports now resolve to built artifacts for Vite/Bun in CI, desktop/server build scripts handle spawn failures more defensively, and Electron build assets now live under `assets/desktop` with tighter macOS entitlements.
+- Fixed desktop/runtime robustness after the initial phase 10 landing: embedded server startup fails fast when the child process dies, updater actions surface graceful error state, desktop log broadcasts are throttled, and persisted settings/loading paths handle malformed JSON and probe timeouts more safely.
+- Fixed packaged and hosted validation gaps: websocket reconnect handling now ignores stale sockets, server tests wait for child shutdown before removing sqlite state on Windows, and the release workflow now captures the intended artifacts while also publishing standalone server builds for Linux, macOS, and Windows.
+
+## 0.10.0 - 2026-03-09
+
+- Added the phase 10 packaging and distribution layer: Electron desktop settings are now persisted in `userData`, first-launch R/`bayesgrove` checks surface guided remediation in-app, and the desktop shell can restart its embedded server after local environment changes.
+- Added release scaffolding for signed desktop installers and standalone compiled server binaries, including `electron-builder` configuration, icon generation from a single SVG source, platform-aware server bundling, and a tag-triggered GitHub Actions release workflow.
+- Added frontend recovery work for the packaged desktop path: websocket reconnection now survives embedded server restarts, the phase 10 settings/update UI is surfaced in-app, and focused tests cover the new onboarding and reconnect flows.
+
 ## 0.9.0 - 2026-03-09
 
 - Added phase 9 multi-runtime node execution with typed extension descriptors for `r_session`, `uvx`, `bunx`, `binary`, and guarded `shell` runtimes.

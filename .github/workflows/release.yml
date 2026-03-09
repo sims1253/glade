@@ -1,0 +1,128 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  desktop:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+            server_targets: bun-linux-x64-modern
+            builder_args: --linux AppImage deb --x64
+            artifact_glob: |
+              dist/releases/*.AppImage
+              dist/releases/*.deb
+          - os: ubuntu-latest
+            name: linux-arm64
+            server_targets: bun-linux-arm64-modern
+            builder_args: --linux AppImage deb --arm64
+            artifact_glob: |
+              dist/releases/*.AppImage
+              dist/releases/*.deb
+          - os: macos-latest
+            name: macos-universal
+            server_targets: bun-darwin-arm64-modern,bun-darwin-x64-modern
+            builder_args: --mac dmg --universal
+            artifact_glob: dist/releases/*.dmg
+          - os: windows-latest
+            name: windows-x64
+            server_targets: bun-windows-x64-modern
+            builder_args: --win nsis --x64
+            artifact_glob: dist/releases/*.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build packaged desktop bundle
+        env:
+          BAYESGROVE_SERVER_TARGETS: ${{ matrix.server_targets }}
+        run: bun run --cwd apps/desktop bundle
+
+      - name: Package and publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: node ./scripts/run-electron-builder.mjs --config electron-builder.yml ${{ matrix.builder_args }} --publish always
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          path: ${{ matrix.artifact_glob }}
+
+  standalone-server:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+            target: bun-linux-x64-modern
+          - os: ubuntu-latest
+            name: linux-arm64
+            target: bun-linux-arm64-modern
+          - os: macos-latest
+            name: macos-x64
+            target: bun-darwin-x64-modern
+          - os: macos-latest
+            name: macos-arm64
+            target: bun-darwin-arm64-modern
+          - os: windows-latest
+            name: windows-x64
+            target: bun-windows-x64-modern
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build standalone server
+        env:
+          BAYESGROVE_SERVER_TARGET: ${{ matrix.target }}
+        run: bun run build:server:standalone
+
+      - name: Upload standalone artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-server-${{ matrix.name }}
+          path: dist/standalone/**
+
+      - name: Attach standalone server to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/standalone/**

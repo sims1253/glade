@@ -1,4 +1,3 @@
-import ELK from 'elkjs/lib/elk.bundled.js';
 import { MarkerType, type Edge, type XYPosition } from '@xyflow/react';
 
 import {
@@ -10,7 +9,27 @@ import {
   type WorkflowNodeData,
 } from './graph-types';
 
-const elk = new ELK();
+type ElkLayoutResult = {
+  readonly children?: ReadonlyArray<{
+    readonly id: string;
+    readonly x?: number;
+    readonly y?: number;
+  }>;
+};
+
+type ElkLike = {
+  readonly layout: (graph: unknown) => Promise<ElkLayoutResult>;
+};
+
+let elkLoader: Promise<ElkLike> | null = null;
+
+async function getElk() {
+  if (!elkLoader) {
+    elkLoader = import('elkjs/lib/elk.bundled.js').then(({ default: ELK }) => new ELK() as unknown as ElkLike);
+  }
+
+  return await elkLoader;
+}
 
 const GRID_HORIZONTAL_GAP = DEFAULT_NODE_WIDTH + 72;
 const GRID_VERTICAL_GAP = DEFAULT_NODE_HEIGHT + 72;
@@ -63,6 +82,7 @@ export async function layoutWorkflowGraph(graph: Pick<WorkflowGraph, 'nodes' | '
     return toGridPositions(graph.nodes.map((node) => node.id));
   }
 
+  const elk = await getElk();
   const layout = await elk.layout({
     id: 'glade-root',
     layoutOptions: {

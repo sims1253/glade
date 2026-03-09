@@ -1,0 +1,85 @@
+appId: io.glade.desktop
+productName: Glade
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+asar: true
+electronVersion: 40.8.0
+generateUpdatesFilesForAllChannels: true
+
+directories:
+  app: apps/desktop
+  output: dist/releases
+  buildResources: assets/desktop
+
+files:
+  - dist-electron/**
+  - package.json
+
+extraResources:
+  - from: apps/desktop/dist/server
+    to: server
+    filter:
+      - glade-server*
+  - from: apps/web/dist
+    to: apps/web/dist
+    filter:
+      - '**/*'
+
+publish:
+  - provider: github
+    owner: sims1253
+    repo: glade
+    releaseType: release
+
+mac:
+  category: public.app-category.developer-tools
+  icon: icons/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
+  target:
+    - target: dmg
+      arch:
+        - universal
+
+dmg:
+  icon: icons/icon.icns
+  contents:
+    - x: 150
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+linux:
+  category: Science
+  icon: icons
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+
+deb:
+  depends:
+    - libnotify4
+    - libxtst6
+    - libnss3
+
+win:
+  icon: icons/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  perMachine: false

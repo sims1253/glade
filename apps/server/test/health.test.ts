@@ -13,7 +13,7 @@ const children = new Set<ReturnType<typeof spawn>>();
 const tempDirs = new Set<string>();
 
 afterEach(async () => {
-  terminateChildren(children);
+  await terminateChildren(children);
   children.clear();
   await Promise.all(Array.from(tempDirs, async (dir) => {
     await rm(dir, { recursive: true, force: true });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Effect from 'effect/Effect';
 
@@ -27,11 +27,14 @@ async function fetchHealth() {
 export function useServerConnection() {
   const queryClient = useQueryClient();
   const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const manualReconnectRef = useRef(false);
   const pendingCommandsRef = useRef(new Map<string, {
     readonly command: Command;
     readonly resolve: (result: CommandResult) => void;
     readonly timeout: number;
   }>());
+  const [socketGeneration, setSocketGeneration] = useState(0);
   const setServerConnected = useAppStore((state) => state.setServerConnected);
   const setServerVersion = useAppStore((state) => state.setServerVersion);
   const setSessionState = useAppStore((state) => state.setSessionState);
@@ -87,6 +90,17 @@ export function useServerConnection() {
     pendingCommandsRef.current.clear();
   }, []);
 
+  const scheduleReconnect = useCallback((delayMs: number) => {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+    }
+
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      setSocketGeneration((current) => current + 1);
+    }, delayMs);
+  }, []);
+
   const healthQuery = useQuery({
     queryKey: healthQueryKey,
     queryFn: fetchHealth,
@@ -113,12 +127,25 @@ export function useServerConnection() {
     socketRef.current = socket;
 
     socket.onopen = () => {
+      if (socketRef.current !== socket) {
+        return;
+      }
+
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       setServerConnected(true);
       setSessionState('ready');
       setSessionReason(null);
+      manualReconnectRef.current = false;
     };
 
     socket.onmessage = (event) => {
+      if (socketRef.current !== socket) {
+        return;
+      }
+
       void Effect.runPromise(
         Effect.gen(function* () {
           const message = yield* decodeServerMessage(JSON.parse(String(event.data)));
@@ -160,23 +187,56 @@ export function useServerConnection() {
     };
 
     socket.onclose = () => {
+      if (socketRef.current !== socket) {
+        return;
+      }
+
       setServerConnected(false);
       setSessionState('error');
       setSessionReason('websocket_closed');
       rejectAllPending('The websocket connection closed before the command completed.');
+
+      if (!manualReconnectRef.current) {
+        scheduleReconnect(1_000);
+      }
     };
 
     socket.onerror = () => {
+      if (socketRef.current !== socket) {
+        return;
+      }
+
       setSessionState('error');
       setSessionReason('websocket_error');
     };
 
     return () => {
-      socketRef.current = null;
-      rejectAllPending('The websocket connection closed before the command completed.');
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+        rejectAllPending('The websocket connection closed before the command completed.');
+      }
       socket.close();
     };
-  }, [appendReplLine, applyProtocolEvent, applySnapshot, finishPendingCommand, rejectAllPending, setServerConnected, setSessionReason, setSessionState]);
+  }, [
+    appendReplLine,
+    applyProtocolEvent,
+    applySnapshot,
+    finishPendingCommand,
+    rejectAllPending,
+    scheduleReconnect,
+    setServerConnected,
+    setSessionReason,
+    setSessionState,
+    socketGeneration,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+    };
+  }, []);
 
   const dispatchCommand = useCallback((command: Command) => {
     const socket = socketRef.current;
@@ -233,6 +293,15 @@ export function useServerConnection() {
     dispatchCommand: (command: WorkflowCommand) => dispatchCommand(command),
     dispatchHostCommand: (command: HostCommand) => dispatchCommand(command),
     healthQuery,
-    reconnect: () => queryClient.invalidateQueries({ queryKey: healthQueryKey }),
+    reconnect: () => {
+      manualReconnectRef.current = true;
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      socketRef.current?.close();
+      setSocketGeneration((current) => current + 1);
+      return queryClient.invalidateQueries({ queryKey: healthQueryKey });
+    },
   };
 }

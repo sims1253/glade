@@ -278,4 +278,37 @@ describe('useServerConnection', () => {
       title: 'Executed workflow action',
     });
   });
+
+  it('opens a replacement websocket after the connection closes', async () => {
+    vi.useFakeTimers();
+    try {
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            refetchInterval: false,
+          },
+        },
+      });
+
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      renderHook(() => useServerConnection(), { wrapper });
+      const socket = MockWebSocket.instances[0];
+      expect(socket).toBeTruthy();
+
+      await act(async () => {
+        socket!.emitOpen();
+        socket!.close();
+        await vi.advanceTimersByTimeAsync(1_100);
+      });
+
+      expect(MockWebSocket.instances).toHaveLength(2);
+      expect(MockWebSocket.instances[1]!.url).toBe(MockWebSocket.instances[0]!.url);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

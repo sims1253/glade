@@ -1,6 +1,8 @@
 {
   "name": "@glade/desktop",
-  "version": "0.9.0",
+  "version": "0.10.1",
+  "description": "Glade desktop shell",
+  "author": "sims1253",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
@@ -8,6 +10,9 @@
     "dev": "bun run build && electron ./dist-electron/main.cjs",
     "build": "tsdown",
     "start": "electron ./dist-electron/main.cjs",
+    "bundle": "node ../../scripts/build-desktop-bundle.mjs",
+    "dist": "node ../../scripts/build-desktop-bundle.mjs && node ../../scripts/run-electron-builder.mjs --config electron-builder.yml",
+    "dist:dir": "node ../../scripts/build-desktop-bundle.mjs && node ../../scripts/run-electron-builder.mjs --dir --config electron-builder.yml",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "smoke-test": "node ./scripts/smoke-test.mjs",
@@ -17,11 +22,12 @@
   "dependencies": {
     "@glade/shared": "workspace:*",
     "effect": "catalog:",
-    "electron": "latest",
-    "electron-updater": "latest"
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "electron": "^40.8.0",
+    "electron-builder": "26.8.2",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

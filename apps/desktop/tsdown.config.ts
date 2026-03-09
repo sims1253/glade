@@ -12,10 +12,16 @@ export default defineConfig([
     ...shared,
     entry: ['src/main.ts', 'src/server-process.ts'],
     clean: true,
-    noExternal: (id) => id.startsWith('@glade/'),
+    deps: {
+      alwaysBundle: (id) => id.startsWith('@glade/'),
+      onlyAllowBundle: false,
+    },
   },
   {
     ...shared,
     entry: ['src/preload.ts'],
+    deps: {
+      onlyAllowBundle: false,
+    },
   },
 ]);

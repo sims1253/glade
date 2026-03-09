@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GraphSnapshot } from '@glade/contracts';
+import type { DesktopRuntimeSnapshot } from '@glade/shared';
 
 import { useAppStore } from '../store/app';
 import { useGraphStore } from '../store/graph';
@@ -12,6 +13,36 @@ import { IndexRoute } from './index';
 const dispatchCommand = vi.fn();
 const dispatchHostCommand = vi.fn();
 const fitMock = vi.fn();
+const getDesktopState = vi.fn<() => Promise<DesktopRuntimeSnapshot>>();
+
+const desktopSnapshot: DesktopRuntimeSnapshot = {
+  settings: {
+    rExecutablePath: '/usr/bin/Rscript',
+    editorCommand: 'auto',
+    updateChannel: 'stable',
+  },
+  preflight: {
+    checkedAt: '2026-03-09T10:00:00.000Z',
+    projectPath: '/tmp/glade/project',
+    status: 'action_required',
+    issues: [
+      {
+        code: 'r_missing',
+        title: 'Install R before using Glade',
+        description: 'Glade could not find an R executable at "/usr/bin/Rscript". R is required and is not bundled with the app.',
+        href: 'https://cran.r-project.org/',
+      },
+    ],
+  },
+  update: {
+    channel: 'stable',
+    status: 'idle',
+    version: null,
+    message: null,
+    progressPercent: null,
+  },
+  logTail: ['[desktop] initial diagnostics'],
+};
 
 vi.mock('xterm', () => ({
   Terminal: class {
@@ -170,6 +201,8 @@ describe('IndexRoute phase 5 workflow UI', () => {
   beforeEach(() => {
     dispatchCommand.mockReset();
     dispatchHostCommand.mockReset();
+    getDesktopState.mockReset();
+    getDesktopState.mockResolvedValue(desktopSnapshot);
     useGraphStore.getState().clear();
     vi.stubGlobal('ResizeObserver', class ResizeObserver {
       observe() {}
@@ -184,10 +217,25 @@ describe('IndexRoute phase 5 workflow UI', () => {
       sessionReason: null,
       notifications: [],
     });
+    (window as typeof window & {
+      __GLADE_DESKTOP__?: unknown;
+    }).__GLADE_DESKTOP__ = {
+      platform: 'linux',
+      serverPort: 7842,
+      getDesktopState,
+      refreshDesktopState: getDesktopState,
+      saveDesktopSettings: getDesktopState,
+      resetDesktopSettings: getDesktopState,
+      checkForUpdates: getDesktopState,
+      downloadUpdate: getDesktopState,
+      installDownloadedUpdate: vi.fn(async () => true),
+      onDesktopStateChange: vi.fn(() => () => {}),
+    };
   });
 
   afterEach(() => {
     cleanup();
+    delete (window as typeof window & { __GLADE_DESKTOP__?: unknown }).__GLADE_DESKTOP__;
     vi.unstubAllGlobals();
   });
 
@@ -259,5 +307,16 @@ describe('IndexRoute phase 5 workflow UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(screen.queryByText('Health')).not.toBeInTheDocument();
+  });
+
+  it('shows the first-launch setup guidance when desktop preflight requires action', async () => {
+    useGraphStore.getState().applySnapshot(baseSnapshot);
+
+    render(<IndexRoute />);
+
+    expect(await screen.findByText('Complete local setup before running workflows')).toBeInTheDocument();
+    expect(screen.getByText('Install R before using Glade')).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('/tmp/glade/project'))).toBeInTheDocument();
+    expect(screen.getByText('[desktop] initial diagnostics')).toBeInTheDocument();
   });
 });

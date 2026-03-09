@@ -67,10 +67,40 @@ export async function getAvailablePort() {
   });
 }
 
-export function terminateChildren(children: ReadonlySet<ChildProcess>) {
-  for (const child of children) {
-    if (!child.killed) {
-      child.kill('SIGTERM');
-    }
+async function waitForChildExit(child: ChildProcess, timeoutMs = 5_000) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
   }
+
+  await new Promise<void>((resolve) => {
+    const timeout = setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+        }
+      }
+    }, timeoutMs);
+
+    const finish = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+
+    child.once('exit', finish);
+    child.once('error', finish);
+  });
+}
+
+export async function terminateChildren(children: ReadonlySet<ChildProcess>) {
+  await Promise.all(Array.from(children, async (child) => {
+    if (child.exitCode === null && child.signalCode === null && !child.killed) {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+      }
+    }
+
+    await waitForChildExit(child);
+  }));
 }

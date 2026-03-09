@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, RotateCcw, Settings2 } from 'lucide-react';
 import { createFileRoute } from '@tanstack/react-router';
 
-import { APP_DISPLAY_NAME } from '@glade/shared';
+import {
+  APP_DISPLAY_NAME,
+  type DesktopPreflightIssue,
+  type DesktopRuntimeSnapshot,
+  type DesktopSettings,
+} from '@glade/shared';
 
 import { WorkflowCanvas } from '../components/graph/workflow-canvas';
 import { ReplTerminalPanel } from '../components/repl/repl-terminal-panel';
@@ -14,6 +19,7 @@ import {
   useTransientGuidanceReset,
 } from '../components/workflow/protocol-panels';
 import type { WorkflowActionRecord } from '../lib/graph-types';
+import { readDesktopRuntime } from '../lib/runtime';
 import { Button } from '../components/ui/button';
 import { ToastViewport } from '../components/ui/toast-viewport';
 import { useServerConnection } from '../hooks/useServerConnection';
@@ -24,6 +30,39 @@ export const Route = createFileRoute('/')({
   component: IndexRoute,
 });
 
+function sessionIssue(reason: string | null): DesktopPreflightIssue | null {
+  if (!reason || reason === 'health_check_failed' || reason === 'websocket_closed' || reason === 'websocket_error') {
+    return null;
+  }
+
+  const description = reason.startsWith('r_process_error:')
+    ? `Glade could not start the embedded R session: ${reason.slice('r_process_error:'.length)}`
+    : reason.startsWith('r_process_exit:')
+      ? `The embedded R session exited unexpectedly: ${reason.slice('r_process_exit:'.length)}`
+      : reason === 'project_path_not_configured'
+        ? 'The desktop project directory is not configured.'
+        : `The bayesgrove session reported: ${reason}`;
+
+  return {
+    code: 'session_connection_failed',
+    title: 'Could not establish a bg_serve() session',
+    description,
+  };
+}
+
+function setupIssues(snapshot: DesktopRuntimeSnapshot | null, reason: string | null) {
+  const issues = [...(snapshot?.preflight.issues ?? [])];
+  const followUp = snapshot?.preflight.status === 'ok' ? sessionIssue(reason) : null;
+  if (followUp) {
+    issues.push(followUp);
+  }
+  return issues;
+}
+
+function trimCommand(command: string | null | undefined) {
+  return command?.trim() ? command : null;
+}
+
 export function IndexRoute() {
   const { dispatchCommand, dispatchHostCommand, reconnect } = useServerConnection();
   const detachedTerminalView = new URLSearchParams(window.location.search).get('terminal') === 'detached';
@@ -31,6 +70,7 @@ export function IndexRoute() {
   const serverVersion = useAppStore((state) => state.serverVersion);
   const sessionState = useAppStore((state) => state.sessionState);
   const sessionReason = useAppStore((state) => state.sessionReason);
+  const pushNotification = useAppStore((state) => state.pushNotification);
   const graph = useGraphStore((state) => state.graph);
   const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
   const setHighlightedNodeIds = useGraphStore((state) => state.setHighlightedNodeIds);
@@ -44,10 +84,21 @@ export function IndexRoute() {
   } | null>(null);
   const [guidanceActions, setGuidanceActions] = useState<ReadonlyArray<WorkflowActionRecord> | null>(null);
   const [isHealthDialogOpen, setIsHealthDialogOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [desktopState, setDesktopState] = useState<DesktopRuntimeSnapshot | null>(null);
+  const [settingsDraft, setSettingsDraft] = useState<DesktopSettings | null>(null);
+  const [desktopBusy, setDesktopBusy] = useState(false);
   const actionSignature = useMemo(
     () => graph?.actions.map((action) => action.id).join('|') ?? '',
     [graph],
   );
+  const desktopRuntime = readDesktopRuntime();
+  const checkForUpdates = desktopRuntime?.checkForUpdates;
+  const downloadUpdate = desktopRuntime?.downloadUpdate;
+  const saveDesktopSettings = desktopRuntime?.saveDesktopSettings;
+  const resetDesktopSettings = desktopRuntime?.resetDesktopSettings;
+  const refreshDesktopState = desktopRuntime?.refreshDesktopState;
+  const desktopIssues = useMemo(() => setupIssues(desktopState, sessionReason), [desktopState, sessionReason]);
   const healthPayload = useMemo(() => JSON.stringify({
     endpoint: `${window.location.origin}/health`,
     status: serverConnected ? 'ok' : 'error',
@@ -55,6 +106,34 @@ export function IndexRoute() {
     sessionState,
     sessionReason,
   }, null, 2), [serverConnected, serverVersion, sessionReason, sessionState]);
+
+  useEffect(() => {
+    if (!desktopRuntime?.getDesktopState) {
+      return;
+    }
+
+    let active = true;
+    void desktopRuntime.getDesktopState().then((snapshot) => {
+      if (!active) {
+        return;
+      }
+      setDesktopState(snapshot);
+      setSettingsDraft(snapshot.settings);
+    });
+
+    const unsubscribe = desktopRuntime.onDesktopStateChange?.((snapshot) => {
+      if (!active) {
+        return;
+      }
+      setDesktopState(snapshot);
+      setSettingsDraft((current) => current ?? snapshot.settings);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [desktopRuntime]);
 
   const handleSelectObligation = useCallback((nodeIds: ReadonlyArray<string>) => {
     setHighlightedNodeIds(nodeIds);
@@ -103,9 +182,33 @@ export function IndexRoute() {
 
     setAwaitingGuidance(null);
     setGuidanceActions(graph.actions.slice(0, 2));
-  }, [actionSignature, awaitingGuidance, graph]);
+  }, [actionSignature, awaitingGuidance, detachedTerminalView, graph]);
 
   useTransientGuidanceReset(guidanceActions, () => setGuidanceActions(null));
+
+  async function applyDesktopAction(action: () => Promise<DesktopRuntimeSnapshot>) {
+    if (!desktopRuntime) {
+      return;
+    }
+
+    setDesktopBusy(true);
+    try {
+      const snapshot = await action();
+      setDesktopState(snapshot);
+      setSettingsDraft(snapshot.settings);
+      await reconnect();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[desktop] action failed', error);
+      pushNotification({
+        tone: 'error',
+        title: 'Desktop action failed',
+        description: message,
+      });
+    } finally {
+      setDesktopBusy(false);
+    }
+  }
 
   if (detachedTerminalView) {
     return (
@@ -141,15 +244,248 @@ export function IndexRoute() {
           </div>
         </div>
       ) : null}
+      {isSettingsDialogOpen && settingsDraft && desktopState ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl rounded-[2rem] border border-slate-800 bg-slate-950 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300/80">Desktop settings</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-50">Environment and updates</h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                  Configure the local R executable, editor command, and update channel stored in the Electron user data directory.
+                </p>
+              </div>
+              <Button variant="ghost" onClick={() => setIsSettingsDialogOpen(false)}>Close</Button>
+            </div>
+
+            <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-200">R executable path</span>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                      value={settingsDraft.rExecutablePath}
+                      onChange={(event) => setSettingsDraft({ ...settingsDraft, rExecutablePath: event.target.value })}
+                    />
+                    <Button
+                      variant="ghost"
+                      disabled={!desktopRuntime?.selectExecutablePath || desktopBusy}
+                      onClick={() => {
+                        void desktopRuntime?.selectExecutablePath?.()
+                          .then((selectedPath) => {
+                            if (selectedPath) {
+                              setSettingsDraft((current) => current ? { ...current, rExecutablePath: selectedPath } : current);
+                            }
+                          })
+                          .catch((error) => {
+                            const message = error instanceof Error ? error.message : String(error);
+                            console.error('[desktop] failed to select executable path', error);
+                            pushNotification({
+                              tone: 'error',
+                              title: 'Could not browse for R',
+                              description: message,
+                            });
+                          });
+                      }}
+                    >
+                      Browse
+                    </Button>
+                  </div>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-200">Preferred editor command</span>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={settingsDraft.editorCommand}
+                    onChange={(event) => setSettingsDraft({ ...settingsDraft, editorCommand: event.target.value })}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">Use `auto` to detect `code`, `positron`, `cursor`, or `nvim` automatically.</p>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-200">Update channel</span>
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={settingsDraft.updateChannel}
+                    onChange={(event) => setSettingsDraft({
+                      ...settingsDraft,
+                      updateChannel: event.target.value === 'beta' ? 'beta' : 'stable',
+                    })}
+                  >
+                    <option value="stable">stable</option>
+                    <option value="beta">beta</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Updater</p>
+                <p className="mt-3 text-lg font-medium text-slate-100">{desktopState.update.status.replaceAll('-', ' ')}</p>
+                <p className="mt-2 text-sm text-slate-400">{desktopState.update.message ?? 'No update activity yet.'}</p>
+                <p className="mt-2 text-xs text-slate-500">Channel: {desktopState.update.channel}</p>
+                {desktopState.update.progressPercent !== null ? (
+                  <div className="mt-4 h-2 rounded-full bg-slate-800">
+                    <div
+                      className="h-2 rounded-full bg-emerald-400 transition-[width] duration-300"
+                      style={{ width: `${Math.max(4, Math.min(100, desktopState.update.progressPercent))}%` }}
+                    />
+                  </div>
+                ) : null}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    disabled={desktopBusy || !checkForUpdates}
+                    onClick={() => {
+                      if (!checkForUpdates) {
+                        return;
+                      }
+                      void applyDesktopAction(() => checkForUpdates());
+                    }}
+                  >
+                    <RefreshCw className="size-4" />
+                    Check now
+                  </Button>
+                  <Button
+                    disabled={desktopBusy || desktopState.update.status !== 'available' || !downloadUpdate}
+                    onClick={() => {
+                      if (!downloadUpdate) {
+                        return;
+                      }
+                      void applyDesktopAction(() => downloadUpdate());
+                    }}
+                  >
+                    <Download className="size-4" />
+                    Download
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    disabled={desktopBusy || desktopState.update.status !== 'downloaded' || !desktopRuntime?.installDownloadedUpdate}
+                    onClick={() => {
+                      void desktopRuntime?.installDownloadedUpdate?.();
+                    }}
+                  >
+                    Install and relaunch
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-between gap-3">
+              <Button
+                variant="ghost"
+                disabled={desktopBusy || !resetDesktopSettings}
+                onClick={() => {
+                  if (!resetDesktopSettings) {
+                    return;
+                  }
+                  void applyDesktopAction(() => resetDesktopSettings());
+                }}
+              >
+                <RotateCcw className="size-4" />
+                Reset to defaults
+              </Button>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="ghost" onClick={() => setSettingsDraft(desktopState.settings)}>Discard</Button>
+                <Button
+                  disabled={desktopBusy || !saveDesktopSettings}
+                  onClick={() => {
+                    if (!settingsDraft || !saveDesktopSettings) {
+                      return;
+                    }
+                    void applyDesktopAction(() => saveDesktopSettings(settingsDraft));
+                  }}
+                >
+                  Save and restart session
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {desktopState && desktopIssues.length > 0 ? (
+        <section className="rounded-[2rem] border border-amber-400/30 bg-amber-500/10 p-6 shadow-2xl shadow-slate-950/20">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80">First launch</p>
+              <h2 className="mt-2 text-2xl font-semibold text-amber-50">Complete local setup before running workflows</h2>
+              <p className="mt-2 max-w-3xl text-sm text-amber-100/80">
+                Glade does not bundle R. Fix the checks below, then retry the session. The embedded Bun server is already bundled by the desktop shell.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="ghost" onClick={() => setIsSettingsDialogOpen(true)}>
+                <Settings2 className="size-4" />
+                Settings
+              </Button>
+              <Button
+                disabled={desktopBusy || !refreshDesktopState}
+                onClick={() => {
+                  if (!refreshDesktopState) {
+                    return;
+                  }
+                  void applyDesktopAction(() => refreshDesktopState());
+                }}
+              >
+                <RefreshCw className="size-4" />
+                Retry checks
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {desktopIssues.map((issue) => (
+              <article key={`${issue.code}-${issue.title}`} className="rounded-3xl border border-amber-300/20 bg-slate-950/70 p-5">
+                <h3 className="text-lg font-medium text-slate-50">{issue.title}</h3>
+                <p className="mt-2 text-sm text-slate-300">{issue.description}</p>
+                {trimCommand(issue.command) ? (
+                  <pre className="mt-4 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/80 p-3 text-xs text-amber-100">
+                    {issue.command}
+                  </pre>
+                ) : null}
+                {issue.href ? (
+                  <a className="mt-4 inline-flex text-sm font-medium text-emerald-300 hover:text-emerald-200" href={issue.href} target="_blank" rel="noreferrer">
+                    Open install instructions
+                  </a>
+                ) : null}
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-5 rounded-3xl border border-slate-800 bg-slate-950/70 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-slate-100">Diagnostic log tail</p>
+                <p className="mt-1 text-xs text-slate-500">Project path: {desktopState.preflight.projectPath}</p>
+              </div>
+              <Button variant="ghost" onClick={() => setIsSettingsDialogOpen(true)}>
+                Adjust settings
+              </Button>
+            </div>
+            <pre className="mt-4 max-h-64 overflow-auto rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-xs text-slate-200">
+              {(desktopState.logTail.join('\n') || 'No diagnostics recorded yet.')}
+            </pre>
+          </div>
+        </section>
+      ) : null}
+
       <header className="grid gap-4 rounded-3xl border border-slate-800/80 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 9 · multi-runtime nodes</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 10 · packaging and distribution</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">{APP_DISPLAY_NAME}</h1>
           <p className="mt-3 max-w-3xl text-base text-slate-300">
-            Review workflow state, dispatch graph actions, run schema-driven extension nodes across R and external runtimes, and keep a live R console open beside the canvas.
+            Operate the packaged desktop shell, validate the local bayesgrove environment, manage updates, and keep the workflow canvas and shared R terminal in sync.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 lg:justify-end">
+          {desktopRuntime?.getDesktopState ? (
+            <Button variant="ghost" onClick={() => setIsSettingsDialogOpen(true)}>
+              <Settings2 className="size-4" />
+              Settings
+            </Button>
+          ) : null}
           <Button onClick={reconnect}>
             <RefreshCw className="size-4" />
             Refresh connection
@@ -164,7 +500,7 @@ export function IndexRoute() {
         <StatusCard label="Version" value={serverVersion ?? 'checking…'} />
         <StatusCard label="Server" value={serverConnected ? 'connected' : 'disconnected'} />
         <StatusCard label="Session" value={sessionState} />
-        <StatusCard label="Project" value={graph?.projectName ?? 'waiting…'} />
+        <StatusCard label="Project" value={graph?.projectName ?? desktopState?.preflight.projectPath ?? 'waiting…'} />
         <StatusCard
           label="Workflow"
           value={graph ? `${graph.status.workflowState} · ${graph.obligations.length} obligations / ${graph.actions.length} actions` : 'no snapshot'}
@@ -204,7 +540,7 @@ function StatusCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
       <dt className="text-sm text-slate-400">{label}</dt>
-      <dd className="mt-2 text-lg font-medium text-slate-100">{value}</dd>
+      <dd className="mt-2 break-words text-lg font-medium text-slate-100">{value}</dd>
     </div>
   );
 }

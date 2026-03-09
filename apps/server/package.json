@@ -1,11 +1,12 @@
 {
   "name": "@glade/server",
-  "version": "0.9.0",
+  "version": "0.10.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "tsdown",
+    "build:standalone": "node ../../scripts/build-standalone-server.mjs",
     "start": "bun run dist/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude 'test/*.integration.test.ts'",
