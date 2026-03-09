@@ -1,3 +1,5 @@
+import type { NodeRuntime } from '@glade/contracts';
+
 export const DEFAULT_NODE_WIDTH = 248;
 export const DEFAULT_NODE_HEIGHT = 116;
 
@@ -84,6 +86,8 @@ export interface WorkflowNodeKindSpec {
   readonly description: string;
   readonly inputTypes: ReadonlyArray<string>;
   readonly outputTypes: ReadonlyArray<string>;
+  readonly runtime?: NodeRuntime;
+  readonly command?: string | null;
   readonly parameterSchema?: Record<string, unknown> | null;
   readonly extensionId?: string | null;
   readonly extensionPackageName?: string | null;
@@ -134,6 +138,8 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   readonly branchScopeLabel: string | null;
   readonly notes: string;
   readonly linkedFilePath: string | null;
+  readonly runtime?: NodeRuntime;
+  readonly command?: string | null;
   readonly parameters?: Record<string, unknown>;
   readonly parameterSchema?: Record<string, unknown> | null;
   readonly extensionId?: string | null;

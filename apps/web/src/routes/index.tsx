@@ -143,10 +143,10 @@ export function IndexRoute() {
       ) : null}
       <header className="grid gap-4 rounded-3xl border border-slate-800/80 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 8 · extension api</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">phase 9 · multi-runtime nodes</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">{APP_DISPLAY_NAME}</h1>
           <p className="mt-3 max-w-3xl text-base text-slate-300">
-            Review workflow state, dispatch graph actions, inspect schema-driven extension nodes, and keep a live R console open beside the canvas.
+            Review workflow state, dispatch graph actions, run schema-driven extension nodes across R and external runtimes, and keep a live R console open beside the canvas.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 lg:justify-end">

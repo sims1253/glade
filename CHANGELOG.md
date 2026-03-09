@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 - 2026-03-09
+
+- Added phase 9 multi-runtime node execution with typed extension descriptors for `r_session`, `uvx`, `bunx`, `binary`, and guarded `shell` runtimes.
+- Added Bun-side tool execution with JSON file/stdin serializers, JSON file/stdout parsers, persisted output artifacts plus content hashes, and clearer missing-tool/timeout/non-zero-exit errors.
+- Added a direct `ExecuteNode` command path and node drawer execution controls for non-R extension nodes, including first-run confirmation for non-local extension packages.
+- Added a worked optional-addon `examples/elicito-node-pack` extension and focused coverage for descriptor normalization, node execution planning, and tool runtime behavior.
+
 ## 0.8.1 - 2026-03-09
 
 - Cleaned up the phase 8 extension boundary so `GraphSnapshot` now carries only canonical `extension_registry` data, with shared contract-side normalization used by both server and web.

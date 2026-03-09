@@ -33,6 +33,8 @@ export function describeCommand(command: Command) {
       return 'Recorded workflow decision';
     case 'ExecuteAction':
       return 'Executed workflow action';
+    case 'ExecuteNode':
+      return 'Executed node';
     case 'UpdateNodeNotes':
       return 'Saved node notes';
     case 'UpdateNodeParameters':

@@ -319,4 +319,53 @@ describe('NodeDetailDrawer', () => {
     expect(screen.getByText('/tmp/project/model.R')).toBeInTheDocument();
     expect(screen.getByLabelText(/enter file path/i)).toBeInTheDocument();
   });
+
+  it('dispatches ExecuteNode for non-R runtime nodes and handles trust confirmation', async () => {
+    dispatchCommand
+      .mockResolvedValueOnce({
+        type: 'CommandResult',
+        id: 'cmd',
+        success: false,
+        error: {
+          code: 'tool_execution_confirmation_required',
+          message: 'Confirm to continue.',
+        },
+      })
+      .mockResolvedValueOnce({ type: 'CommandResult', id: 'cmd-2', success: true });
+
+    render(
+      <NodeDetailDrawer
+        graph={graph}
+        node={{
+          ...graph.nodesById.export!,
+          runtime: 'uvx',
+          command: 'elicito',
+        }}
+        dispatchCommand={dispatchCommand}
+        dispatchHostCommand={dispatchHostCommand}
+        onClose={() => {}}
+        onSelectNode={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run node' }));
+
+    await waitFor(() =>
+      expect(dispatchCommand).toHaveBeenCalledWith({
+        type: 'ExecuteNode',
+        nodeId: 'export',
+      }),
+    );
+    expect(await screen.findByText('This extension resolves to a non-local tool. Confirm once to allow execution.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trust and run' }));
+
+    await waitFor(() =>
+      expect(dispatchCommand).toHaveBeenCalledWith({
+        type: 'ExecuteNode',
+        nodeId: 'export',
+        confirmNonLocalExecution: true,
+      }),
+    );
+  });
 });

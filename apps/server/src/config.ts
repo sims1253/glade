@@ -26,6 +26,7 @@ const ServerConfigSchema = Schema.Struct({
   rPort: Schema.Number,
   rPollInterval: Schema.Number,
   replReplayLimit: Schema.Number,
+  toolExecutionTimeoutMs: Schema.Number,
 });
 
 export type ServerConfigShape = Schema.Schema.Type<typeof ServerConfigSchema>;
@@ -57,5 +58,6 @@ export const ServerConfigLive = Layer.sync(ServerConfig, () => {
     rPort: Number(process.env.BAYESGROVE_R_PORT ?? Number(process.env.BAYESGROVE_SERVER_PORT ?? DEFAULT_SERVER_PORT) + 10),
     rPollInterval: Number(process.env.BAYESGROVE_R_POLL_INTERVAL ?? 0.2),
     replReplayLimit: Number(process.env.BAYESGROVE_REPL_REPLAY_LIMIT ?? 500),
+    toolExecutionTimeoutMs: Number(process.env.BAYESGROVE_TOOL_TIMEOUT_MS ?? 30_000),
   });
 });

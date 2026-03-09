@@ -31,10 +31,17 @@ import {
 } from '../errors';
 import { BayesgroveSocket } from './bayesgrove-socket';
 import { toExecuteActionCommand } from './execute-action';
+import {
+  mergeToolExecutionMetadata,
+  resolveNodeExecution,
+  toSubmitNodeCommand,
+  toUpdateNodeMetadataCommand,
+} from './execute-node';
 import { FrontendBroadcast } from './frontend-broadcast';
 import { GraphStateCache } from './graph-state-cache';
 import { RProcessService } from './r-process';
 import { SessionStatusStore } from './session-status';
+import { executeToolNode } from './tool-runtime';
 
 export class ProtocolRouter extends Context.Tag('glade/ProtocolRouter')<
   ProtocolRouter,
@@ -243,6 +250,7 @@ export const ProtocolRouterLive = Layer.scoped(
     const statusStore = yield* SessionStatusStore;
     const pendingRequests = yield* Ref.make(new Map<string, WebSocket>());
     const refreshInFlight = yield* Ref.make(false);
+    const approvedNonLocalExecutions = yield* Ref.make(new Set<string>());
 
     const publishStatus = (state: SessionStatus['state'], reason?: string) =>
       Effect.gen(function* () {
@@ -441,6 +449,85 @@ export const ProtocolRouterLive = Layer.scoped(
               message: 'The bayesgrove session is not connected.',
             }),
           );
+        }
+
+        if (command.type === 'ExecuteNode') {
+          const snapshot = yield* cache.getSnapshot;
+          const currentSnapshot = Option.getOrNull(snapshot);
+          if (!currentSnapshot) {
+            return yield* Effect.fail(
+              new CommandDispatchError({
+                code: 'missing_graph_snapshot',
+                message: 'ExecuteNode requires a current GraphSnapshot.',
+              }),
+            );
+          }
+
+          const execution = yield* Effect.try({
+            try: () => resolveNodeExecution(currentSnapshot, command.nodeId, {
+              rootDir: config.rootDir,
+              projectPath: config.projectPath,
+            }),
+            catch: wrapCommandMappingError,
+          });
+
+          if (execution.runtime === 'r_session') {
+            const requestMap = yield* Ref.get(pendingRequests);
+            requestMap.set(id, socket);
+            yield* Ref.set(pendingRequests, new Map(requestMap));
+            yield* bayesgroveSocket.send(toSubmitNodeCommand(id, command.nodeId));
+            return;
+          }
+
+          const approvalKey = execution.extensionId ?? execution.kind;
+          const approved = yield* Ref.get(approvedNonLocalExecutions);
+          if (!execution.isLocalExtension && !approved.has(approvalKey) && !command.confirmNonLocalExecution) {
+            return yield* Effect.fail(
+              new CommandDispatchError({
+                code: 'tool_execution_confirmation_required',
+                message: `Running ${execution.label} will execute a command from non-local extension ${execution.extensionPackageName ?? execution.kind}. Confirm to continue.`,
+              }),
+            );
+          }
+
+          if (!execution.isLocalExtension && !approved.has(approvalKey) && command.confirmNonLocalExecution) {
+            yield* Ref.set(approvedNonLocalExecutions, new Set(approved).add(approvalKey));
+          }
+
+          const toolResult = yield* Effect.tryPromise({
+            try: () => executeToolNode({
+              nodeId: execution.nodeId,
+              runtime: execution.runtime,
+              command: execution.command ?? '',
+              argsTemplate: execution.argsTemplate,
+              inputSerializer: execution.inputSerializer,
+              outputParser: execution.outputParser,
+              allowShell: execution.allowShell,
+              inputs: execution.inputs,
+              stateDir: config.stateDir,
+              timeoutMs: config.toolExecutionTimeoutMs,
+            }),
+            catch: (error) =>
+              error instanceof CommandDispatchError
+                ? error
+                : new CommandDispatchError({
+                    code: 'tool_execution_failed',
+                    message: error instanceof Error ? error.message : String(error),
+                    cause: error,
+                  }),
+          });
+
+          const requestMap = yield* Ref.get(pendingRequests);
+          requestMap.set(id, socket);
+          yield* Ref.set(pendingRequests, new Map(requestMap));
+          yield* bayesgroveSocket.send(
+            toUpdateNodeMetadataCommand(
+              id,
+              command.nodeId,
+              mergeToolExecutionMetadata(execution.metadata, toolResult),
+            ),
+          );
+          return;
         }
 
         const rawCommand = command.type === 'ExecuteAction'

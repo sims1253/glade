@@ -2,9 +2,9 @@
 
 Glade is the desktop and browser-based GUI for bayesgrove.
 
-Current release: `0.8.0`
+Current release: `0.9.0`
 
-Phase status: phase 8 is implemented.
+Phase status: phase 9 is implemented.
 The app now includes:
 
 - workflow canvas
@@ -13,8 +13,9 @@ The app now includes:
 - shared-session R REPL terminal
 - schema-driven extension forms
 - lazy GUI extension loading from trusted local bundles
+- Bun-executed multi-runtime nodes (`uvx`, `bunx`, `binary`, `shell`) with first-run confirmation for non-local extensions
 
-Phase 8 also adds an extension registry flowing through the snapshot/cache layers, a schema-backed `UpdateNodeParameters` command path, and a sample extension package at [`examples/test-extension`](/home/m0hawk/Documents/glade/examples/test-extension).
+Phase 9 extends the extension registry with runtime execution descriptors, adds a direct `ExecuteNode` path for non-R nodes, and includes sample extension packages at [`examples/test-extension`](/home/m0hawk/Documents/glade/examples/test-extension) plus an optional addon-style example at [`examples/elicito-node-pack`](/home/m0hawk/Documents/glade/examples/elicito-node-pack).
 
 ## Workspace
 

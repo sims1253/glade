@@ -2,6 +2,7 @@ import {
   readExtensionRegistry,
   type ExtensionDescriptor,
   type GraphSnapshot,
+  type NodeRuntime,
   type NodeTypeDescriptor,
 } from '@glade/contracts';
 
@@ -137,6 +138,20 @@ function formatScopeLabel(scope: string) {
   }
 
   return formatKind(scope);
+}
+
+function normalizeNodeRuntime(value: unknown): NodeRuntime {
+  switch (value) {
+    case 'uvx':
+    case 'bunx':
+    case 'binary':
+    case 'shell':
+      return value;
+    case 'r':
+    case 'r_session':
+    default:
+      return 'r_session';
+  }
 }
 
 function firstObject(...values: Array<unknown>): JsonRecord | null {
@@ -564,6 +579,8 @@ function extractNodeKinds(snapshot: GraphSnapshot): Array<WorkflowNodeKindSpec> 
         description: firstString(rawKind.description, extensionNode?.rawNodeType.description) ?? describeNodeKind(kind, inputTypes, outputTypes),
         inputTypes,
         outputTypes,
+        runtime: normalizeNodeRuntime(firstString(extensionNode?.rawNodeType.runtime, rawKind.runtime)),
+        command: firstString(extensionNode?.rawNodeType.command, rawKind.command),
         parameterSchema: extractParameterSchema(rawKind, extensionNode?.rawNodeType ?? null),
         extensionId: extensionNode?.extensionId ?? null,
         extensionPackageName: extensionNode?.extensionPackageName ?? null,
@@ -611,6 +628,8 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
         branchScopeLabel: extractBranchScopeLabel(rawNode, metadata),
         notes: extractNotes(rawNode, metadata),
         linkedFilePath: extractLinkedFilePath(rawNode, metadata),
+        runtime: kindSpec?.runtime ?? 'r_session',
+        command: kindSpec?.command ?? null,
         parameters: extractNodeParameters(rawNode, metadata),
         parameterSchema: kindSpec?.parameterSchema ?? null,
         extensionId: kindSpec?.extensionId ?? null,

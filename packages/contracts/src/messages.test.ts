@@ -49,6 +49,11 @@ describe('contracts', () => {
       id: 'cmd-3',
       command: { type: 'UpdateNodeParameters', nodeId: 'node_1', params: { iterations: 4 } },
     });
+
+    roundTrip(CommandEnvelope, {
+      id: 'cmd-4',
+      command: { type: 'ExecuteNode', nodeId: 'node_1', confirmNonLocalExecution: true },
+    });
   });
 
   it('round-trips graph snapshots with protocol partitions', () => {
@@ -80,6 +85,11 @@ describe('contracts', () => {
           node_types: [
             {
               kind: 'posterior_summary',
+              runtime: 'uvx',
+              command: 'elicito',
+              args_template: ['--input', '{input_json_path}', '--output', '{output_json_path}'],
+              input_serializer: 'json_file',
+              output_parser: 'json_file',
               title: 'Posterior summary',
               description: 'Summarize posterior draws.',
               parameter_schema: {
@@ -160,6 +170,7 @@ describe('contracts', () => {
           node_types: {
             posterior_summary: {
               name: 'posterior_summary',
+              runtime: 'r',
               title: 'Posterior summary',
             },
           },
@@ -183,6 +194,7 @@ describe('contracts', () => {
           {
             kind: 'posterior_summary',
             name: 'posterior_summary',
+            runtime: 'r_session',
             title: 'Posterior summary',
           },
         ],
@@ -247,5 +259,32 @@ describe('contracts', () => {
 
     expect(descriptor.id).toBe('extension:7');
     expect(descriptor.package_name).toBe('extension:7');
+  });
+
+  it('normalizes phase 9 multi-runtime descriptor fields', async () => {
+    const descriptor = await Effect.runPromise(decodeExtensionDescriptor({
+      package_name: 'elicito.node.pack',
+      node_types: [
+        {
+          kind: 'prior_elicitation',
+          runtime: 'uvx',
+          command: 'elicito',
+          args_template: ['--input', '{input_json_path}', '--output', '{output_json_path}'],
+          input_serializer: 'json_file',
+          output_parser: 'json_file',
+        },
+      ],
+    }));
+
+    expect(descriptor.node_types).toEqual([
+      expect.objectContaining({
+        kind: 'prior_elicitation',
+        runtime: 'uvx',
+        command: 'elicito',
+        args_template: ['--input', '{input_json_path}', '--output', '{output_json_path}'],
+        input_serializer: 'json_file',
+        output_parser: 'json_file',
+      }),
+    ]);
   });
 });

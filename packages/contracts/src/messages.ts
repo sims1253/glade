@@ -6,10 +6,24 @@ const OptionalString = Schema.optional(Schema.String);
 
 const StatusMessages = Schema.Union(StringArray, Schema.String);
 
+export const NodeRuntime = Schema.Literal('r_session', 'uvx', 'bunx', 'binary', 'shell');
+export type NodeRuntime = Schema.Schema.Type<typeof NodeRuntime>;
+
+export const NodeInputSerializer = Schema.Literal('json_file', 'json_stdin', 'argv', 'env');
+export type NodeInputSerializer = Schema.Schema.Type<typeof NodeInputSerializer>;
+
+export const NodeOutputParser = Schema.Literal('json_file', 'json_stdout', 'lines_stdout');
+export type NodeOutputParser = Schema.Schema.Type<typeof NodeOutputParser>;
+
 export const NodeTypeDescriptor = Schema.Struct({
   id: Schema.optional(Schema.String),
   kind: Schema.String,
-  runtime: Schema.optional(Schema.String),
+  runtime: Schema.optional(NodeRuntime),
+  command: Schema.optional(Schema.String),
+  args_template: Schema.optional(StringArray),
+  input_serializer: Schema.optional(NodeInputSerializer),
+  output_parser: Schema.optional(NodeOutputParser),
+  allowShell: Schema.optional(Schema.Boolean),
   title: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
   input_schema: Schema.optional(Schema.Unknown),
@@ -298,6 +312,11 @@ export const ExecuteActionCommand = Schema.Struct({
   actionId: Schema.String,
   payload: Schema.optional(Schema.Unknown),
 });
+export const ExecuteNodeCommand = Schema.Struct({
+  type: Schema.Literal('ExecuteNode'),
+  nodeId: Schema.String,
+  confirmNonLocalExecution: Schema.optional(Schema.Boolean),
+});
 export const UpdateNodeNotesCommand = Schema.Struct({
   type: Schema.Literal('UpdateNodeNotes'),
   nodeId: Schema.String,
@@ -331,6 +350,7 @@ export const WorkflowCommand = Schema.Union(
   RenameNodeCommand,
   RecordDecisionCommand,
   ExecuteActionCommand,
+  ExecuteNodeCommand,
   UpdateNodeNotesCommand,
   UpdateNodeParametersCommand,
   SetNodeFileCommand,

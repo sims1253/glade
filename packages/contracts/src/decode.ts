@@ -12,6 +12,9 @@ import {
   GraphSnapshot,
   HealthResponse,
   HostCommand,
+  type NodeInputSerializer,
+  type NodeOutputParser,
+  type NodeRuntime,
   type NodeTypeDescriptor,
   ProtocolEvent,
   ServerMessage,
@@ -32,6 +35,14 @@ function asObject(value: unknown): JsonRecord | null {
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
+function asStringArray(value: unknown): Array<string> {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
 
 function asObjectArray(value: unknown): Array<JsonRecord> {
@@ -72,6 +83,46 @@ function stableExtensionId(rawExtension: JsonRecord, index: number) {
   ) ?? `extension:${index}`;
 }
 
+function normalizeNodeRuntime(value: string | null): NodeRuntime | null {
+  if (value === 'r') {
+    return 'r_session';
+  }
+
+  switch (value) {
+    case 'r_session':
+    case 'uvx':
+    case 'bunx':
+    case 'binary':
+    case 'shell':
+      return value;
+    default:
+      return null;
+  }
+}
+
+function normalizeInputSerializer(value: string | null): NodeInputSerializer | null {
+  switch (value) {
+    case 'json_file':
+    case 'json_stdin':
+    case 'argv':
+    case 'env':
+      return value;
+    default:
+      return null;
+  }
+}
+
+function normalizeOutputParser(value: string | null): NodeOutputParser | null {
+  switch (value) {
+    case 'json_file':
+    case 'json_stdout':
+    case 'lines_stdout':
+      return value;
+    default:
+      return null;
+  }
+}
+
 function normalizeNodeTypeDescriptor(value: JsonRecord): NodeTypeDescriptor | null {
   const kind = firstString(value.kind, value.name);
   if (!kind) {
@@ -79,7 +130,12 @@ function normalizeNodeTypeDescriptor(value: JsonRecord): NodeTypeDescriptor | nu
   }
 
   const id = firstString(value.id);
-  const runtime = firstString(value.runtime);
+  const runtime = normalizeNodeRuntime(firstString(value.runtime));
+  const command = firstString(value.command);
+  const argsTemplate = asStringArray(value.args_template);
+  const inputSerializer = normalizeInputSerializer(firstString(value.input_serializer));
+  const outputParser = normalizeOutputParser(firstString(value.output_parser));
+  const allowShell = asBoolean(value.allowShell) ?? asBoolean(value.allow_shell);
   const title = firstString(value.title);
   const description = firstString(value.description);
   const guiBundlePath = firstString(value.gui_bundle_path);
@@ -90,6 +146,11 @@ function normalizeNodeTypeDescriptor(value: JsonRecord): NodeTypeDescriptor | nu
     kind,
     ...(id ? { id } : {}),
     ...(runtime ? { runtime } : {}),
+    ...(command ? { command } : {}),
+    ...(argsTemplate.length > 0 ? { args_template: argsTemplate } : {}),
+    ...(inputSerializer ? { input_serializer: inputSerializer } : {}),
+    ...(outputParser ? { output_parser: outputParser } : {}),
+    ...(allowShell !== null ? { allowShell } : {}),
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
     ...(guiBundlePath ? { gui_bundle_path: guiBundlePath } : {}),

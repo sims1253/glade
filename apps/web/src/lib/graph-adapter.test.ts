@@ -160,6 +160,7 @@ describe('adaptSnapshotToGraph', () => {
 
     expect(graph.nodeKindsByKind.posterior_summary).toMatchObject({
       kind: 'posterior_summary',
+      runtime: 'r_session',
       extensionId: 'test.extension',
       extensionPackageName: 'test.extension',
       browserBundlePath: '/extension-bundles/test-extension.js',
@@ -173,6 +174,7 @@ describe('adaptSnapshotToGraph', () => {
 
     expect(graph.nodesById.ext_1).toMatchObject({
       kind: 'posterior_summary',
+      runtime: 'r_session',
       extensionId: 'test.extension',
       extensionPackageName: 'test.extension',
       browserBundlePath: '/extension-bundles/test-extension.js',
@@ -241,5 +243,85 @@ describe('adaptSnapshotToGraph', () => {
     expect(graph.extensionRegistryById?.['extension:0']).toBeDefined();
     expect(graph.extensionRegistryById?.['extension:1']).toBeDefined();
     expect(warning).toHaveBeenCalledTimes(2);
+  });
+
+  it('hydrates multi-runtime extension descriptors onto node kinds and nodes', async () => {
+    const snapshot = await Effect.runPromise(decodeGraphSnapshot({
+      protocol_version: '0.1.0',
+      message_type: 'GraphSnapshot',
+      emitted_at: '2026-03-09T12:00:00.000Z',
+      project_id: 'proj_extensions',
+      project_name: 'extension-ui',
+      graph: {
+        version: 1,
+        registry: {
+          kinds: {},
+        },
+        nodes: {
+          elicito_1: {
+            id: 'elicito_1',
+            kind: 'prior_elicitation',
+            label: 'Prior elicitation',
+            params: {
+              shape: 'normal',
+            },
+            metadata: {},
+          },
+        },
+        edges: {},
+      },
+      status: {
+        workflow_state: 'open',
+        runnable_nodes: 1,
+        blocked_nodes: 0,
+        pending_gates: 0,
+        active_jobs: 0,
+        health: 'ok',
+        messages: ['ready'],
+      },
+      pending_gates: {},
+      branches: {},
+      branch_goals: {},
+      protocol: {
+        summary: {
+          n_scopes: 1,
+          n_obligations: 0,
+          n_actions: 0,
+          n_blocking: 0,
+          scopes: ['project'],
+        },
+        project: {
+          scope: 'project',
+          scope_label: 'Project',
+          obligations: {},
+          actions: {},
+        },
+      },
+      extension_registry: [
+        {
+          id: 'elicito.node.pack',
+          package_name: 'elicito.node.pack',
+          node_types: [
+            {
+              kind: 'prior_elicitation',
+              runtime: 'uvx',
+              command: 'elicito',
+            },
+          ],
+          domain_packs: [],
+        },
+      ],
+    }));
+
+    const graph = adaptSnapshotToGraph(snapshot);
+
+    expect(graph.nodeKindsByKind.prior_elicitation).toMatchObject({
+      runtime: 'uvx',
+      command: 'elicito',
+    });
+    expect(graph.nodesById.elicito_1).toMatchObject({
+      runtime: 'uvx',
+      command: 'elicito',
+    });
   });
 });
