@@ -1,6 +1,6 @@
 {
   "name": "glade",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.10",
@@ -31,6 +31,7 @@
     "build": "turbo run build",
     "build:desktop-bundle": "node ./scripts/build-desktop-bundle.ts",
     "build:server:standalone": "node ./scripts/build-standalone-server.ts",
+    "diagnostics:effect": "node ./scripts/check-effect-diagnostics.ts",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test smoke-test",
     "lint": "oxlint . --deny-warnings",

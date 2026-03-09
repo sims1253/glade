@@ -1,27 +1,10 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.effect.json",
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
-    "plugins": [
-      {
-        "name": "@effect/language-service",
-        "namespaceImportPackages": ["@effect/platform-node"],
-        "includeSuggestionsInTsc": false,
-        "ignoreEffectWarningsInTscExitCode": true,
-        "diagnosticSeverity": {
-          "importFromBarrel": "off",
-          "preferSchemaOverJson": "off",
-          "globalErrorInEffectFailure": "off",
-          "globalErrorInEffectCatch": "off",
-          "runEffectInsideEffect": "off",
-          "unnecessaryFailYieldableError": "off",
-          "scopeInLayerEffect": "off"
-        }
-      }
-    ]
+    "types": ["vite/client"]
   },
   "include": ["src", "vite.config.ts"]
 }

@@ -4,7 +4,9 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Queue from 'effect/Queue';
 import * as Ref from 'effect/Ref';
+import * as Runtime from 'effect/Runtime';
 import * as Schedule from 'effect/Schedule';
+import * as Schema from 'effect/Schema';
 import * as Stream from 'effect/Stream';
 
 import {
@@ -40,12 +42,15 @@ function statusMessage(state: SessionStatus['state'], reason?: string): SessionS
   return reason ? { type: 'SessionStatus', state, reason } : { type: 'SessionStatus', state };
 }
 
-export const BayesgroveSocketLive = Layer.effect(
+const decodeJsonString = Schema.decodeUnknown(Schema.parseJson());
+
+export const BayesgroveSocketLive = Layer.scoped(
   BayesgroveSocket,
   Effect.gen(function* () {
     const config = yield* ServerConfig;
     const statusStore = yield* SessionStatusStore;
     const broadcast = yield* FrontendBroadcast;
+    const effectRuntime = yield* Effect.runtime<never>();
     const socketRef = yield* Ref.make<WebSocket | null>(null);
     const closingRef = yield* Ref.make(false);
     const messageQueue = yield* Queue.unbounded<BayesgroveInboundMessage>();
@@ -59,7 +64,13 @@ export const BayesgroveSocketLive = Layer.effect(
 
     const parseInbound = (raw: string) =>
       Effect.gen(function* () {
-        const payload = JSON.parse(raw) as unknown;
+        const payload = yield* decodeJsonString(raw).pipe(
+          Effect.mapError((cause) =>
+            new ProtocolDecodeError({
+              message: 'Unable to parse bayesgrove websocket message as JSON.',
+              cause,
+            })),
+        );
         const snapshotAttempt = yield* Effect.either(decodeGraphSnapshot(payload));
         if (snapshotAttempt._tag === 'Right') {
           return snapshotAttempt.right;
@@ -75,12 +86,10 @@ export const BayesgroveSocketLive = Layer.effect(
           return resultAttempt.right;
         }
 
-        return yield* Effect.fail(
-          new ProtocolDecodeError({
-            message: 'Unable to decode bayesgrove websocket message.',
-            cause: payload,
-          }),
-        );
+        return yield* new ProtocolDecodeError({
+          message: 'Unable to decode bayesgrove websocket message.',
+          cause: payload,
+        });
       });
 
     const establishConnection = Effect.async<void, SessionStartupError>((resume) => {
@@ -142,7 +151,8 @@ export const BayesgroveSocketLive = Layer.effect(
         cleanupStartupListeners();
 
         socket.on('message', (data) => {
-          void Effect.runPromise(
+          void Runtime.runPromise(
+            effectRuntime,
             parseInbound(String(data)).pipe(
               Effect.flatMap((message) => Queue.offer(messageQueue, message)),
               Effect.catchAll((error) => publishStatus('error', `protocol_decode_error:${error.message}`)),
@@ -150,7 +160,8 @@ export const BayesgroveSocketLive = Layer.effect(
           );
         });
         socket.on('close', () => {
-          void Effect.runPromise(
+          void Runtime.runPromise(
+            effectRuntime,
             Effect.gen(function* () {
               const closing = yield* Ref.get(closingRef);
               yield* Ref.set(socketRef, null);
@@ -161,11 +172,12 @@ export const BayesgroveSocketLive = Layer.effect(
           );
         });
         socket.on('error', (error) => {
-          void Effect.runPromise(
+          void Runtime.runPromise(
+            effectRuntime,
             publishStatus('error', `bayesgrove_socket_error:${error.message}`),
           );
         });
-        void Effect.runPromise(Ref.set(socketRef, socket));
+        void Runtime.runPromise(effectRuntime, Ref.set(socketRef, socket));
         resume(Effect.void);
       });
     });
@@ -208,11 +220,9 @@ export const BayesgroveSocketLive = Layer.effect(
       Effect.gen(function* () {
         const current = yield* Ref.get(socketRef);
         if (!current || current.readyState !== current.OPEN) {
-          return yield* Effect.fail(
-            new SessionStartupError({
-              message: 'bg_serve websocket is not connected.',
-            }),
-          );
+          return yield* new SessionStartupError({
+            message: 'bg_serve websocket is not connected.',
+          });
         }
         yield* Effect.try({
           try: () => current.send(JSON.stringify(command)),

@@ -10,6 +10,7 @@ import type { Database as BunDatabase } from 'bun:sqlite';
 import type { DatabaseSync as NodeDatabaseSync } from 'node:sqlite';
 
 import { ServerConfig } from '../config';
+import { SqliteDatabaseError } from '../errors';
 import { runCacheMigrations } from './migrations';
 
 type UnknownParams = Array<unknown>;
@@ -97,7 +98,11 @@ const createDatabase = (filename: string) =>
       return wrapNodeDatabase(new module.DatabaseSync(filename));
     },
     catch: (cause) =>
-      new Error(`Failed to initialize sqlite database for ${filename}: ${cause instanceof Error ? cause.message : String(cause)}`),
+      new SqliteDatabaseError({
+        filename,
+        message: `Failed to initialize sqlite database for ${filename}: ${cause instanceof Error ? cause.message : String(cause)}`,
+        cause,
+      }),
   });
 
 const openDatabase = (filename: string) =>

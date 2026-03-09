@@ -7,6 +7,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import * as Runtime from 'effect/Runtime';
 
 import { type HealthResponse } from '@glade/contracts';
 import { EXTENSION_BUNDLES_PATH, HEALTH_PATH, WS_PATH } from '@glade/shared';
@@ -106,9 +107,11 @@ export const AppServerLive = Layer.scoped(
   Effect.gen(function* () {
     const config = yield* ServerConfig;
     const router = yield* ProtocolRouter;
+    const effectRuntime = yield* Effect.runtime<never>();
     yield* router.startSession;
     const httpServer = http.createServer((request, response) => {
-      void Effect.runPromise(
+      void Runtime.runPromise(
+        effectRuntime,
         Effect.tryPromise(async () => {
           const requestPath = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`).pathname;
 
@@ -156,7 +159,7 @@ export const AppServerLive = Layer.scoped(
     });
 
     webSocketServer.on('connection', (socket: WebSocket) => {
-      void Effect.runPromise(router.attachClient(socket));
+      void Runtime.runPromise(effectRuntime, router.attachClient(socket));
     });
 
     yield* Effect.acquireRelease(

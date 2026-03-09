@@ -2,7 +2,7 @@
 
 Glade is the desktop and browser-based GUI for bayesgrove.
 
-Current release: `0.11.0`
+Current release: `0.11.1`
 
 Phase status: phase 10 is implemented.
 The app now includes:

@@ -42,6 +42,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Effect diagnostics
+        run: bun run diagnostics:effect
+
       - name: Build
         run: bun run build
 

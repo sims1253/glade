@@ -5,6 +5,7 @@ import * as Option from 'effect/Option';
 
 import { readExtensionRegistry, type GraphSnapshot, type ProtocolEvent } from '@glade/contracts';
 
+import { GraphStateCacheError } from '../errors';
 import { SqliteDatabase } from '../persistence/sqlite';
 
 type JsonObject = Record<string, unknown>;
@@ -30,9 +31,17 @@ const asString = (value: unknown): string | null => (typeof value === 'string' ?
 
 const asArray = (value: unknown): Array<unknown> => (Array.isArray(value) ? value : []);
 
-function isDatabaseClosedError(error: Error) {
-  const message = error.message.toLowerCase();
-  return message.includes('database has closed') || message.includes('database is closed');
+function isDatabaseClosedError(error: GraphStateCacheError) {
+  const messages = [
+    error.message,
+    error.cause instanceof Error ? error.cause.message : null,
+  ]
+    .filter((message): message is string => message !== null)
+    .map((message) => message.toLowerCase());
+
+  return messages.some((message) =>
+    message.includes('database has closed') || message.includes('database is closed'),
+  );
 }
 
 const graphVersionOf = (snapshot: GraphSnapshot): number => {
@@ -380,7 +389,12 @@ export const GraphStateCacheLive = Layer.effect(
             `);
           })();
         },
-        catch: (error) => error instanceof Error ? error : new Error(String(error)),
+        catch: (cause) =>
+          new GraphStateCacheError({
+            operation: 'appendReplLine',
+            message: `Failed to append REPL line: ${cause instanceof Error ? cause.message : String(cause)}`,
+            cause,
+          }),
       }).pipe(
         Effect.catchIf(isDatabaseClosedError, () => Effect.void),
         Effect.orDie,

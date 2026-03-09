@@ -1,24 +1,7 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.effect.json",
   "compilerOptions": {
-    "composite": true,
-    "plugins": [
-      {
-        "name": "@effect/language-service",
-        "namespaceImportPackages": ["@effect/platform-node"],
-        "includeSuggestionsInTsc": false,
-        "ignoreEffectWarningsInTscExitCode": true,
-        "diagnosticSeverity": {
-          "importFromBarrel": "off",
-          "preferSchemaOverJson": "off",
-          "globalErrorInEffectFailure": "off",
-          "globalErrorInEffectCatch": "off",
-          "runEffectInsideEffect": "off",
-          "unnecessaryFailYieldableError": "off",
-          "scopeInLayerEffect": "off"
-        }
-      }
-    ]
+    "composite": true
   },
   "include": ["src"]
 }

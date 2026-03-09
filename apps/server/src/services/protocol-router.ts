@@ -6,6 +6,8 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import * as Ref from 'effect/Ref';
+import * as Runtime from 'effect/Runtime';
+import * as Schema from 'effect/Schema';
 import * as Stream from 'effect/Stream';
 
 import {
@@ -52,6 +54,7 @@ export class ProtocolRouter extends Context.Tag('glade/ProtocolRouter')<
 >() {}
 
 const INTERNAL_SNAPSHOT_PREFIX = 'internal.snapshot.';
+const decodeJsonString = Schema.decodeUnknown(Schema.parseJson());
 
 function commandResult(
   id: string,
@@ -248,6 +251,7 @@ export const ProtocolRouterLive = Layer.scoped(
     const cache = yield* GraphStateCache;
     const broadcast = yield* FrontendBroadcast;
     const statusStore = yield* SessionStatusStore;
+    const effectRuntime = yield* Effect.runtime<never>();
     const pendingRequests = yield* Ref.make(new Map<string, WebSocket>());
     const refreshInFlight = yield* Ref.make(false);
     const approvedNonLocalExecutions = yield* Ref.make(new Set<string>());
@@ -361,12 +365,10 @@ export const ProtocolRouterLive = Layer.scoped(
           }
           case 'OpenFileInEditor': {
             if (config.hostedMode) {
-              return yield* Effect.fail(
-                new HostedCapabilityError({
-                  code: 'unsupported_in_hosted_mode',
-                  message: 'OpenFileInEditor is unavailable in hosted mode.',
-                }),
-              );
+              return yield* new HostedCapabilityError({
+                code: 'unsupported_in_hosted_mode',
+                message: 'OpenFileInEditor is unavailable in hosted mode.',
+              });
             }
             yield* Effect.tryPromise({
               try: () =>
@@ -388,12 +390,10 @@ export const ProtocolRouterLive = Layer.scoped(
             return;
           }
           case 'SelectDirectory':
-            return yield* Effect.fail(
-              new HostedCapabilityError({
-                code: 'unsupported_host_command',
-                message: 'SelectDirectory is not implemented yet.',
-              }),
-            );
+            return yield* new HostedCapabilityError({
+              code: 'unsupported_host_command',
+              message: 'SelectDirectory is not implemented yet.',
+            });
         }
       });
 
@@ -414,21 +414,17 @@ export const ProtocolRouterLive = Layer.scoped(
 
         if (command.type === 'ReplInput') {
           if (config.hostedMode) {
-            return yield* Effect.fail(
-              new HostedCapabilityError({
-                code: 'interactive_repl_unavailable',
-                message: 'Interactive REPL is unavailable in hosted mode.',
-              }),
-            );
+            return yield* new HostedCapabilityError({
+              code: 'interactive_repl_unavailable',
+              message: 'Interactive REPL is unavailable in hosted mode.',
+            });
           }
 
           const running = yield* rProcess.isRunning;
           if (!running) {
-            return yield* Effect.fail(
-              new RSessionUnavailableError({
-                message: 'The R process is not running.',
-              }),
-            );
+            return yield* new RSessionUnavailableError({
+              message: 'The R process is not running.',
+            });
           }
 
           yield* rProcess.sendInput(command.data);
@@ -444,23 +440,19 @@ export const ProtocolRouterLive = Layer.scoped(
 
         const connected = yield* bayesgroveSocket.isConnected;
         if (!connected) {
-          return yield* Effect.fail(
-            new RSessionUnavailableError({
-              message: 'The bayesgrove session is not connected.',
-            }),
-          );
+          return yield* new RSessionUnavailableError({
+            message: 'The bayesgrove session is not connected.',
+          });
         }
 
         if (command.type === 'ExecuteNode') {
           const snapshot = yield* cache.getSnapshot;
           const currentSnapshot = Option.getOrNull(snapshot);
           if (!currentSnapshot) {
-            return yield* Effect.fail(
-              new CommandDispatchError({
-                code: 'missing_graph_snapshot',
-                message: 'ExecuteNode requires a current GraphSnapshot.',
-              }),
-            );
+            return yield* new CommandDispatchError({
+              code: 'missing_graph_snapshot',
+              message: 'ExecuteNode requires a current GraphSnapshot.',
+            });
           }
 
           const execution = yield* Effect.try({
@@ -482,12 +474,10 @@ export const ProtocolRouterLive = Layer.scoped(
           const approvalKey = execution.extensionId ?? execution.kind;
           const approved = yield* Ref.get(approvedNonLocalExecutions);
           if (!execution.isLocalExtension && !approved.has(approvalKey) && !command.confirmNonLocalExecution) {
-            return yield* Effect.fail(
-              new CommandDispatchError({
-                code: 'tool_execution_confirmation_required',
-                message: `Running ${execution.label} will execute a command from non-local extension ${execution.extensionPackageName ?? execution.kind}. Confirm to continue.`,
-              }),
-            );
+            return yield* new CommandDispatchError({
+              code: 'tool_execution_confirmation_required',
+              message: `Running ${execution.label} will execute a command from non-local extension ${execution.extensionPackageName ?? execution.kind}. Confirm to continue.`,
+            });
           }
 
           if (!execution.isLocalExtension && !approved.has(approvalKey) && command.confirmNonLocalExecution) {
@@ -584,9 +574,10 @@ export const ProtocolRouterLive = Layer.scoped(
 
         yield* Effect.sync(() => {
           socket.on('message', (payload) => {
-            void Effect.runPromise(
+            void Runtime.runPromise(
+              effectRuntime,
               Effect.gen(function* () {
-                const parsed = JSON.parse(String(payload)) as unknown;
+                const parsed = yield* decodeJsonString(String(payload));
                 const envelope = yield* decodeCommandEnvelope(parsed);
                 yield* handleEnvelope(socket, envelope);
               }).pipe(
@@ -604,11 +595,11 @@ export const ProtocolRouterLive = Layer.scoped(
           });
 
           socket.on('close', () => {
-            void Effect.runPromise(broadcast.remove(socket));
+            void Runtime.runPromise(effectRuntime, broadcast.remove(socket));
           });
 
           socket.on('error', () => {
-            void Effect.runPromise(broadcast.remove(socket));
+            void Runtime.runPromise(effectRuntime, broadcast.remove(socket));
           });
         });
       });

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1 - 2026-03-09
+
+- Enforced Effect diagnostics across the active Effect packages: `apps/server`, `packages/contracts`, and `apps/web` now share a common `tsconfig.effect.json`, server-side Effect diagnostic debt was cleaned up, and CI now runs an explicit repo-level Effect diagnostics sweep.
+- Fixed the remaining web/browser diagnostic path by replacing a websocket `JSON.parse(...)` call with `Schema.parseJson()` so the Playwright-backed browser test path stays clean under enforced Effect diagnostics.
+- Fixed desktop smoke-test startup after the refactor by preventing `tsdown` from bundling the `electron` package into the main/preload output, so Electron resolves from its real installed package at runtime.
+
 ## 0.11.0 - 2026-03-09
 
 - Reworked the monorepo development/tooling baseline: the root `scripts/` folder is now a typed workspace package, internal workspace exports resolve directly to source for faster cross-package feedback, Turbo no longer caches `typecheck`, and runtime/dependency versions are pinned for deterministic installs.

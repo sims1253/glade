@@ -4,10 +4,12 @@ import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Ref from 'effect/Ref';
+import * as Runtime from 'effect/Runtime';
 
 import type { ReplOutput, SessionStatus } from '@glade/contracts';
 
 import { ServerConfig } from '../config';
+import { RProcessInputError } from '../errors';
 import { FrontendBroadcast } from './frontend-broadcast';
 import { GraphStateCache } from './graph-state-cache';
 import { SessionStatusStore } from './session-status';
@@ -104,17 +106,18 @@ export class RProcessService extends Context.Tag('glade/RProcessService')<
     readonly stop: Effect.Effect<void>;
     readonly restart: Effect.Effect<void>;
     readonly isRunning: Effect.Effect<boolean>;
-    readonly sendInput: (data: string) => Effect.Effect<void, Error>;
+    readonly sendInput: (data: string) => Effect.Effect<void, RProcessInputError>;
   }
 >() {}
 
-export const RProcessServiceLive = Layer.effect(
+export const RProcessServiceLive = Layer.scoped(
   RProcessService,
   Effect.gen(function* () {
     const config = yield* ServerConfig;
     const statusStore = yield* SessionStatusStore;
     const broadcast = yield* FrontendBroadcast;
     const cache = yield* GraphStateCache;
+    const effectRuntime = yield* Effect.runtime<never>();
     const childRef = yield* Ref.make<ChildProcess | null>(null);
     const stoppingRef = yield* Ref.make(false);
     const stdoutBufferRef = yield* Ref.make('');
@@ -156,7 +159,8 @@ export const RProcessServiceLive = Layer.effect(
       });
 
     const handleStreamChunk = (stream: 'stdout' | 'stderr', chunk: string) => {
-      void Effect.runPromise(
+      void Runtime.runPromise(
+        effectRuntime,
         Effect.gen(function* () {
           const ref = stream === 'stdout' ? stdoutBufferRef : stderrBufferRef;
           const current = yield* Ref.get(ref);
@@ -173,14 +177,19 @@ export const RProcessServiceLive = Layer.effect(
       Effect.gen(function* () {
         const child = yield* Ref.get(childRef);
         if (!child?.stdin || child.stdin.destroyed) {
-          return yield* Effect.fail(new Error('R process stdin is not available.'));
+          return yield* new RProcessInputError({
+            message: 'R process stdin is not available.',
+          });
         }
         const stdin = child.stdin;
 
-        yield* Effect.async<void, Error>((resume) => {
+        yield* Effect.async<void, RProcessInputError>((resume) => {
           stdin.write(data, 'utf8', (error) => {
             if (error) {
-              resume(Effect.fail(new Error(`Failed to write to R stdin: ${error.message}`)));
+              resume(Effect.fail(new RProcessInputError({
+                message: `Failed to write to R stdin: ${error.message}`,
+                cause: error,
+              })));
               return;
             }
             resume(Effect.void);
@@ -243,7 +252,8 @@ export const RProcessServiceLive = Layer.effect(
       child.stdout.on('data', (chunk) => handleStreamChunk('stdout', String(chunk)));
       child.stderr.on('data', (chunk) => handleStreamChunk('stderr', String(chunk)));
       child.once('error', (error) => {
-        void Effect.runPromise(
+        void Runtime.runPromise(
+          effectRuntime,
           Effect.gen(function* () {
             yield* Ref.set(childRef, null);
             yield* publishStatus('error', `r_process_error:${error.message}`);
@@ -251,7 +261,8 @@ export const RProcessServiceLive = Layer.effect(
         );
       });
       child.once('exit', (code, signal) => {
-        void Effect.runPromise(
+        void Runtime.runPromise(
+          effectRuntime,
           Effect.gen(function* () {
             const stopping = yield* Ref.get(stoppingRef);
             yield* Ref.set(childRef, null);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Effect from 'effect/Effect';
+import * as Schema from 'effect/Schema';
 
 import {
   decodeHealthResponse,
@@ -17,6 +18,7 @@ import { useAppStore } from '../store/app';
 import { useGraphStore } from '../store/graph';
 
 export const healthQueryKey = ['health'] as const;
+const decodeJsonString = Schema.decodeUnknown(Schema.parseJson());
 
 async function fetchHealth() {
   const response = await fetch('/health');
@@ -148,7 +150,8 @@ export function useServerConnection() {
 
       void Effect.runPromise(
         Effect.gen(function* () {
-          const message = yield* decodeServerMessage(JSON.parse(String(event.data)));
+          const payload = yield* decodeJsonString(String(event.data));
+          const message = yield* decodeServerMessage(payload);
           if (message.type === 'SessionStatus') {
             setSessionState(message.state);
             setSessionReason(message.reason ?? null);
