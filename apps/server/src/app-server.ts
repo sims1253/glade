@@ -103,7 +103,7 @@ async function serveExtensionBundle(stateDir: string, requestPath: string, respo
   response.end(buffer);
 }
 
-export const AppServerLive = Layer.scoped(
+export const AppServerLive: Layer.Layer<AppServer, unknown, ServerConfig | ServerEdge> = Layer.scoped(
   AppServer,
   Effect.gen(function* () {
     const config = yield* ServerConfig;

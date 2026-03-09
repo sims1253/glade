@@ -34,28 +34,23 @@ export type WsChannel = (typeof WS_CHANNELS)[number];
 
 const RequestId = Schema.String;
 
-export const SessionStatus = Schema.Struct({
-  _tag: Schema.Literal('SessionStatus'),
+export const SessionStatus = Schema.TaggedStruct('SessionStatus', {
   state: Schema.Literal('connecting', 'ready', 'error'),
   reason: Schema.optional(Schema.String),
 });
 export type SessionStatus = Schema.Schema.Type<typeof SessionStatus>;
 
-export const AckResult = Schema.Struct({
-  _tag: Schema.Literal('AckResult'),
-});
+export const AckResult = Schema.TaggedStruct('AckResult', {});
 export type AckResult = Schema.Schema.Type<typeof AckResult>;
 
-export const RpcError = Schema.Struct({
-  _tag: Schema.Literal('RpcError'),
+export const RpcError = Schema.TaggedStruct('RpcError', {
   code: Schema.String,
   message: Schema.String,
   details: Schema.optional(JsonValue),
 });
 export type RpcError = Schema.Schema.Type<typeof RpcError>;
 
-export const SystemInfoResult = Schema.Struct({
-  _tag: Schema.Literal('SystemInfo'),
+export const SystemInfoResult = Schema.TaggedStruct('SystemInfo', {
   platform: Schema.String,
   arch: Schema.String,
   hostedMode: Schema.Boolean,
@@ -64,8 +59,7 @@ export const SystemInfoResult = Schema.Struct({
 });
 export type SystemInfoResult = Schema.Schema.Type<typeof SystemInfoResult>;
 
-export const ServerBootstrap = Schema.Struct({
-  _tag: Schema.Literal('ServerBootstrap'),
+export const ServerBootstrap = Schema.TaggedStruct('ServerBootstrap', {
   version: Schema.String,
   runtime: Schema.String,
   hostedMode: Schema.Boolean,
@@ -76,19 +70,15 @@ export const ServerBootstrap = Schema.Struct({
 });
 export type ServerBootstrap = Schema.Schema.Type<typeof ServerBootstrap>;
 
-export const ReplOutput = Schema.Struct({
-  _tag: Schema.Literal('ReplOutput'),
+export const ReplOutput = Schema.TaggedStruct('ReplOutput', {
   line: Schema.String,
 });
 export type ReplOutput = Schema.Schema.Type<typeof ReplOutput>;
 
-export const ReplCleared = Schema.Struct({
-  _tag: Schema.Literal('ReplCleared'),
-});
+export const ReplCleared = Schema.TaggedStruct('ReplCleared', {});
 export type ReplCleared = Schema.Schema.Type<typeof ReplCleared>;
 
-export const WorkflowAddNodeInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.addNode'),
+export const WorkflowAddNodeInput = Schema.TaggedStruct('workflow.addNode', {
   kind: Schema.String,
   label: Schema.optional(Schema.String),
   params: Schema.optional(JsonObject),
@@ -98,15 +88,13 @@ export const WorkflowAddNodeInput = Schema.Struct({
 export type WorkflowAddNodeInput = Schema.Schema.Type<typeof WorkflowAddNodeInput>;
 export const WorkflowAddNodeResult = AckResult;
 
-export const WorkflowDeleteNodeInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.deleteNode'),
+export const WorkflowDeleteNodeInput = Schema.TaggedStruct('workflow.deleteNode', {
   nodeId: Schema.String,
 });
 export type WorkflowDeleteNodeInput = Schema.Schema.Type<typeof WorkflowDeleteNodeInput>;
 export const WorkflowDeleteNodeResult = AckResult;
 
-export const WorkflowConnectNodesInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.connectNodes'),
+export const WorkflowConnectNodesInput = Schema.TaggedStruct('workflow.connectNodes', {
   from: Schema.String,
   to: Schema.String,
   edgeType: Schema.optional(Schema.String),
@@ -115,16 +103,14 @@ export const WorkflowConnectNodesInput = Schema.Struct({
 export type WorkflowConnectNodesInput = Schema.Schema.Type<typeof WorkflowConnectNodesInput>;
 export const WorkflowConnectNodesResult = AckResult;
 
-export const WorkflowRenameNodeInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.renameNode'),
+export const WorkflowRenameNodeInput = Schema.TaggedStruct('workflow.renameNode', {
   nodeId: Schema.String,
   label: Schema.String,
 });
 export type WorkflowRenameNodeInput = Schema.Schema.Type<typeof WorkflowRenameNodeInput>;
 export const WorkflowRenameNodeResult = AckResult;
 
-export const WorkflowRecordDecisionInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.recordDecision'),
+export const WorkflowRecordDecisionInput = Schema.TaggedStruct('workflow.recordDecision', {
   scope: Schema.String,
   prompt: Schema.String,
   choice: Schema.String,
@@ -138,83 +124,69 @@ export const WorkflowRecordDecisionInput = Schema.Struct({
 export type WorkflowRecordDecisionInput = Schema.Schema.Type<typeof WorkflowRecordDecisionInput>;
 export const WorkflowRecordDecisionResult = AckResult;
 
-export const WorkflowExecuteActionInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.executeAction'),
+export const WorkflowExecuteActionInput = Schema.TaggedStruct('workflow.executeAction', {
   actionId: Schema.String,
   payload: Schema.optional(JsonObject),
 });
 export type WorkflowExecuteActionInput = Schema.Schema.Type<typeof WorkflowExecuteActionInput>;
 export const WorkflowExecuteActionResult = AckResult;
 
-export const WorkflowExecuteNodeInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.executeNode'),
+export const WorkflowExecuteNodeInput = Schema.TaggedStruct('workflow.executeNode', {
   nodeId: Schema.String,
   confirmNonLocalExecution: Schema.optional(Schema.Boolean),
 });
 export type WorkflowExecuteNodeInput = Schema.Schema.Type<typeof WorkflowExecuteNodeInput>;
 export const WorkflowExecuteNodeResult = AckResult;
 
-export const WorkflowUpdateNodeNotesInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.updateNodeNotes'),
+export const WorkflowUpdateNodeNotesInput = Schema.TaggedStruct('workflow.updateNodeNotes', {
   nodeId: Schema.String,
   notes: Schema.String,
 });
 export type WorkflowUpdateNodeNotesInput = Schema.Schema.Type<typeof WorkflowUpdateNodeNotesInput>;
 export const WorkflowUpdateNodeNotesResult = AckResult;
 
-export const WorkflowUpdateNodeParametersInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.updateNodeParameters'),
+export const WorkflowUpdateNodeParametersInput = Schema.TaggedStruct('workflow.updateNodeParameters', {
   nodeId: Schema.String,
   params: JsonObject,
 });
 export type WorkflowUpdateNodeParametersInput = Schema.Schema.Type<typeof WorkflowUpdateNodeParametersInput>;
 export const WorkflowUpdateNodeParametersResult = AckResult;
 
-export const WorkflowSetNodeFileInput = Schema.Struct({
-  _tag: Schema.Literal('workflow.setNodeFile'),
+export const WorkflowSetNodeFileInput = Schema.TaggedStruct('workflow.setNodeFile', {
   nodeId: Schema.String,
   path: Schema.NullOr(Schema.String),
 });
 export type WorkflowSetNodeFileInput = Schema.Schema.Type<typeof WorkflowSetNodeFileInput>;
 export const WorkflowSetNodeFileResult = AckResult;
 
-export const SessionRestartInput = Schema.Struct({
-  _tag: Schema.Literal('session.restart'),
-});
+export const SessionRestartInput = Schema.TaggedStruct('session.restart', {});
 export type SessionRestartInput = Schema.Schema.Type<typeof SessionRestartInput>;
 export const SessionRestartResult = AckResult;
 
-export const ReplWriteInput = Schema.Struct({
-  _tag: Schema.Literal('repl.write'),
+export const ReplWriteInput = Schema.TaggedStruct('repl.write', {
   data: Schema.String,
 });
 export type ReplWriteInput = Schema.Schema.Type<typeof ReplWriteInput>;
 export const ReplWriteResult = AckResult;
 
-export const ReplClearInput = Schema.Struct({
-  _tag: Schema.Literal('repl.clear'),
-});
+export const ReplClearInput = Schema.TaggedStruct('repl.clear', {});
 export type ReplClearInput = Schema.Schema.Type<typeof ReplClearInput>;
 export const ReplClearResult = AckResult;
 
-export const HostOpenInEditorInput = Schema.Struct({
-  _tag: Schema.Literal('host.openInEditor'),
+export const HostOpenInEditorInput = Schema.TaggedStruct('host.openInEditor', {
   path: Schema.String,
 });
 export type HostOpenInEditorInput = Schema.Schema.Type<typeof HostOpenInEditorInput>;
 export const HostOpenInEditorResult = AckResult;
 
-export const SystemGetInfoInput = Schema.Struct({
-  _tag: Schema.Literal('system.getInfo'),
-});
+export const SystemGetInfoInput = Schema.TaggedStruct('system.getInfo', {});
 export type SystemGetInfoInput = Schema.Schema.Type<typeof SystemGetInfoInput>;
 
 function requestSchema<TMethod extends WsMethod, TBody extends Schema.Schema.AnyNoContext>(
   method: TMethod,
   body: TBody,
 ) {
-  return Schema.Struct({
-    _tag: Schema.Literal('WebSocketRequest'),
+  return Schema.TaggedStruct('WebSocketRequest', {
     id: RequestId,
     method: Schema.Literal(method),
     body,
@@ -225,8 +197,7 @@ function successResponseSchema<TMethod extends WsMethod, TResult extends Schema.
   method: TMethod,
   result: TResult,
 ) {
-  return Schema.Struct({
-    _tag: Schema.Literal('WebSocketSuccess'),
+  return Schema.TaggedStruct('WebSocketSuccess', {
     id: RequestId,
     method: Schema.Literal(method),
     result,
@@ -234,8 +205,7 @@ function successResponseSchema<TMethod extends WsMethod, TResult extends Schema.
 }
 
 function errorResponseSchema<TMethod extends WsMethod>(method: TMethod) {
-  return Schema.Struct({
-    _tag: Schema.Literal('WebSocketError'),
+  return Schema.TaggedStruct('WebSocketError', {
     id: RequestId,
     method: Schema.Literal(method),
     error: RpcError,
@@ -246,8 +216,7 @@ function pushSchema<TChannel extends WsChannel, TPayload extends Schema.Schema.A
   channel: TChannel,
   payload: TPayload,
 ) {
-  return Schema.Struct({
-    _tag: Schema.Literal('WsPush'),
+  return Schema.TaggedStruct('WsPush', {
     channel: Schema.Literal(channel),
     payload,
   });

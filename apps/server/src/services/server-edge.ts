@@ -670,13 +670,12 @@ export const ServerEdgeLive = Layer.scoped(
 
     const handleRawMessage = (socket: WebSocket, payload: unknown) =>
       Effect.gen(function* () {
-        let parsed: unknown;
-        try {
-          parsed = yield* decodeJsonString(String(payload));
-        } catch {
+        const parsedResult = yield* Effect.either(decodeJsonString(String(payload)));
+        if (parsedResult._tag === 'Left') {
           yield* Effect.sync(() => socket.close(1008, 'Invalid websocket request.'));
           return;
         }
+        const parsed = parsedResult.right;
 
         const decoded = yield* Effect.either(decodeWebSocketRequest(parsed));
         if (decoded._tag === 'Right') {
@@ -719,16 +718,7 @@ export const ServerEdgeLive = Layer.scoped(
 
         yield* Effect.sync(() => {
           socket.on('message', (payload) => {
-            void Runtime.runPromise(
-              effectRuntime,
-              handleRawMessage(socket, payload).pipe(
-                Effect.catchAll(() =>
-                  Effect.sync(() => {
-                    socket.close(1008, 'Invalid websocket request.');
-                  }),
-                ),
-              ),
-            );
+            void Runtime.runPromise(effectRuntime, handleRawMessage(socket, payload));
           });
 
           const cleanup = () => {
