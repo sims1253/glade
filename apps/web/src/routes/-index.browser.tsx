@@ -1,5 +1,6 @@
 import '../index.css';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 
@@ -9,6 +10,8 @@ import type { DesktopUpdateState } from '@glade/shared';
 import { useAppStore } from '../store/app';
 import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
+import { ServerSessionProvider } from '../lib/server-session-context';
+import { useWorkspaceStore } from '../store/workspace';
 import { IndexRoute } from './index';
 
 const fitMock = vi.fn();
@@ -212,6 +215,24 @@ describe('IndexRoute browser smoke', () => {
     getUpdateState.mockResolvedValue(desktopUpdateState);
     useGraphStore.getState().clear();
     useGraphStore.getState().applySnapshot(baseSnapshot);
+    useWorkspaceStore.setState({
+      tabs: [{ id: 'canvas-tab', type: 'canvas', nodeId: null, label: 'Workflow DAG', icon: '🕸️', closable: false }],
+      activeTabId: 'canvas-tab',
+      selectedNodeId: null,
+      highlightedNodeIds: [],
+      multiSelectedNodeIds: [],
+      explorerGroups: [
+        { id: 'data-sources', title: 'Data Sources', icon: 'database', expanded: true },
+        { id: 'model-specs', title: 'Models', icon: 'file-code', expanded: true },
+        { id: 'fits', title: 'Fits', icon: 'play', expanded: true },
+        { id: 'diagnostics', title: 'Diagnostics', icon: 'stethoscope', expanded: true },
+        { id: 'results', title: 'Results', icon: 'git-compare', expanded: true },
+      ],
+      inspectorTab: 'obligations',
+      inspectorVisible: true,
+      commandPaletteOpen: false,
+      floatingToolbarNodeId: null,
+    });
     useAppStore.setState({
       serverConnected: true,
       serverVersion: '0.5.0',
@@ -246,10 +267,23 @@ describe('IndexRoute browser smoke', () => {
   it('renders setup guidance and opens the health dialog in a real browser', async () => {
     const host = document.createElement('div');
     document.body.append(host);
-
-    const view = await render(<IndexRoute />, {
-      container: host,
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { retry: false },
+      },
     });
+
+    const view = await render(
+      <QueryClientProvider client={queryClient}>
+        <ServerSessionProvider>
+          <IndexRoute />
+        </ServerSessionProvider>
+      </QueryClientProvider>,
+      {
+      container: host,
+      },
+    );
 
     try {
       await waitForText('Complete local setup before running workflows');

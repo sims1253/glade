@@ -2,15 +2,16 @@
 
 Glade is the desktop and browser-based GUI for bayesgrove.
 
-Current release: `0.11.1`
+Current release: `0.11.7`
 
 Phase status: phase 10 is implemented.
 The app now includes:
 
+- mockup-driven three-column workspace shell with persistent explorer, center tabs, persistent inspector, and docked shared-session REPL
 - workflow canvas
-- protocol panels
+- protocol-driven inspector actions and obligations
 - node detail drawer
-- shared-session R REPL terminal
+- dedicated `/settings` and `/terminal` routes on a shared renderer session provider
 - schema-driven extension forms
 - lazy GUI extension loading from trusted local bundles
 - Bun-executed multi-runtime nodes (`uvx`, `bunx`, `binary`, `shell`) with first-run confirmation for non-local extensions

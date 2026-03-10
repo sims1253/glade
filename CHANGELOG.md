@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.7 - 2026-03-10
+
+- Rebuilt the primary web shell around the phase 5 mockup model: `/` now uses a light three-column workspace with persistent explorer, tabbed center work area, persistent inspector, and a docked shared REPL.
+- Added a root renderer-scoped `ServerSessionProvider`, moved shared desktop/settings/terminal access onto that session boundary, and introduced dedicated `/settings` and `/terminal` routes for the rebuilt shell.
+- Fixed follow-up shell review issues by improving command palette and dialog accessibility, tightening inspector/tab interactions, updating detached-terminal fallback routing, and hardening related tests.
+
 ## 0.11.6 - 2026-03-10
 
 - Implemented the phase 4 responsive workspace foundations by extracting a dedicated `WorkflowWorkspace`, moving layout decisions onto container measurements, and introducing shared workspace CSS layout tokens.

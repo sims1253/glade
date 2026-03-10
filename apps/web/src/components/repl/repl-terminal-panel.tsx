@@ -49,7 +49,7 @@ function isEditableTarget(target: EventTarget | null) {
 }
 
 function openDetachedTerminalFallback() {
-  window.open('/?terminal=detached', '_blank', 'popup,width=980,height=620');
+  window.open('/terminal', '_blank', 'popup,width=980,height=620');
 }
 
 function TerminalSurface({
@@ -453,7 +453,7 @@ export function ReplTerminalPanel({
       ) : null}
       <header className="flex items-center justify-between gap-4 border-b border-slate-800/80 px-5 py-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.26em] text-emerald-300/80">Phase 7 terminal</p>
+          <p className="text-xs uppercase tracking-[0.26em] text-emerald-300/80">Workspace terminal</p>
           <h2 className="mt-1 text-lg font-semibold text-slate-100">
             {interactive ? 'Shared R session' : 'Console output'}
           </h2>

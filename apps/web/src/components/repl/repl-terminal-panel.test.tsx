@@ -78,4 +78,28 @@ describe('ReplTerminalPanel', () => {
     fireEvent.keyDown(window, { key: '`', ctrlKey: true });
     expect(screen.getByText('Console output')).toBeInTheDocument();
   });
+
+  it('falls back to the /terminal route when native detach fails', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    (window as Window & { desktopBridge: NonNullable<typeof window.desktopBridge> }).desktopBridge = {
+      getWsUrl: () => 'ws://127.0.0.1:7842/ws',
+      openDetachedTerminal: vi.fn(async () => false),
+    };
+
+    useAppStore.setState({
+      replDetached: false,
+    });
+
+    render(<ReplTerminalPanel dispatchCommand={dispatchCommand} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Detach/i }));
+
+    try {
+      await waitFor(() => {
+        expect(openSpy).toHaveBeenCalledWith('/terminal', '_blank', 'popup,width=980,height=620');
+      });
+    } finally {
+      openSpy.mockRestore();
+    }
+  });
 });

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DesktopEnvironmentState, GraphSnapshot } from '@glade/contracts';
@@ -9,6 +11,8 @@ import type { DesktopUpdateState } from '@glade/shared';
 import { useAppStore } from '../store/app';
 import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
+import { ServerSessionProvider } from '../lib/server-session-context';
+import { useWorkspaceStore } from '../store/workspace';
 import { IndexRoute } from './index';
 
 const workflowExecuteAction = vi.fn();
@@ -251,6 +255,24 @@ describe('IndexRoute phase 5 workflow UI', () => {
     getUpdateState.mockReset();
     getUpdateState.mockResolvedValue(desktopUpdateState);
     useGraphStore.getState().clear();
+    useWorkspaceStore.setState({
+      tabs: [{ id: 'canvas-tab', type: 'canvas', nodeId: null, label: 'Workflow DAG', icon: '🕸️', closable: false }],
+      activeTabId: 'canvas-tab',
+      selectedNodeId: null,
+      highlightedNodeIds: [],
+      multiSelectedNodeIds: [],
+      explorerGroups: [
+        { id: 'data-sources', title: 'Data Sources', icon: 'database', expanded: true },
+        { id: 'model-specs', title: 'Models', icon: 'file-code', expanded: true },
+        { id: 'fits', title: 'Fits', icon: 'play', expanded: true },
+        { id: 'diagnostics', title: 'Diagnostics', icon: 'stethoscope', expanded: true },
+        { id: 'results', title: 'Results', icon: 'git-compare', expanded: true },
+      ],
+      inspectorTab: 'obligations',
+      inspectorVisible: true,
+      commandPaletteOpen: false,
+      floatingToolbarNodeId: null,
+    });
     vi.stubGlobal('ResizeObserver', class ResizeObserver {
       observe() {}
       unobserve() {}
@@ -283,6 +305,23 @@ describe('IndexRoute phase 5 workflow UI', () => {
     vi.unstubAllGlobals();
   });
 
+  function renderRoute() {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { retry: false },
+      },
+    });
+
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <ServerSessionProvider>
+          <IndexRoute />
+        </ServerSessionProvider>
+      </QueryClientProvider>,
+    );
+  }
+
   it('shows an action preview, dispatches ExecuteAction on confirm, and surfaces updated guidance', async () => {
     workflowExecuteAction.mockResolvedValue({
       success: true,
@@ -292,13 +331,10 @@ describe('IndexRoute phase 5 workflow UI', () => {
     });
     useGraphStore.getState().applySnapshot(baseSnapshot);
 
-    render(<IndexRoute />);
+    renderRoute();
 
-    const [runButton] = screen.getAllByRole('button', { name: 'Run' });
-    if (!runButton) {
-      throw new Error('Expected a Run button.');
-    }
-    fireEvent.click(runButton);
+    fireEvent.click(screen.getByRole('tab', { name: /Actions \(1\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
     expect(screen.getByText('Action Preview')).toBeInTheDocument();
     expect(screen.getAllByText('Record fit criticism decision')[0]).toBeInTheDocument();
@@ -321,16 +357,37 @@ describe('IndexRoute phase 5 workflow UI', () => {
     expect(screen.getAllByText('Compare revised branches')[0]).toBeInTheDocument();
   });
 
+  it('opens a node tab from the explorer and keeps the inspector in sync', async () => {
+    useGraphStore.getState().applySnapshot(baseSnapshot);
+
+    renderRoute();
+
+    fireEvent.click(screen.getByRole('button', { name: /baseline fit/i }));
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Baseline fit' })).toBeInTheDocument();
+    expect(screen.getByText('fit · state blocked')).toBeInTheDocument();
+
+    const inspectorHeader = screen.getByRole('heading', { level: 2, name: 'Baseline fit' }).closest('header');
+    if (!inspectorHeader) {
+      throw new Error('Expected inspector header for selected node.');
+    }
+
+    const inspector = inspectorHeader.parentElement;
+    if (!inspector) {
+      throw new Error('Expected inspector container.');
+    }
+
+    expect(within(inspector).getByText('Node status')).toBeInTheDocument();
+    expect(within(inspector).getByRole('button', { name: /Run node/i })).toBeInTheDocument();
+  });
+
   it('does not dispatch when the preview is cancelled', () => {
     useGraphStore.getState().applySnapshot(baseSnapshot);
 
-    render(<IndexRoute />);
+    renderRoute();
 
-    const [runButton] = screen.getAllByRole('button', { name: 'Run' });
-    if (!runButton) {
-      throw new Error('Expected a Run button.');
-    }
-    fireEvent.click(runButton);
+    fireEvent.click(screen.getByRole('tab', { name: /Actions \(1\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(workflowExecuteAction).not.toHaveBeenCalled();
@@ -340,9 +397,9 @@ describe('IndexRoute phase 5 workflow UI', () => {
   it('shows health details in a dialog without navigating away', () => {
     useGraphStore.getState().applySnapshot(baseSnapshot);
 
-    render(<IndexRoute />);
+    renderRoute();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'View health' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'View health' }));
 
     expect(screen.getByText('Health')).toBeInTheDocument();
     expect(screen.getByText(/Live server status without navigating away/i)).toBeInTheDocument();
@@ -356,7 +413,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
   it('shows the first-launch setup guidance when desktop preflight requires action', async () => {
     useGraphStore.getState().applySnapshot(baseSnapshot);
 
-    render(<IndexRoute />);
+    renderRoute();
 
     expect(await screen.findByText('Complete local setup before running workflows')).toBeInTheDocument();
     expect(screen.getByText('Install R before using Glade')).toBeInTheDocument();

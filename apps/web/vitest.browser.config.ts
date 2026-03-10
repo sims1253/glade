@@ -6,6 +6,9 @@ import viteConfig from './vite.config';
 export default mergeConfig(
   viteConfig,
   defineConfig({
+    optimizeDeps: {
+      include: ['@tanstack/react-query', 'vitest-browser-react'],
+    },
     test: {
       include: ['src/**/*.browser.tsx'],
       browser: {

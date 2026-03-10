@@ -147,13 +147,14 @@ interface WorkflowCanvasProps {
   readonly className?: string;
   readonly workflow: WorkflowRpc;
   readonly host: HostRpc;
+  readonly showNodeDetailDrawer?: boolean;
 }
 
 type ContextMenuState =
   | { readonly mode: 'pane'; readonly x: number; readonly y: number }
   | { readonly mode: 'node'; readonly x: number; readonly y: number; readonly nodeId: string; readonly label: string };
 
-export function WorkflowCanvas({ className, workflow, host }: WorkflowCanvasProps) {
+export function WorkflowCanvas({ className, workflow, host, showNodeDetailDrawer = true }: WorkflowCanvasProps) {
   const graph = useGraphStore((state) => state.graph);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
@@ -694,7 +695,7 @@ export function WorkflowCanvas({ className, workflow, host }: WorkflowCanvasProp
           </div>
         ) : null}
 
-        {graph && selectedNode ? (
+        {showNodeDetailDrawer && graph && selectedNode ? (
           <NodeDetailDrawer
             graph={graph}
             node={selectedNode}
