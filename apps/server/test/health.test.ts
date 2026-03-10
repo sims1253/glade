@@ -11,6 +11,7 @@ import { getAvailablePort, terminateChildren, waitFor } from './integration-supp
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ReturnType<typeof spawn>>();
 const tempDirs = new Set<string>();
+const STANDALONE_HEALTH_TIMEOUT_MS = 15_000;
 
 afterEach(async () => {
   await terminateChildren(children);
@@ -42,9 +43,9 @@ it('starts standalone and exposes /health', async () => {
   expect(await response.json()).toEqual({ status: 'ok', version });
   await expect.poll(
     async () => await readFile(path.join(stateDir, 'logs', 'server.log'), 'utf8').catch(() => ''),
-    { timeout: 5_000, interval: 100 },
+    { timeout: STANDALONE_HEALTH_TIMEOUT_MS, interval: 100 },
   ).toContain('Glade server listening');
-});
+}, STANDALONE_HEALTH_TIMEOUT_MS);
 
 it('serves cached extension bundles and returns 404 for missing bundle paths', async () => {
   const port = await getAvailablePort();

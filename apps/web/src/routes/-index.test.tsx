@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DesktopEnvironmentState, GraphSnapshot } from '@glade/contracts';
 import type { DesktopUpdateState } from '@glade/shared';
 
+import { APP_VERSION } from '../lib/app-version';
 import { useAppStore } from '../store/app';
 import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
@@ -333,6 +334,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
 
     renderRoute();
 
+    expect(screen.getByText(`Glade v${APP_VERSION}`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: /Actions \(1\)/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 

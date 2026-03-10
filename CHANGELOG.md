@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.8 - 2026-03-10
+
+- Replaced the tracked `electron-builder.yml` release path with a staged desktop artifact builder, runtime-generated packaging config, manual preflight/build/publish release workflow, and release smoke validation for rerunnable GitHub Releases.
+- Fixed local source-first dev startup by running the TypeScript dev entrypoints with Bun, and surfaced the app version directly in the rebuilt web shell and settings UI.
+- Hardened CI reliability after the phase 10 follow-up work by extending the standalone health test timeout to cover slower server startup on shared runners, while updating the README to match the new release flow.
+
 ## 0.11.7 - 2026-03-10
 
 - Rebuilt the primary web shell around the phase 5 mockup model: `/` now uses a light three-column workspace with persistent explorer, tabbed center work area, persistent inspector, and a docked shared REPL.

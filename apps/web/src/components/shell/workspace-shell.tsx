@@ -9,6 +9,7 @@ import { CommandPalette, CommandPaletteTrigger, type CommandItem } from './comma
 import { InspectorPanel } from './inspector-panel';
 import { WorkflowCanvas } from '../graph/workflow-canvas';
 import { ReplTerminalPanel } from '../repl/repl-terminal-panel';
+import { APP_VERSION } from '../../lib/app-version';
 import { cn } from '../../lib/utils';
 import type { WorkflowActionRecord, WorkflowGraph, WorkflowNodeData, WorkflowObligationRecord } from '../../lib/graph-types';
 import type { HostRpc, ReplRpc, WorkflowRpc } from '../../lib/rpc';
@@ -201,6 +202,7 @@ export function WorkspaceShell({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Workspace shell</p>
           <h2 className="mt-1 text-lg font-semibold text-slate-900">{graph?.projectName ?? 'Loading workspace'}</h2>
+          <p className="mt-1 text-xs font-medium text-slate-500">Glade v{APP_VERSION}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CommandPaletteTrigger className="border-slate-200 bg-slate-50 text-slate-600" />

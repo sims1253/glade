@@ -2,10 +2,21 @@ import { create } from 'zustand';
 
 export const UI_PREFS_STORAGE_KEY = 'glade:web-ui:v1';
 export const LEGACY_UI_PREF_KEYS: ReadonlyArray<string> = [];
+const UI_PREFS_PERSIST_DEBOUNCE_MS = 300;
 
 interface StoredUiPrefs {
   readonly replPanelOpen: boolean;
   readonly replPanelHeight: number;
+}
+
+interface StorageLike {
+  readonly getItem: (key: string) => string | null;
+  readonly setItem: (key: string, value: string) => void;
+  readonly removeItem: (key: string) => void;
+}
+
+interface DebouncedStorage extends StorageLike {
+  readonly flush: () => void;
 }
 
 interface UiPrefsState extends StoredUiPrefs {
@@ -18,11 +29,13 @@ const DEFAULT_UI_PREFS: StoredUiPrefs = {
   replPanelHeight: 320,
 };
 
+let legacyUiPrefsCleanedUp = false;
+
 function clampPanelHeight(value: number) {
   return Math.max(180, Math.min(640, Math.round(value)));
 }
 
-function readStorage() {
+function readStorage(): StorageLike | null {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -33,17 +46,91 @@ function readStorage() {
     : null;
 }
 
+export function createDebouncedStorage(
+  baseStorage: StorageLike,
+  debounceMs = UI_PREFS_PERSIST_DEBOUNCE_MS,
+): DebouncedStorage {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let pendingName: string | null = null;
+  let pendingValue: string | null = null;
+
+  const clearPending = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    pendingName = null;
+    pendingValue = null;
+  };
+
+  return {
+    getItem: (name) => baseStorage.getItem(name),
+    setItem: (name, value) => {
+      pendingName = name;
+      pendingValue = value;
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        const nextName = pendingName;
+        const nextValue = pendingValue;
+        clearPending();
+        if (nextName !== null && nextValue !== null) {
+          baseStorage.setItem(nextName, nextValue);
+        }
+      }, debounceMs);
+    },
+    removeItem: (name) => {
+      if (pendingName === name) {
+        clearPending();
+      }
+      baseStorage.removeItem(name);
+    },
+    flush: () => {
+      if (timer === null || pendingName === null || pendingValue === null) {
+        return;
+      }
+
+      const nextName = pendingName;
+      const nextValue = pendingValue;
+      clearPending();
+      baseStorage.setItem(nextName, nextValue);
+    },
+  };
+}
+
+const fallbackUiPrefsStorage: DebouncedStorage = {
+  getItem: () => null,
+  setItem: () => undefined,
+  removeItem: () => undefined,
+  flush: () => undefined,
+};
+
+const uiPrefsStorage = (() => {
+  const storage = readStorage();
+  return storage ? createDebouncedStorage(storage) : fallbackUiPrefsStorage;
+})();
+
+export function flushPendingUiPrefsWrites() {
+  uiPrefsStorage.flush();
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', flushPendingUiPrefsWrites);
+}
+
 export function cleanupLegacyUiPrefs(storage = readStorage()) {
-  if (!storage) {
+  if (!storage || legacyUiPrefsCleanedUp) {
     return;
   }
 
+  legacyUiPrefsCleanedUp = true;
   for (const key of LEGACY_UI_PREF_KEYS) {
     storage.removeItem(key);
   }
 }
 
-export function readStoredUiPrefs(storage = readStorage()): StoredUiPrefs {
+export function readStoredUiPrefs(storage: StorageLike | null = uiPrefsStorage): StoredUiPrefs {
   cleanupLegacyUiPrefs(storage);
   if (!storage) {
     return DEFAULT_UI_PREFS;
@@ -68,7 +155,7 @@ export function readStoredUiPrefs(storage = readStorage()): StoredUiPrefs {
   }
 }
 
-export function writeStoredUiPrefs(value: StoredUiPrefs, storage = readStorage()) {
+export function writeStoredUiPrefs(value: StoredUiPrefs, storage: StorageLike | null = uiPrefsStorage) {
   if (!storage) {
     return;
   }

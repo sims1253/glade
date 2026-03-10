@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { randomUUID } from '../lib/utils';
+
 export type ToastTone = 'success' | 'error';
 
 export interface ToastMessage {
@@ -18,7 +20,7 @@ interface ToastState {
 export const useToastStore = create<ToastState>((set) => ({
   notifications: [],
   pushNotification: (notification) => {
-    const id = notification.id ?? crypto.randomUUID();
+    const id = notification.id ?? randomUUID();
     set((state) => ({
       notifications: state.notifications.some((entry) => entry.id === id)
         ? state.notifications.map((entry) => (entry.id === id ? { ...notification, id } : entry))

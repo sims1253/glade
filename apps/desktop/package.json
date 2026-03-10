@@ -1,6 +1,6 @@
 {
   "name": "@glade/desktop",
-  "version": "0.11.7",
+  "version": "0.11.8",
   "description": "Glade desktop shell",
   "author": "sims1253",
   "private": true,
@@ -9,12 +9,12 @@
   "scripts": {
     "dev": "bun run --parallel dev:bundle dev:electron",
     "dev:bundle": "tsdown --watch",
-    "dev:electron": "node ./scripts/dev-electron.ts",
+    "dev:electron": "bun ./scripts/dev-electron.ts",
     "build": "tsdown",
     "start": "electron ./dist-electron/main.cjs",
     "bundle": "node ../../scripts/build-desktop-bundle.ts",
-    "dist": "node ../../scripts/build-desktop-bundle.ts && node ../../scripts/run-electron-builder.ts --config electron-builder.yml",
-    "dist:dir": "node ../../scripts/build-desktop-bundle.ts && node ../../scripts/run-electron-builder.ts --dir --config electron-builder.yml",
+    "dist": "node ../../scripts/build-desktop-artifact.ts --publish never",
+    "dist:dir": "node ../../scripts/build-desktop-artifact.ts --dir --publish never",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "smoke-test": "node ./scripts/smoke-test.mjs",

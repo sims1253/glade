@@ -8,6 +8,7 @@ import type {
 
 import { isJsonValue, toJsonObject, toJsonValue } from './json';
 import type { HostRpc, ReplRpc, RpcCallResult, SessionRpc, SystemRpc, WorkflowRpc } from './rpc';
+import { randomUUID } from './utils';
 
 export interface LegacyCommandResult {
   readonly type: 'CommandResult';
@@ -72,13 +73,13 @@ function toLegacyResult<T>(result: RpcCallResult<T>): LegacyCommandResult {
   return result.success
     ? {
         type: 'CommandResult',
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         success: true,
         payload: 'result' in result ? result.result : undefined,
       }
     : {
         type: 'CommandResult',
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         success: false,
         error: {
           code: result.error.code,
@@ -200,7 +201,7 @@ export function legacyHostDispatchFromRpc(host: HostRpc, system: SystemRpc): Leg
 
 export function createWorkflowCommandEnvelope(
   command: LegacyWorkflowCommand,
-  id: string = crypto.randomUUID(),
+  id: string = randomUUID(),
 ): { id: string; command: LegacyWorkflowCommand } {
   return {
     id,

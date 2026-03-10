@@ -6,6 +6,7 @@ import { ArrowLeft, Download, ExternalLink, RefreshCw, RotateCcw, Save } from 'l
 import type { DesktopSettings } from '@glade/contracts';
 
 import { Button } from '../components/ui/button';
+import { APP_VERSION } from '../lib/app-version';
 import { setupDesktopIssues, trimCommand } from '../lib/desktop-preflight';
 import { useServerSession } from '../lib/server-session-context';
 import { useConnectionStore } from '../store/connection';
@@ -156,7 +157,10 @@ export function SettingsRoute() {
                 Back to workspace
               </Button>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                {serverVersion ?? 'checking…'} · {isConnected ? 'connected' : 'disconnected'} · session {sessionState}
+                App {APP_VERSION}
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                Server {serverVersion ?? 'checking…'} · {isConnected ? 'connected' : 'disconnected'} · session {sessionState}
               </div>
             </div>
           </div>

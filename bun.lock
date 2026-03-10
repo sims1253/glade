@@ -12,7 +12,7 @@
     },
     "apps/desktop": {
       "name": "@glade/desktop",
-      "version": "0.11.3",
+      "version": "0.11.8",
       "dependencies": {
         "@glade/shared": "workspace:*",
         "effect": "catalog:",
@@ -29,7 +29,7 @@
     },
     "apps/server": {
       "name": "@glade/server",
-      "version": "0.11.3",
+      "version": "0.11.8",
       "dependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/sql-sqlite-bun": "catalog:",
@@ -52,7 +52,7 @@
     },
     "apps/web": {
       "name": "@glade/web",
-      "version": "0.11.3",
+      "version": "0.11.8",
       "dependencies": {
         "@base-ui/react": "1.2.0",
         "@glade/contracts": "workspace:*",
@@ -96,7 +96,7 @@
     },
     "packages/contracts": {
       "name": "@glade/contracts",
-      "version": "0.11.3",
+      "version": "0.11.8",
       "dependencies": {
         "effect": "catalog:",
       },
@@ -109,7 +109,7 @@
     },
     "packages/shared": {
       "name": "@glade/shared",
-      "version": "0.11.3",
+      "version": "0.11.8",
       "dependencies": {
         "effect": "catalog:",
       },

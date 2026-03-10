@@ -24,6 +24,8 @@ import type {
   WorkflowUpdateNodeParametersInput,
 } from '@glade/contracts';
 
+import { randomUUID } from './utils';
+
 type WithoutTag<T extends { readonly _tag: string }> = Omit<T, '_tag'>;
 
 export type RpcCallResult<TResult> =
@@ -84,7 +86,7 @@ function assertUnreachable(value: never): never {
 export function makeRequest<TMethod extends RpcMethod>(
   method: TMethod,
   body: RpcRequestBody<TMethod>,
-  id = crypto.randomUUID(),
+  id = randomUUID(),
 ): WebSocketRequest {
   return {
     _tag: 'WebSocketRequest',
