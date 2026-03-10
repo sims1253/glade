@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.4 - 2026-03-10
+
+- Normalized the CI test topology around fast Linux-first validation, explicit browser and isolated desktop smoke coverage, and a trust-gated integration job.
+- Added direct artifact and string assertions to ensure desktop bundle structure and native bridge integrity remain intact during CI.
+- Prevented untrusted pull requests from executing high-cost integration tests by introducing `.github/VOUCHED` and `vouch:trusted` labels.
+
 ## 0.11.3 - 2026-03-10
 
 - Added the phase 1 runtime hardening foundations: `@glade/shared` now provides reusable logging, networking, and process helpers, desktop/server runtimes persist rotating disk logs, and embedded desktop launches pass an explicit `BAYESGROVE_STATE_DIR`.

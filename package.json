@@ -1,6 +1,6 @@
 {
   "name": "glade",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.10",
@@ -33,7 +33,10 @@
     "build:server:standalone": "node ./scripts/build-standalone-server.ts",
     "diagnostics:effect": "node ./scripts/check-effect-diagnostics.ts",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test smoke-test",
+    "test": "turbo run test",
+    "test:browser": "turbo run test:browser",
+    "test:desktop-smoke": "turbo run smoke-test",
+    "test:integration": "turbo run test:integration",
     "lint": "oxlint . --deny-warnings",
     "clean": "rm -rf node_modules bun.lock .turbo apps/*/node_modules packages/*/node_modules scripts/node_modules apps/*/dist apps/*/dist-electron packages/*/dist"
   },

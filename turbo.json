@@ -36,6 +36,15 @@
       "outputs": [],
       "cache": false
     },
+    "test:browser": {
+      "dependsOn": ["build"],
+      "outputs": [],
+      "cache": false
+    },
+    "test:integration": {
+      "outputs": [],
+      "cache": false
+    },
     "smoke-test": {
       "dependsOn": ["build"],
       "outputs": [],
