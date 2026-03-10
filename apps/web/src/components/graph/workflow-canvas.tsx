@@ -25,6 +25,7 @@ import { CanvasStatusBanner } from './canvas-status-banner';
 import { NodeDetailDrawer } from './node-detail-drawer';
 import { workflowNodeTypes } from './node-registry';
 import { SchemaDrivenForm } from '../extensions/schema-form';
+import { WorkflowCanvasToolbar } from './workflow-canvas-toolbar';
 import {
   WorkflowCanvasContextProvider,
   type ConnectionPreviewState,
@@ -332,7 +333,7 @@ export function WorkflowCanvas({ className, workflow, host }: WorkflowCanvasProp
     }
   }, [cancelRename, pushNotification, renameDraft, renamingNodeId, workflow]);
 
-  const helpText = useMemo(() => {
+  const toolbarSummary = useMemo(() => {
     if (!graph) {
       return 'Waiting for graph snapshot…';
     }
@@ -462,16 +463,13 @@ export function WorkflowCanvas({ className, workflow, host }: WorkflowCanvasProp
             </div>
           </div>
         )}
-        <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/85 px-3 py-2 text-xs text-slate-300 shadow-lg backdrop-blur">
-          <Button className="px-3 py-1.5 text-xs" onClick={openAddDialog}>
-            Add node
-          </Button>
-          <Button className="px-3 py-1.5 text-xs" onClick={() => void autoArrange()} variant="ghost">
-            Auto arrange
-          </Button>
-          <span>{helpText}</span>
-          <span className="text-slate-500">Drag from a bottom port to a top port to connect nodes.</span>
-        </div>
+        <WorkflowCanvasToolbar
+          summary={toolbarSummary}
+          onAddNode={openAddDialog}
+          onAutoArrange={() => {
+            void autoArrange();
+          }}
+        />
         <ReactFlow
           defaultNodes={pendingNodesRef.current}
           defaultEdges={pendingEdgesRef.current}

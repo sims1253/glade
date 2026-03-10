@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.6 - 2026-03-10
+
+- Implemented the phase 4 responsive workspace foundations by extracting a dedicated `WorkflowWorkspace`, moving layout decisions onto container measurements, and introducing shared workspace CSS layout tokens.
+- Added reusable canvas toolbar, inspector, obligations/actions shells, and REPL presentation/layout helpers so constrained workspace modes keep key workflow controls reachable without viewport breakpoints.
+- Fixed review follow-ups around workspace accessibility and responsiveness by wiring accessible inspector tabs with keyboard navigation and ensuring toolbar compactness recomputes when workflow summaries change.
+
 ## 0.11.5 - 2026-03-10
 
 - Implemented the phase 3 desktop boundary refactor by replacing the broad Electron preload snapshot with a narrow native bridge plus typed WebSocket-owned desktop environment state.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowRight, Lock, Sparkles, TriangleAlert } from 'lucide-react';
 
@@ -37,14 +37,58 @@ function nodeLabelsFor(graph: WorkflowGraph | null, nodeIds: ReadonlyArray<strin
   return nodeIds.map((nodeId) => graph.nodesById[nodeId]?.label ?? nodeId);
 }
 
-export function WorkflowObligationsPanel({
+function obligationsSummary(graph: WorkflowGraph | null) {
+  return graph?.obligations.length
+    ? `${graph.obligations.length} active workflow obligations`
+    : 'No active obligations in the current snapshot.';
+}
+
+function actionsSummary(graph: WorkflowGraph | null) {
+  const actions = graph?.actions ?? [];
+  return actions.length
+    ? `${actions.length} next step${actions.length === 1 ? '' : 's'} from bayesgrove`
+    : `Nothing to do right now while workflow state is ${graph?.status.workflowState ?? 'unknown'}.`;
+}
+
+export function WorkflowPanelShell({
+  title,
+  icon,
+  accentClassName,
+  description,
+  children,
+  className,
+}: {
+  readonly title: string;
+  readonly icon: ReactNode;
+  readonly accentClassName: string;
+  readonly description: string;
+  readonly children: ReactNode;
+  readonly className?: string;
+}) {
+  return (
+    <aside className={cn('flex h-full flex-col rounded-3xl border bg-slate-950/80 shadow-2xl shadow-slate-950/30 backdrop-blur', className)}>
+      <div className="border-b border-slate-800/90 px-5 py-4">
+        <div className={cn('flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em]', accentClassName)}>
+          {icon}
+          {title}
+        </div>
+        <p className="mt-2 text-sm text-slate-300">{description}</p>
+      </div>
+      {children}
+    </aside>
+  );
+}
+
+export function WorkflowObligationsContent({
   graph,
   highlightedNodeIds,
   onSelectObligation,
+  className,
 }: {
   readonly graph: WorkflowGraph | null;
   readonly highlightedNodeIds: ReadonlyArray<string>;
   readonly onSelectObligation: (obligation: WorkflowObligationRecord) => void;
+  readonly className?: string;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const rows = useMemo<Array<ObligationRow>>(() => {
@@ -76,104 +120,174 @@ export function WorkflowObligationsPanel({
     overscan: 8,
   });
 
-  return (
-    <aside className="rounded-3xl border border-rose-950/60 bg-slate-950/80 shadow-2xl shadow-slate-950/30 backdrop-blur">
-      <div className="border-b border-slate-800/90 px-5 py-4">
-        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-rose-200">
-          <TriangleAlert className="size-4" />
-          Obligations
-        </div>
-        <p className="mt-2 text-sm text-slate-300">
-          {graph?.obligations.length
-            ? `${graph.obligations.length} active workflow obligations`
-            : 'No active obligations in the current snapshot.'}
-        </p>
+  if (!graph?.obligations.length) {
+    return (
+      <div className={cn('px-5 py-5 text-sm text-slate-400', className)}>
+        The canvas is currently clear of blocking and advisory review work.
       </div>
+    );
+  }
 
-      {graph?.obligations.length ? (
-        <div ref={parentRef} className="h-[22rem] overflow-auto px-3 py-3 xl:h-[calc(100vh-22rem)]">
-          <div
-            style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}
-          >
-            {virtualizer.getVirtualItems().map((item) => {
-              const row = rows[item.index];
-              if (!row) {
-                return null;
-              }
+  return (
+    <div ref={parentRef} className={cn('min-h-0 flex-1 overflow-auto px-3 py-3', className)}>
+      <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const row = rows[item.index];
+          if (!row) {
+            return null;
+          }
 
-              if (row.type === 'scope') {
-                return (
-                  <div
-                    key={row.id}
-                    className="absolute left-0 top-0 w-full px-2 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"
-                    style={{ transform: `translateY(${item.start}px)` }}
-                  >
-                    {row.label} · {row.count}
-                  </div>
-                );
-              }
+          if (row.type === 'scope') {
+            return (
+              <div
+                key={row.id}
+                className="absolute left-0 top-0 w-full px-2 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"
+                style={{ transform: `translateY(${item.start}px)` }}
+              >
+                {row.label} · {row.count}
+              </div>
+            );
+          }
 
-              const { obligation } = row;
-              const isBlocking = isBlockingSeverity(obligation.severity);
-              const nodeLabels = nodeLabelsFor(graph, obligation.affectedNodeIds);
-              const isHighlighted = obligation.affectedNodeIds.every((nodeId) => highlightedNodeIds.includes(nodeId));
+          const { obligation } = row;
+          const isBlocking = isBlockingSeverity(obligation.severity);
+          const nodeLabels = nodeLabelsFor(graph, obligation.affectedNodeIds);
+          const isHighlighted = obligation.affectedNodeIds.every((nodeId) => highlightedNodeIds.includes(nodeId));
 
-              return (
-                <button
-                  key={row.id}
+          return (
+            <button
+              key={row.id}
+              className={cn(
+                'absolute left-0 top-0 w-full rounded-2xl border px-4 py-4 text-left transition-colors',
+                isBlocking
+                  ? 'border-rose-500/50 bg-rose-950/25 hover:bg-rose-950/40'
+                  : 'border-amber-500/35 bg-amber-950/20 hover:bg-amber-950/30',
+                isHighlighted && 'ring-2 ring-sky-400/60',
+              )}
+              style={{ transform: `translateY(${item.start}px)` }}
+              onClick={() => onSelectObligation(obligation)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-50">{obligation.title}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{obligation.kind}</p>
+                </div>
+                <span
                   className={cn(
-                    'absolute left-0 top-0 w-full rounded-2xl border px-4 py-4 text-left transition-colors',
+                    'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]',
                     isBlocking
-                      ? 'border-rose-500/50 bg-rose-950/25 hover:bg-rose-950/40'
-                      : 'border-amber-500/35 bg-amber-950/20 hover:bg-amber-950/30',
-                    isHighlighted && 'ring-2 ring-sky-400/60',
+                      ? 'border-rose-400/60 bg-rose-400/12 text-rose-100'
+                      : 'border-amber-400/50 bg-amber-400/10 text-amber-100',
                   )}
-                  style={{ transform: `translateY(${item.start}px)` }}
-                  onClick={() => onSelectObligation(obligation)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-50">{obligation.title}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{obligation.kind}</p>
-                    </div>
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]',
-                        isBlocking
-                          ? 'border-rose-400/60 bg-rose-400/12 text-rose-100'
-                          : 'border-amber-400/50 bg-amber-400/10 text-amber-100',
-                      )}
-                    >
-                      {isBlocking ? <Lock className="size-3.5" /> : <TriangleAlert className="size-3.5" />}
-                      {obligation.severity ?? 'advisory'}
-                    </span>
-                  </div>
+                  {isBlocking ? <Lock className="size-3.5" /> : <TriangleAlert className="size-3.5" />}
+                  {obligation.severity ?? 'advisory'}
+                </span>
+              </div>
 
-                  <p className="mt-3 text-sm text-slate-300">
-                    {obligation.description ?? 'No additional explanation was included in this snapshot.'}
-                  </p>
+              <p className="mt-3 text-sm text-slate-300">
+                {obligation.description ?? 'No additional explanation was included in this snapshot.'}
+              </p>
 
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
-                    <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1">
-                      {formatScopeBadge(obligation.scope, obligation.scopeLabel)}
-                    </span>
-                    {nodeLabels.length ? (
-                      <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1">
-                        Nodes: {nodeLabels.join(', ')}
-                      </span>
-                    ) : null}
-                  </div>
-                </button>
-              );
-            })}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1">
+                  {formatScopeBadge(obligation.scope, obligation.scopeLabel)}
+                </span>
+                {nodeLabels.length ? (
+                  <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1">
+                    Nodes: {nodeLabels.join(', ')}
+                  </span>
+                ) : null}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function WorkflowActionsContent({
+  graph,
+  runningActionId,
+  onRunAction,
+  className,
+}: {
+  readonly graph: WorkflowGraph | null;
+  readonly runningActionId: string | null;
+  readonly onRunAction: (action: WorkflowActionRecord) => void;
+  readonly className?: string;
+}) {
+  const actions = graph?.actions ?? [];
+
+  if (!actions.length) {
+    return (
+      <div className={cn('px-5 py-5 text-sm text-slate-400', className)}>
+        {graph?.status.runnableNodes
+          ? `Bayesgrove reports ${graph.status.runnableNodes} runnable node${graph.status.runnableNodes === 1 ? '' : 's'}, but this build does not expose a direct "Run workflow" command yet. Use a bayesgrove action when one is offered or run from the shared REPL.`
+          : 'Bayesgrove did not include any suggested actions in this snapshot.'}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('min-h-0 flex-1 overflow-auto space-y-3 px-4 py-4', className)}>
+      {actions.map((action) => (
+        <div key={action.id} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-50">{action.title}</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{action.kind}</p>
+            </div>
+            <Button onClick={() => onRunAction(action)} disabled={runningActionId === action.id}>
+              <ArrowRight className="size-4" />
+              {runningActionId === action.id ? 'Running…' : 'Run'}
+            </Button>
+          </div>
+
+          <p className="mt-3 text-sm text-slate-300">
+            {action.description ?? 'No extra action description was included in this snapshot.'}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+            <span className="rounded-full border border-slate-700 bg-slate-950/80 px-2.5 py-1">
+              {formatScopeBadge(action.scope, action.scopeLabel)}
+            </span>
+            {action.templateRef ? (
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-emerald-100">
+                template: {action.templateRef}
+              </span>
+            ) : null}
           </div>
         </div>
-      ) : (
-        <div className="px-5 py-5 text-sm text-slate-400">
-          The canvas is currently clear of blocking and advisory review work.
-        </div>
-      )}
-    </aside>
+      ))}
+    </div>
+  );
+}
+
+export function WorkflowObligationsPanel({
+  graph,
+  highlightedNodeIds,
+  onSelectObligation,
+}: {
+  readonly graph: WorkflowGraph | null;
+  readonly highlightedNodeIds: ReadonlyArray<string>;
+  readonly onSelectObligation: (obligation: WorkflowObligationRecord) => void;
+}) {
+  return (
+    <WorkflowPanelShell
+      title="Obligations"
+      icon={<TriangleAlert className="size-4" />}
+      accentClassName="text-rose-200"
+      description={obligationsSummary(graph)}
+      className="border-rose-950/60"
+    >
+      <WorkflowObligationsContent
+        graph={graph}
+        highlightedNodeIds={highlightedNodeIds}
+        onSelectObligation={onSelectObligation}
+      />
+    </WorkflowPanelShell>
   );
 }
 
@@ -186,65 +300,20 @@ export function WorkflowActionsPanel({
   readonly runningActionId: string | null;
   readonly onRunAction: (action: WorkflowActionRecord) => void;
 }) {
-  const actions = graph?.actions ?? [];
-
   return (
-    <aside className="rounded-3xl border border-slate-800/90 bg-slate-950/80 shadow-2xl shadow-slate-950/30 backdrop-blur">
-      <div className="border-b border-slate-800/90 px-5 py-4">
-        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200">
-          <Sparkles className="size-4" />
-          Recommended Actions
-        </div>
-        <p className="mt-2 text-sm text-slate-300">
-          {actions.length
-            ? `${actions.length} next step${actions.length === 1 ? '' : 's'} from bayesgrove`
-            : `Nothing to do right now while workflow state is ${graph?.status.workflowState ?? 'unknown'}.`}
-        </p>
-      </div>
-
-      {actions.length ? (
-        <div className="space-y-3 px-4 py-4">
-          {actions.map((action) => (
-            <div key={action.id} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-50">{action.title}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{action.kind}</p>
-                </div>
-                <Button
-                  onClick={() => onRunAction(action)}
-                  disabled={runningActionId === action.id}
-                >
-                  <ArrowRight className="size-4" />
-                  {runningActionId === action.id ? 'Running…' : 'Run'}
-                </Button>
-              </div>
-
-              <p className="mt-3 text-sm text-slate-300">
-                {action.description ?? 'No extra action description was included in this snapshot.'}
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
-                <span className="rounded-full border border-slate-700 bg-slate-950/80 px-2.5 py-1">
-                  {formatScopeBadge(action.scope, action.scopeLabel)}
-                </span>
-                {action.templateRef ? (
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-emerald-100">
-                    template: {action.templateRef}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="px-5 py-5 text-sm text-slate-400">
-          {graph?.status.runnableNodes
-            ? `Bayesgrove reports ${graph.status.runnableNodes} runnable node${graph.status.runnableNodes === 1 ? '' : 's'}, but this build does not expose a direct "Run workflow" command yet. Use a bayesgrove action when one is offered or run from the shared REPL.`
-            : 'Bayesgrove did not include any suggested actions in this snapshot.'}
-        </div>
-      )}
-    </aside>
+    <WorkflowPanelShell
+      title="Recommended Actions"
+      icon={<Sparkles className="size-4" />}
+      accentClassName="text-emerald-200"
+      description={actionsSummary(graph)}
+      className="border-slate-800/90"
+    >
+      <WorkflowActionsContent
+        graph={graph}
+        runningActionId={runningActionId}
+        onRunAction={onRunAction}
+      />
+    </WorkflowPanelShell>
   );
 }
 

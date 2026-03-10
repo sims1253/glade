@@ -4,6 +4,15 @@
   color: #e5eef7;
   background: #08111b;
   font-family: "Space Grotesk", "Avenir Next", ui-sans-serif, system-ui, sans-serif;
+  --workflow-workspace-gap: 24px;
+  --workflow-workspace-rail-width: 352px;
+  --workflow-workspace-inspector-width: 352px;
+  --workflow-workspace-center-min-width: 640px;
+  --workflow-repl-min-height: 180px;
+  --workflow-repl-max-height: 640px;
+  --workflow-repl-overlay-max-height: 420px;
+  --workflow-repl-overlay-max-width: 30rem;
+  --workflow-repl-bottom-offset: 24px;
 }
 
 body {

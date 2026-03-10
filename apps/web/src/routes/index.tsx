@@ -12,15 +12,13 @@ import {
   type DesktopSettings,
 } from '@glade/contracts';
 
-import { WorkflowCanvas } from '../components/graph/workflow-canvas';
 import { ReplTerminalPanel } from '../components/repl/repl-terminal-panel';
 import {
   PostActionGuidanceBanner,
   WorkflowActionPreviewDialog,
-  WorkflowActionsPanel,
-  WorkflowObligationsPanel,
   useTransientGuidanceReset,
 } from '../components/workflow/protocol-panels';
+import { WorkflowWorkspace } from '../components/workflow/workflow-workspace';
 import type { WorkflowActionRecord } from '../lib/graph-types';
 import { toJsonObject } from '../lib/json';
 import { createNativeApi } from '../lib/runtime';
@@ -530,27 +528,16 @@ export function IndexRoute() {
         <PostActionGuidanceBanner actions={guidanceActions} onDismiss={() => setGuidanceActions(null)} />
       ) : null}
 
-      <div className="grid min-h-[40rem] flex-1 gap-6 xl:grid-cols-[22rem_minmax(0,1fr)_22rem]">
-        <WorkflowObligationsPanel
-          graph={graph}
-          highlightedNodeIds={highlightedNodeIds}
-          onSelectObligation={(obligation) => handleSelectObligation(obligation.affectedNodeIds)}
-        />
-        <div className="min-h-[40rem]">
-          <WorkflowCanvas
-            className="h-[calc(100vh-18rem)] min-h-[40rem]"
-            workflow={rpc.workflow}
-            host={rpc.host}
-          />
-        </div>
-        <WorkflowActionsPanel
-          graph={graph}
-          runningActionId={runningActionId}
-          onRunAction={(action) => setPreviewAction(action)}
-        />
-      </div>
-
-      <ReplTerminalPanel repl={rpc.repl} />
+      <WorkflowWorkspace
+        graph={graph}
+        highlightedNodeIds={highlightedNodeIds}
+        runningActionId={runningActionId}
+        repl={rpc.repl}
+        workflow={rpc.workflow}
+        host={rpc.host}
+        onSelectObligation={(obligation) => handleSelectObligation(obligation.affectedNodeIds)}
+        onRunAction={(action) => setPreviewAction(action)}
+      />
     </section>
   );
 }

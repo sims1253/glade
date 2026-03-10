@@ -13,15 +13,28 @@ import {
 import type { LegacyWorkflowDispatch } from '../../lib/legacy-commands';
 import { replRpcFromLegacyDispatch } from '../../lib/legacy-commands';
 import type { ReplRpc } from '../../lib/rpc';
+import {
+  clampWorkflowReplHeight,
+  getWorkflowReplHeightFromPointer,
+} from '../../lib/workflow-workspace';
 import { useConnectionStore } from '../../store/connection';
 import { useReplStore } from '../../store/repl';
 import { useUiPrefsStore } from '../../store/ui-prefs';
+import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
+
+type ReplTerminalPresentation = 'docked' | 'overlay';
 
 interface ReplTerminalPanelProps {
   readonly repl?: ReplRpc;
   readonly dispatchCommand?: LegacyWorkflowDispatch;
   readonly detachedView?: boolean;
+  readonly presentation?: ReplTerminalPresentation;
+  readonly panelOpen?: boolean;
+  readonly onPanelOpenChange?: (open: boolean) => void;
+  readonly panelHeight?: number;
+  readonly onPanelHeightChange?: (height: number) => void;
+  readonly resizeContainer?: HTMLElement | null;
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -225,18 +238,59 @@ function TerminalSurface({
   );
 }
 
-export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false }: ReplTerminalPanelProps) {
+export function ReplTerminalPanel({
+  repl,
+  dispatchCommand,
+  detachedView = false,
+  presentation = 'docked',
+  panelOpen,
+  onPanelOpenChange,
+  panelHeight,
+  onPanelHeightChange,
+  resizeContainer,
+}: ReplTerminalPanelProps) {
   const replClient = repl ?? (dispatchCommand ? replRpcFromLegacyDispatch(dispatchCommand) : null);
-  const replPanelOpen = useUiPrefsStore((state) => state.replPanelOpen);
-  const setReplPanelOpen = useUiPrefsStore((state) => state.setReplPanelOpen);
-  const replPanelHeight = useUiPrefsStore((state) => state.replPanelHeight);
-  const setReplPanelHeight = useUiPrefsStore((state) => state.setReplPanelHeight);
+  const storedPanelOpen = useUiPrefsStore((state) => state.replPanelOpen);
+  const setStoredPanelOpen = useUiPrefsStore((state) => state.setReplPanelOpen);
+  const storedPanelHeight = useUiPrefsStore((state) => state.replPanelHeight);
+  const setStoredPanelHeight = useUiPrefsStore((state) => state.setReplPanelHeight);
   const replDetached = useReplStore((state) => state.replDetached);
   const setReplDetached = useReplStore((state) => state.setReplDetached);
   const replLines = useReplStore((state) => state.replLines);
   const sessionState = useConnectionStore((state) => state.sessionState);
   const [interactive, setInteractive] = useState(() => isDesktopRuntime());
+  const resolvedPanelOpen = panelOpen ?? storedPanelOpen;
+  const setResolvedPanelOpen = onPanelOpenChange ?? setStoredPanelOpen;
+  const resolvedPanelHeight = panelHeight ?? storedPanelHeight;
+  const setResolvedPanelHeight = onPanelHeightChange ?? setStoredPanelHeight;
+  const resolvedPresentation = detachedView ? 'detached' : presentation;
   const detachable = interactive && canDetachTerminal() && !detachedView;
+
+  const getResizeBounds = () => {
+    const fallbackRect = {
+      bottom: window.innerHeight,
+      height: window.innerHeight,
+      top: 0,
+    };
+    const container = resizeContainer;
+    const containerRect = container?.getBoundingClientRect() ?? fallbackRect;
+    const styleSource = container ? window.getComputedStyle(container) : window.getComputedStyle(document.documentElement);
+    const minHeight = Number.parseFloat(styleSource.getPropertyValue('--workflow-repl-min-height')) || 180;
+    const maxHeight = Number.parseFloat(styleSource.getPropertyValue('--workflow-repl-max-height')) || 640;
+    const overlayMaxHeight = Number.parseFloat(styleSource.getPropertyValue('--workflow-repl-overlay-max-height')) || 420;
+    const bottomOffset = Number.parseFloat(styleSource.getPropertyValue('--workflow-repl-bottom-offset')) || 24;
+    const availableHeight = resolvedPresentation === 'overlay'
+      ? Math.max(minHeight, Math.min(overlayMaxHeight, containerRect.height - (bottomOffset * 2)))
+      : Math.max(minHeight, containerRect.height - 160);
+
+    return {
+      availableHeight,
+      bottomOffset,
+      containerBottom: containerRect.bottom,
+      maxHeight: resolvedPresentation === 'overlay' ? Math.min(maxHeight, overlayMaxHeight) : maxHeight,
+      minHeight,
+    };
+  };
 
   useEffect(() => {
     const syncRuntime = () => {
@@ -277,21 +331,43 @@ export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false 
 
       if ((event.ctrlKey || event.metaKey) && event.key === '`') {
         event.preventDefault();
-        setReplPanelOpen(!useUiPrefsStore.getState().replPanelOpen);
+        setResolvedPanelOpen(!resolvedPanelOpen);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [detachedView, setReplPanelOpen]);
+  }, [detachedView, resolvedPanelOpen, setResolvedPanelOpen]);
 
   useEffect(() => {
-    if (detachedView || !replPanelOpen || replDetached) {
+    if (detachedView) {
+      return;
+    }
+
+    const bounds = getResizeBounds();
+    setResolvedPanelHeight(clampWorkflowReplHeight({
+      height: resolvedPanelHeight,
+      minHeight: bounds.minHeight,
+      maxHeight: bounds.maxHeight,
+      availableHeight: bounds.availableHeight,
+    }));
+  }, [detachedView, resizeContainer, resolvedPanelHeight, resolvedPresentation, setResolvedPanelHeight]);
+
+  useEffect(() => {
+    if (detachedView || !resolvedPanelOpen || replDetached) {
       return;
     }
 
     const onMouseMove = (event: MouseEvent) => {
-      setReplPanelHeight(window.innerHeight - event.clientY - 24);
+      const bounds = getResizeBounds();
+      setResolvedPanelHeight(getWorkflowReplHeightFromPointer({
+        containerBottom: bounds.containerBottom,
+        pointerClientY: event.clientY,
+        bottomOffset: bounds.bottomOffset,
+        minHeight: bounds.minHeight,
+        maxHeight: bounds.maxHeight,
+        availableHeight: bounds.availableHeight,
+      }));
     };
     const stopResizing = () => {
       window.removeEventListener('mousemove', onMouseMove);
@@ -312,7 +388,7 @@ export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false 
       window.removeEventListener('mousedown', onMouseDown);
       stopResizing();
     };
-  }, [detachedView, replDetached, replPanelOpen, setReplPanelHeight]);
+  }, [detachedView, replDetached, resolvedPanelOpen, resizeContainer, resolvedPresentation, setResolvedPanelHeight]);
 
   const handleClear = async () => {
     try {
@@ -330,9 +406,14 @@ export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false 
     }
   };
 
-  if (!detachedView && !replPanelOpen) {
+  if (!detachedView && !resolvedPanelOpen) {
     return (
-      <div className="rounded-[1.5rem] border border-slate-800/80 bg-slate-950/80 px-4 py-3 shadow-xl shadow-slate-950/30">
+      <div
+        className={cn(
+          'rounded-[1.5rem] border border-slate-800/80 bg-slate-950/80 px-4 py-3 shadow-xl shadow-slate-950/30',
+          resolvedPresentation === 'overlay' && 'absolute inset-x-4 bottom-[var(--workflow-repl-bottom-offset)] z-20 sm:left-auto sm:w-[26rem]',
+        )}
+      >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 p-2 text-emerald-200">
@@ -343,7 +424,7 @@ export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false 
               <p className="text-xs text-slate-400">Press `Ctrl+\`` to reopen it.</p>
             </div>
           </div>
-          <Button onClick={() => setReplPanelOpen(true)}>
+          <Button onClick={() => setResolvedPanelOpen(true)}>
             <CornerDownLeft className="size-4" />
             Open terminal
           </Button>
@@ -355,11 +436,12 @@ export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false 
   return (
     <section
       aria-label={detachedView ? 'Detached REPL terminal' : 'REPL terminal'}
-      className={[
+      className={cn(
         'overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-slate-950/70 shadow-2xl shadow-slate-950/40 backdrop-blur',
         detachedView ? 'flex h-screen flex-col rounded-none border-0 shadow-none' : 'flex flex-col',
-      ].join(' ')}
-      style={detachedView ? undefined : { height: replDetached ? 260 : replPanelHeight }}
+        resolvedPresentation === 'overlay' && 'absolute inset-x-4 bottom-[var(--workflow-repl-bottom-offset)] z-20 sm:left-auto sm:w-[var(--workflow-repl-overlay-max-width)]',
+      )}
+      style={detachedView ? undefined : { height: replDetached ? 260 : resolvedPanelHeight }}
     >
       {!detachedView ? (
         <button
@@ -409,7 +491,7 @@ export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false 
             </Button>
           ) : null}
           {!detachedView ? (
-            <Button onClick={() => setReplPanelOpen(false)} variant="ghost">
+            <Button onClick={() => setResolvedPanelOpen(false)} variant="ghost">
               Hide
             </Button>
           ) : null}
