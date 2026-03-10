@@ -17,6 +17,7 @@ import {
   type AckResult,
   type BayesgroveCommand,
   type BayesgroveCommandResult,
+  type DesktopEnvironmentState,
   type GraphSnapshot,
   type JsonObject,
   type JsonValue,
@@ -50,6 +51,7 @@ import { GraphStateCache } from './graph-state-cache';
 import { ProcessSupervisor } from './process-supervisor';
 import { RProcessService } from './r-process';
 import { SessionStatusStore } from './session-status';
+import { DesktopEnvironmentService } from './desktop-environment';
 import { executeToolNode } from './tool-runtime';
 import { WebSocketHub } from './websocket-hub';
 
@@ -86,7 +88,7 @@ function rpcError(code: string, message: string, details?: unknown): RpcError {
 function successResponse(
   id: string,
   method: WebSocketRequest['method'],
-  result: AckResult | SystemInfoResult,
+  result: AckResult | DesktopEnvironmentState | SystemInfoResult,
 ): WebSocketResponse {
   return {
     _tag: 'WebSocketSuccess',
@@ -324,6 +326,7 @@ export const ServerEdgeLive = Layer.scoped(
   ServerEdge,
   Effect.gen(function* () {
     const config = yield* ServerConfig;
+    const desktopEnvironment = yield* DesktopEnvironmentService;
     const rProcess = yield* RProcessService;
     const bayesgroveSocket = yield* BayesgroveSocket;
     const cache = yield* GraphStateCache;
@@ -342,6 +345,11 @@ export const ServerEdgeLive = Layer.scoped(
         const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
         yield* hub.broadcast(push);
       });
+
+    const publishDesktopEnvironment = (state: DesktopEnvironmentState) => {
+      const push: WsPush = { _tag: 'WsPush', channel: 'desktop.environment', payload: state };
+      return hub.broadcast(push);
+    };
 
     const requestSnapshotRefresh = Effect.gen(function* () {
       const inFlight = yield* Ref.get(refreshInFlight);
@@ -448,6 +456,29 @@ export const ServerEdgeLive = Layer.scoped(
     ): Effect.Effect<void, unknown> =>
       Effect.gen(function* () {
         switch (request.method) {
+          case 'desktop.getEnvironment': {
+            const result = yield* desktopEnvironment.getState;
+            yield* hub.send(socket, successResponse(request.id, request.method, result));
+            return;
+          }
+          case 'desktop.refreshEnvironment': {
+            const result = yield* desktopEnvironment.refreshState;
+            yield* publishDesktopEnvironment(result);
+            yield* hub.send(socket, successResponse(request.id, request.method, result));
+            return;
+          }
+          case 'desktop.saveSettings': {
+            const result = yield* desktopEnvironment.saveSettings(request.body.settings);
+            yield* publishDesktopEnvironment(result);
+            yield* hub.send(socket, successResponse(request.id, request.method, result));
+            return;
+          }
+          case 'desktop.resetSettings': {
+            const result = yield* desktopEnvironment.resetSettings;
+            yield* publishDesktopEnvironment(result);
+            yield* hub.send(socket, successResponse(request.id, request.method, result));
+            return;
+          }
           case 'system.getInfo': {
             const result: SystemInfoResult = {
               _tag: 'SystemInfo',
@@ -468,10 +499,12 @@ export const ServerEdgeLive = Layer.scoped(
               });
             }
 
+            const runtime = yield* desktopEnvironment.getSessionRuntime;
+
             yield* Effect.tryPromise({
               try: () =>
-                config.editorCommand
-                  ? open(request.body.path, { app: { name: config.editorCommand } })
+                runtime.editorCommand
+                  ? open(request.body.path, { app: { name: runtime.editorCommand } })
                   : open(request.body.path),
               catch: (error) =>
                 new CommandDispatchError({
@@ -484,6 +517,8 @@ export const ServerEdgeLive = Layer.scoped(
             return;
           }
           case 'session.restart': {
+            const nextEnvironment = yield* desktopEnvironment.refreshState;
+            yield* publishDesktopEnvironment(nextEnvironment);
             yield* cache.clear;
             yield* bayesgroveSocket.disconnect;
             yield* rProcess.restart;
@@ -657,13 +692,19 @@ export const ServerEdgeLive = Layer.scoped(
       );
     };
 
-    const bootstrapFor = (snapshot: Option.Option<GraphSnapshot>, replHistory: ReadonlyArray<string>, currentStatus: SessionStatus): ServerBootstrap => ({
+    const bootstrapFor = (
+      snapshot: Option.Option<GraphSnapshot>,
+      replHistory: ReadonlyArray<string>,
+      currentStatus: SessionStatus,
+      currentDesktopEnvironment: DesktopEnvironmentState,
+    ): ServerBootstrap => ({
       _tag: 'ServerBootstrap',
       version: config.version,
       runtime: config.runtime,
       hostedMode: config.hostedMode,
       projectPath: config.projectPath,
       sessionStatus: currentStatus,
+      desktopEnvironment: currentDesktopEnvironment,
       ...(Option.isSome(snapshot) ? { snapshot: snapshot.value } : {}),
       replHistory: [...replHistory],
     });
@@ -705,10 +746,11 @@ export const ServerEdgeLive = Layer.scoped(
         const snapshot = yield* cache.getSnapshot;
         const currentStatus = yield* statusStore.get;
         const replHistory = yield* cache.getReplLines(config.replReplayLimit);
+        const currentDesktopEnvironment = yield* desktopEnvironment.getState;
         const bootstrapPush: WsPush = {
           _tag: 'WsPush',
           channel: 'server.bootstrap',
-          payload: bootstrapFor(snapshot, replHistory, currentStatus),
+          payload: bootstrapFor(snapshot, replHistory, currentStatus, currentDesktopEnvironment),
         };
         yield* hub.send(socket, bootstrapPush);
 
@@ -737,11 +779,7 @@ export const ServerEdgeLive = Layer.scoped(
       });
 
     const startSession = Effect.gen(function* () {
-      if (!config.projectPath) {
-        yield* publishStatus('error', 'project_path_not_configured');
-        return;
-      }
-
+      yield* desktopEnvironment.refreshState;
       yield* cache.clear;
       yield* rProcess.start;
       yield* bayesgroveSocket.connect;

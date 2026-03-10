@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.5 - 2026-03-10
+
+- Implemented the phase 3 desktop boundary refactor by replacing the broad Electron preload snapshot with a narrow native bridge plus typed WebSocket-owned desktop environment state.
+- Moved desktop settings, preflight checks, and session environment runtime resolution into a server-owned environment service backed by `stateDir/settings.json`, while keeping updater behavior native-only.
+- Fixed review follow-ups around updater/external-link error handling, safer desktop URL opening, editor-command cache invalidation, and clearer partial-success behavior when environment updates require a session restart.
+
 ## 0.11.4 - 2026-03-10
 
 - Normalized the CI test topology around fast Linux-first validation, explicit browser and isolated desktop smoke coverage, and a trust-gated integration job.

@@ -7,6 +7,7 @@ import { SchemaDrivenForm } from './schema-form';
 
 afterEach(() => {
   cleanup();
+  delete window.desktopBridge;
   vi.unstubAllGlobals();
 });
 
@@ -42,11 +43,9 @@ const schema = {
 describe('SchemaDrivenForm', () => {
   it('renders supported field types and submits normalized parameters', async () => {
     const onSubmit = vi.fn();
-    vi.stubGlobal('__GLADE_DESKTOP__', {
-      platform: 'linux',
-      serverPort: 7842,
-      selectFilePath: vi.fn(async () => '/tmp/project/data.csv'),
-    });
+    window.desktopBridge = {
+      pickFile: vi.fn(async () => '/tmp/project/data.csv'),
+    };
 
     render(
       <SchemaDrivenForm

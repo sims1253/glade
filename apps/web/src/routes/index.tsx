@@ -4,10 +4,13 @@ import { createFileRoute } from '@tanstack/react-router';
 
 import {
   APP_DISPLAY_NAME,
-  type DesktopPreflightIssue,
-  type DesktopRuntimeSnapshot,
-  type DesktopSettings,
+  type DesktopUpdateState,
 } from '@glade/shared';
+import {
+  type DesktopEnvironmentState,
+  type DesktopPreflightIssue,
+  type DesktopSettings,
+} from '@glade/contracts';
 
 import { WorkflowCanvas } from '../components/graph/workflow-canvas';
 import { ReplTerminalPanel } from '../components/repl/repl-terminal-panel';
@@ -20,7 +23,7 @@ import {
 } from '../components/workflow/protocol-panels';
 import type { WorkflowActionRecord } from '../lib/graph-types';
 import { toJsonObject } from '../lib/json';
-import { readDesktopRuntime } from '../lib/runtime';
+import { createNativeApi } from '../lib/runtime';
 import { Button } from '../components/ui/button';
 import { ToastViewport } from '../components/ui/toast-viewport';
 import { useRpcClient } from '../hooks/useRpcClient';
@@ -52,9 +55,9 @@ function sessionIssue(reason: string | null): DesktopPreflightIssue | null {
   };
 }
 
-function setupIssues(snapshot: DesktopRuntimeSnapshot | null, reason: string | null) {
-  const issues = [...(snapshot?.preflight.issues ?? [])];
-  const followUp = snapshot?.preflight.status === 'ok' ? sessionIssue(reason) : null;
+function setupIssues(environment: DesktopEnvironmentState | null, reason: string | null) {
+  const issues = [...(environment?.preflight.issues ?? [])];
+  const followUp = environment?.preflight.status === 'ok' ? sessionIssue(reason) : null;
   if (followUp) {
     issues.push(followUp);
   }
@@ -72,6 +75,7 @@ export function IndexRoute() {
   const serverVersion = useConnectionStore((state) => state.serverVersion);
   const sessionState = useConnectionStore((state) => state.sessionState);
   const sessionReason = useConnectionStore((state) => state.sessionReason);
+  const desktopEnvironment = useConnectionStore((state) => state.desktopEnvironment);
   const pushNotification = useToastStore((state) => state.pushNotification);
   const graph = useGraphStore((state) => state.graph);
   const highlightedNodeIds = useGraphStore((state) => state.highlightedNodeIds);
@@ -87,20 +91,15 @@ export function IndexRoute() {
   const [guidanceActions, setGuidanceActions] = useState<ReadonlyArray<WorkflowActionRecord> | null>(null);
   const [isHealthDialogOpen, setIsHealthDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
-  const [desktopState, setDesktopState] = useState<DesktopRuntimeSnapshot | null>(null);
+  const [updateState, setUpdateState] = useState<DesktopUpdateState | null>(null);
   const [settingsDraft, setSettingsDraft] = useState<DesktopSettings | null>(null);
   const [desktopBusy, setDesktopBusy] = useState(false);
   const actionSignature = useMemo(
     () => graph?.actions.map((action) => action.id).join('|') ?? '',
     [graph],
   );
-  const desktopRuntime = readDesktopRuntime();
-  const checkForUpdates = desktopRuntime?.checkForUpdates;
-  const downloadUpdate = desktopRuntime?.downloadUpdate;
-  const saveDesktopSettings = desktopRuntime?.saveDesktopSettings;
-  const resetDesktopSettings = desktopRuntime?.resetDesktopSettings;
-  const refreshDesktopState = desktopRuntime?.refreshDesktopState;
-  const desktopIssues = useMemo(() => setupIssues(desktopState, sessionReason), [desktopState, sessionReason]);
+  const nativeApi = useMemo(() => createNativeApi(rpc), [rpc]);
+  const desktopIssues = useMemo(() => setupIssues(desktopEnvironment, sessionReason), [desktopEnvironment, sessionReason]);
   const healthPayload = useMemo(() => JSON.stringify({
     endpoint: `${window.location.origin}/health`,
     status: serverConnected ? 'ok' : 'error',
@@ -110,32 +109,38 @@ export function IndexRoute() {
   }, null, 2), [serverConnected, serverVersion, sessionReason, sessionState]);
 
   useEffect(() => {
-    if (!desktopRuntime?.getDesktopState) {
+    if (!desktopEnvironment) {
       return;
     }
 
-    let active = true;
-    void desktopRuntime.getDesktopState().then((snapshot) => {
-      if (!active) {
-        return;
-      }
-      setDesktopState(snapshot);
-      setSettingsDraft(snapshot.settings);
-    });
+    setSettingsDraft((current) => current ?? desktopEnvironment.settings);
+  }, [desktopEnvironment]);
 
-    const unsubscribe = desktopRuntime.onDesktopStateChange?.((snapshot) => {
+  useEffect(() => {
+    let active = true;
+    void nativeApi.updater.getState()
+      .then((state) => {
+        if (!active) {
+          return;
+        }
+        setUpdateState(state);
+      })
+      .catch((error) => {
+        console.error('[desktop] failed to load updater state', error);
+      });
+
+    const unsubscribe = nativeApi.updater.subscribe((state) => {
       if (!active) {
         return;
       }
-      setDesktopState(snapshot);
-      setSettingsDraft((current) => current ?? snapshot.settings);
+      setUpdateState(state);
     });
 
     return () => {
       active = false;
       unsubscribe?.();
     };
-  }, [desktopRuntime]);
+  }, [nativeApi]);
 
   const handleSelectObligation = useCallback((nodeIds: ReadonlyArray<string>) => {
     setHighlightedNodeIds(nodeIds);
@@ -187,17 +192,10 @@ export function IndexRoute() {
 
   useTransientGuidanceReset(guidanceActions, () => setGuidanceActions(null));
 
-  async function applyDesktopAction(action: () => Promise<DesktopRuntimeSnapshot>) {
-    if (!desktopRuntime) {
-      return;
-    }
-
+  async function applyDesktopAction<T>(action: () => Promise<T>) {
     setDesktopBusy(true);
     try {
-      const snapshot = await action();
-      setDesktopState(snapshot);
-      setSettingsDraft(snapshot.settings);
-      rpc.reconnect();
+      return await action();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[desktop] action failed', error);
@@ -245,7 +243,7 @@ export function IndexRoute() {
           </div>
         </div>
       ) : null}
-      {isSettingsDialogOpen && settingsDraft && desktopState ? (
+      {isSettingsDialogOpen && settingsDraft && desktopEnvironment ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-3xl rounded-[2rem] border border-slate-800 bg-slate-950 p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
@@ -271,9 +269,9 @@ export function IndexRoute() {
                     />
                     <Button
                       variant="ghost"
-                      disabled={!desktopRuntime?.selectExecutablePath || desktopBusy}
+                      disabled={!nativeApi.bridge?.pickExecutable || desktopBusy}
                       onClick={() => {
-                        void desktopRuntime?.selectExecutablePath?.()
+                        void nativeApi.pickExecutable()
                           .then((selectedPath) => {
                             if (selectedPath) {
                               setSettingsDraft((current) => current ? { ...current, rExecutablePath: selectedPath } : current);
@@ -321,81 +319,89 @@ export function IndexRoute() {
                 </label>
               </div>
 
-              <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Updater</p>
-                <p className="mt-3 text-lg font-medium text-slate-100">{desktopState.update.status.replaceAll('-', ' ')}</p>
-                <p className="mt-2 text-sm text-slate-400">{desktopState.update.message ?? 'No update activity yet.'}</p>
-                <p className="mt-2 text-xs text-slate-500">Channel: {desktopState.update.channel}</p>
-                {desktopState.update.progressPercent !== null ? (
-                  <div className="mt-4 h-2 rounded-full bg-slate-800">
-                    <div
-                      className="h-2 rounded-full bg-emerald-400 transition-[width] duration-300"
-                      style={{ width: `${Math.max(4, Math.min(100, desktopState.update.progressPercent))}%` }}
-                    />
+              {nativeApi.updater.supported && updateState ? (
+                <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Updater</p>
+                  <p className="mt-3 text-lg font-medium text-slate-100">{updateState.status.replaceAll('-', ' ')}</p>
+                  <p className="mt-2 text-sm text-slate-400">{updateState.message ?? 'No update activity yet.'}</p>
+                  <p className="mt-2 text-xs text-slate-500">Channel: {settingsDraft.updateChannel}</p>
+                  {updateState.progressPercent !== null ? (
+                    <div className="mt-4 h-2 rounded-full bg-slate-800">
+                      <div
+                        className="h-2 rounded-full bg-emerald-400 transition-[width] duration-300"
+                        style={{ width: `${Math.max(4, Math.min(100, updateState.progressPercent))}%` }}
+                      />
+                    </div>
+                  ) : null}
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <Button
+                      variant="ghost"
+                      disabled={desktopBusy}
+                      onClick={() => {
+                        void applyDesktopAction(async () => {
+                          await nativeApi.updater.check();
+                        });
+                      }}
+                    >
+                      <RefreshCw className="size-4" />
+                      Check now
+                    </Button>
+                    <Button
+                      disabled={desktopBusy || updateState.status !== 'available'}
+                      onClick={() => {
+                        void applyDesktopAction(async () => {
+                          await nativeApi.updater.download();
+                        });
+                      }}
+                    >
+                      <Download className="size-4" />
+                      Download
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={desktopBusy || updateState.status !== 'downloaded'}
+                      onClick={() => {
+                        void applyDesktopAction(async () => {
+                          const started = await nativeApi.updater.install();
+                          if (!started) {
+                            throw new Error('Could not start update installation.');
+                          }
+                        });
+                      }}
+                    >
+                      Install and relaunch
+                    </Button>
                   </div>
-                ) : null}
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button
-                    variant="ghost"
-                    disabled={desktopBusy || !checkForUpdates}
-                    onClick={() => {
-                      if (!checkForUpdates) {
-                        return;
-                      }
-                      void applyDesktopAction(() => checkForUpdates());
-                    }}
-                  >
-                    <RefreshCw className="size-4" />
-                    Check now
-                  </Button>
-                  <Button
-                    disabled={desktopBusy || desktopState.update.status !== 'available' || !downloadUpdate}
-                    onClick={() => {
-                      if (!downloadUpdate) {
-                        return;
-                      }
-                      void applyDesktopAction(() => downloadUpdate());
-                    }}
-                  >
-                    <Download className="size-4" />
-                    Download
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    disabled={desktopBusy || desktopState.update.status !== 'downloaded' || !desktopRuntime?.installDownloadedUpdate}
-                    onClick={() => {
-                      void desktopRuntime?.installDownloadedUpdate?.();
-                    }}
-                  >
-                    Install and relaunch
-                  </Button>
                 </div>
-              </div>
+              ) : null}
             </div>
 
             <div className="mt-6 flex flex-wrap justify-between gap-3">
               <Button
                 variant="ghost"
-                disabled={desktopBusy || !resetDesktopSettings}
+                disabled={desktopBusy}
                 onClick={() => {
-                  if (!resetDesktopSettings) {
-                    return;
-                  }
-                  void applyDesktopAction(() => resetDesktopSettings());
+                  void applyDesktopAction(async () => {
+                    const environment = await nativeApi.environment.resetSettings();
+                    setSettingsDraft(environment.settings);
+                  });
                 }}
               >
                 <RotateCcw className="size-4" />
                 Reset to defaults
               </Button>
               <div className="flex flex-wrap gap-3">
-                <Button variant="ghost" onClick={() => setSettingsDraft(desktopState.settings)}>Discard</Button>
+                <Button variant="ghost" onClick={() => setSettingsDraft(desktopEnvironment.settings)}>Discard</Button>
                 <Button
-                  disabled={desktopBusy || !saveDesktopSettings}
+                  disabled={desktopBusy}
                   onClick={() => {
-                    if (!settingsDraft || !saveDesktopSettings) {
+                    if (!settingsDraft) {
                       return;
                     }
-                    void applyDesktopAction(() => saveDesktopSettings(settingsDraft));
+                    void applyDesktopAction(async () => {
+                      const environment = await nativeApi.environment.saveSettings(settingsDraft);
+                      setSettingsDraft(environment.settings);
+                    });
                   }}
                 >
                   Save and restart session
@@ -406,7 +412,7 @@ export function IndexRoute() {
         </div>
       ) : null}
 
-      {desktopState && desktopIssues.length > 0 ? (
+      {desktopEnvironment && desktopIssues.length > 0 ? (
         <section className="rounded-[2rem] border border-amber-400/30 bg-amber-500/10 p-6 shadow-2xl shadow-slate-950/20">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -422,12 +428,12 @@ export function IndexRoute() {
                 Settings
               </Button>
               <Button
-                disabled={desktopBusy || !refreshDesktopState}
+                disabled={desktopBusy}
                 onClick={() => {
-                  if (!refreshDesktopState) {
-                    return;
-                  }
-                  void applyDesktopAction(() => refreshDesktopState());
+                  void applyDesktopAction(async () => {
+                    const environment = await nativeApi.environment.refresh();
+                    setSettingsDraft(environment.settings);
+                  });
                 }}
               >
                 <RefreshCw className="size-4" />
@@ -447,27 +453,39 @@ export function IndexRoute() {
                   </pre>
                 ) : null}
                 {issue.href ? (
-                  <a className="mt-4 inline-flex text-sm font-medium text-emerald-300 hover:text-emerald-200" href={issue.href} target="_blank" rel="noreferrer">
+                  <button
+                    className="mt-4 inline-flex text-sm font-medium text-emerald-300 hover:text-emerald-200"
+                    onClick={() => {
+                      const href = issue.href;
+                      if (href) {
+                        void nativeApi.openExternal(href)
+                          .then((opened) => {
+                            if (!opened) {
+                              pushNotification({
+                                tone: 'error',
+                                title: 'Could not open link',
+                                description: 'The external link could not be opened.',
+                              });
+                            }
+                          })
+                          .catch((error) => {
+                            const message = error instanceof Error ? error.message : String(error);
+                            console.error('[desktop] failed to open external link', error);
+                            pushNotification({
+                              tone: 'error',
+                              title: 'Could not open link',
+                              description: message,
+                            });
+                          });
+                      }
+                    }}
+                    type="button"
+                  >
                     Open install instructions
-                  </a>
+                  </button>
                 ) : null}
               </article>
             ))}
-          </div>
-
-          <div className="mt-5 rounded-3xl border border-slate-800 bg-slate-950/70 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-slate-100">Diagnostic log tail</p>
-                <p className="mt-1 text-xs text-slate-500">Project path: {desktopState.preflight.projectPath}</p>
-              </div>
-              <Button variant="ghost" onClick={() => setIsSettingsDialogOpen(true)}>
-                Adjust settings
-              </Button>
-            </div>
-            <pre className="mt-4 max-h-64 overflow-auto rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-xs text-slate-200">
-              {(desktopState.logTail.join('\n') || 'No diagnostics recorded yet.')}
-            </pre>
           </div>
         </section>
       ) : null}
@@ -481,7 +499,7 @@ export function IndexRoute() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3 lg:justify-end">
-          {desktopRuntime?.getDesktopState ? (
+          {desktopEnvironment ? (
             <Button variant="ghost" onClick={() => setIsSettingsDialogOpen(true)}>
               <Settings2 className="size-4" />
               Settings
@@ -501,7 +519,7 @@ export function IndexRoute() {
         <StatusCard label="Version" value={serverVersion ?? 'checking…'} />
         <StatusCard label="Server" value={serverConnected ? 'connected' : 'disconnected'} />
         <StatusCard label="Session" value={sessionState} />
-        <StatusCard label="Project" value={graph?.projectName ?? desktopState?.preflight.projectPath ?? 'waiting…'} />
+        <StatusCard label="Project" value={graph?.projectName ?? desktopEnvironment?.preflight.projectPath ?? 'waiting…'} />
         <StatusCard
           label="Workflow"
           value={graph ? `${graph.status.workflowState} · ${graph.obligations.length} obligations / ${graph.actions.length} actions` : 'no snapshot'}

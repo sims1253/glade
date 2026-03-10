@@ -3,6 +3,7 @@ import { Schema } from 'effect';
 import {
   BayesgroveCommand,
   BayesgroveCommandResult,
+  DesktopEnvironmentState,
   type DomainPackDescriptor,
   type ExtensionDescriptor,
   ExtensionDescriptor as ExtensionDescriptorSchema,
@@ -237,6 +238,7 @@ export function readExtensionRegistry(snapshot: Pick<GraphSnapshot, 'extension_r
 }
 
 export const decodeHealthResponse = makeDecoder(HealthResponse);
+export const decodeDesktopEnvironmentState = makeDecoder(DesktopEnvironmentState);
 export const decodeSessionStatus = makeDecoder(SessionStatus);
 export const decodeExtensionDescriptor = (value: unknown, index = 0) =>
   makeDecoder(ExtensionDescriptorSchema)(normalizeExtensionDescriptorInput(value, index));

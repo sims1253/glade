@@ -138,6 +138,9 @@ export function useRpcClient(): RpcClient {
                   useGraphStore.getState().applySnapshot(message.payload.snapshot);
                 }
                 return;
+              case 'desktop.environment':
+                useConnectionStore.getState().setDesktopEnvironment(message.payload);
+                return;
               case 'session.status':
                 useConnectionStore.getState().setSessionStatus(message.payload);
                 return;
@@ -252,6 +255,12 @@ export function useRpcClient(): RpcClient {
   }, []);
 
   return useMemo(() => ({
+    desktop: {
+      getEnvironment: () => sendRequest('desktop.getEnvironment', { _tag: 'desktop.getEnvironment' }),
+      refreshEnvironment: () => sendRequest('desktop.refreshEnvironment', { _tag: 'desktop.refreshEnvironment' }),
+      saveSettings: (input) => sendRequest('desktop.saveSettings', { _tag: 'desktop.saveSettings', ...input }),
+      resetSettings: () => sendRequest('desktop.resetSettings', { _tag: 'desktop.resetSettings' }),
+    },
     workflow: {
       addNode: (input) => sendRequest('workflow.addNode', { _tag: 'workflow.addNode', ...input }),
       deleteNode: (input) => sendRequest('workflow.deleteNode', { _tag: 'workflow.deleteNode', ...input }),

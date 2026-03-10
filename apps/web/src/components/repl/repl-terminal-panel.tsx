@@ -7,7 +7,7 @@ import 'xterm/css/xterm.css';
 import {
   canDetachTerminal,
   isDesktopRuntime,
-  readDesktopRuntime,
+  readDesktopBridge,
   subscribeToDetachedTerminalState,
 } from '../../lib/runtime';
 import type { LegacyWorkflowDispatch } from '../../lib/legacy-commands';
@@ -198,7 +198,7 @@ function TerminalSurface({
             Close that window to return the terminal here, or focus it again from this view.
           </p>
           <div className="mt-5 flex justify-center">
-            <Button onClick={() => void readDesktopRuntime()?.openDetachedTerminal?.()}>
+            <Button onClick={() => void readDesktopBridge()?.openDetachedTerminal?.()}>
               <ExternalLink className="size-4" />
               Focus detached window
             </Button>
@@ -394,7 +394,7 @@ export function ReplTerminalPanel({ repl, dispatchCommand, detachedView = false 
           {detachable ? (
             <Button
               onClick={async () => {
-                const opened = await readDesktopRuntime()?.openDetachedTerminal?.();
+                const opened = await readDesktopBridge()?.openDetachedTerminal?.();
                 if (!opened) {
                   openDetachedTerminalFallback();
                 }

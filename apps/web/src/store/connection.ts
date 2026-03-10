@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { ServerBootstrap, SessionStatus } from '@glade/contracts';
+import type { DesktopEnvironmentState, ServerBootstrap, SessionStatus } from '@glade/contracts';
 
 type SessionState = SessionStatus['state'];
 
@@ -12,10 +12,12 @@ interface ConnectionState {
   readonly runtime: string | null;
   readonly hostedMode: boolean | null;
   readonly projectPath: string | null;
+  readonly desktopEnvironment: DesktopEnvironmentState | null;
   readonly bootstrapped: boolean;
   readonly markConnecting: () => void;
   readonly markDisconnected: (reason: string) => void;
   readonly applyBootstrap: (bootstrap: ServerBootstrap) => void;
+  readonly setDesktopEnvironment: (environment: DesktopEnvironmentState) => void;
   readonly setSessionStatus: (status: SessionStatus) => void;
 }
 
@@ -27,6 +29,7 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   runtime: null,
   hostedMode: null,
   projectPath: null,
+  desktopEnvironment: null,
   bootstrapped: false,
   markConnecting: () =>
     set((state) => ({
@@ -49,8 +52,10 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
       runtime: bootstrap.runtime,
       hostedMode: bootstrap.hostedMode,
       projectPath: bootstrap.projectPath,
+      desktopEnvironment: bootstrap.desktopEnvironment ?? null,
       bootstrapped: true,
     }),
+  setDesktopEnvironment: (desktopEnvironment) => set({ desktopEnvironment }),
   setSessionStatus: (status) =>
     set((state) => {
       if (!state.serverConnected) {

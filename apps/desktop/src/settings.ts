@@ -3,7 +3,11 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import type { DesktopSettings } from '@glade/shared';
+export interface DesktopSettings {
+  readonly rExecutablePath: string;
+  readonly editorCommand: string;
+  readonly updateChannel: 'stable' | 'beta';
+}
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   rExecutablePath: 'Rscript',

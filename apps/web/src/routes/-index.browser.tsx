@@ -3,19 +3,18 @@ import '../index.css';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 
-import type { GraphSnapshot } from '@glade/contracts';
-import type { DesktopRuntimeSnapshot } from '@glade/shared';
+import type { DesktopEnvironmentState, GraphSnapshot } from '@glade/contracts';
+import type { DesktopUpdateState } from '@glade/shared';
 
 import { useAppStore } from '../store/app';
+import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
 import { IndexRoute } from './index';
 
 const fitMock = vi.fn();
-const dispatchCommand = vi.fn();
-const dispatchHostCommand = vi.fn();
-const getDesktopState = vi.fn<() => Promise<DesktopRuntimeSnapshot>>();
+const getUpdateState = vi.fn<() => Promise<DesktopUpdateState>>();
 
-const desktopSnapshot: DesktopRuntimeSnapshot = {
+const desktopEnvironment: DesktopEnvironmentState = {
   settings: {
     rExecutablePath: '/usr/bin/Rscript',
     editorCommand: 'auto',
@@ -34,14 +33,13 @@ const desktopSnapshot: DesktopRuntimeSnapshot = {
       },
     ],
   },
-  update: {
-    channel: 'stable',
-    status: 'idle',
-    version: null,
-    message: null,
-    progressPercent: null,
-  },
-  logTail: ['[desktop] initial diagnostics'],
+};
+
+const desktopUpdateState: DesktopUpdateState = {
+  status: 'idle',
+  version: null,
+  message: null,
+  progressPercent: null,
 };
 
 const baseSnapshot: GraphSnapshot = {
@@ -132,10 +130,39 @@ vi.mock('@xterm/addon-fit', () => ({
   },
 }));
 
-vi.mock('../hooks/useServerConnection', () => ({
-  useServerConnection: () => ({
-    dispatchCommand,
-    dispatchHostCommand,
+vi.mock('../hooks/useRpcClient', () => ({
+  useRpcClient: () => ({
+    desktop: {
+      getEnvironment: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
+      refreshEnvironment: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
+      saveSettings: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
+      resetSettings: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
+    },
+    workflow: {
+      addNode: vi.fn(),
+      deleteNode: vi.fn(),
+      connectNodes: vi.fn(),
+      renameNode: vi.fn(),
+      recordDecision: vi.fn(),
+      executeAction: vi.fn(),
+      executeNode: vi.fn(),
+      updateNodeNotes: vi.fn(),
+      updateNodeParameters: vi.fn(),
+      setNodeFile: vi.fn(),
+    },
+    session: {
+      restart: vi.fn(),
+    },
+    repl: {
+      write: vi.fn(),
+      clear: vi.fn(),
+    },
+    host: {
+      openInEditor: vi.fn(),
+    },
+    system: {
+      getInfo: vi.fn(),
+    },
     reconnect: vi.fn(),
   }),
 }));
@@ -180,11 +207,9 @@ function clickButton(label: string) {
 
 describe('IndexRoute browser smoke', () => {
   beforeEach(() => {
-    dispatchCommand.mockReset();
-    dispatchHostCommand.mockReset();
     fitMock.mockReset();
-    getDesktopState.mockReset();
-    getDesktopState.mockResolvedValue(desktopSnapshot);
+    getUpdateState.mockReset();
+    getUpdateState.mockResolvedValue(desktopUpdateState);
     useGraphStore.getState().clear();
     useGraphStore.getState().applySnapshot(baseSnapshot);
     useAppStore.setState({
@@ -199,24 +224,21 @@ describe('IndexRoute browser smoke', () => {
       unobserve() {}
       disconnect() {}
     });
-    (window as typeof window & {
-      __GLADE_DESKTOP__?: unknown;
-    }).__GLADE_DESKTOP__ = {
-      platform: 'linux',
-      serverPort: 7842,
-      getDesktopState,
-      refreshDesktopState: getDesktopState,
-      saveDesktopSettings: getDesktopState,
-      resetDesktopSettings: getDesktopState,
-      checkForUpdates: getDesktopState,
-      downloadUpdate: getDesktopState,
+    useConnectionStore.setState({
+      desktopEnvironment,
+    });
+    window.desktopBridge = {
+      getWsUrl: () => 'ws://127.0.0.1:7842/ws',
+      getUpdateState,
+      checkForUpdates: vi.fn(async () => desktopUpdateState),
+      downloadUpdate: vi.fn(async () => desktopUpdateState),
       installDownloadedUpdate: vi.fn(async () => true),
-      onDesktopStateChange: vi.fn(() => () => {}),
+      onUpdateState: vi.fn(() => () => {}),
     };
   });
 
   afterEach(() => {
-    delete (window as typeof window & { __GLADE_DESKTOP__?: unknown }).__GLADE_DESKTOP__;
+    delete window.desktopBridge;
     vi.unstubAllGlobals();
     document.body.innerHTML = '';
   });

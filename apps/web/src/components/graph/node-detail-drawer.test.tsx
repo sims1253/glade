@@ -145,15 +145,14 @@ beforeEach(() => {
     unobserve() {}
     disconnect() {}
   });
-  vi.stubGlobal('__GLADE_DESKTOP__', {
-    platform: 'linux',
-    serverPort: 7842,
-    selectFilePath: vi.fn(async () => '/tmp/project/model.R'),
-  });
+  window.desktopBridge = {
+    pickFile: vi.fn(async () => '/tmp/project/model.R'),
+  };
 });
 
 afterEach(() => {
   cleanup();
+  delete window.desktopBridge;
   vi.unstubAllGlobals();
 });
 
@@ -291,7 +290,7 @@ describe('NodeDetailDrawer', () => {
   });
 
   it('surfaces hosted-mode editor capability errors while keeping the path visible', async () => {
-    vi.stubGlobal('__GLADE_DESKTOP__', undefined);
+    delete window.desktopBridge;
     dispatchHostCommand.mockResolvedValue({
       type: 'CommandResult',
       id: 'host',

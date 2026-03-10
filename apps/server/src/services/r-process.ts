@@ -12,6 +12,7 @@ import { RProcessInputError } from '../errors';
 import { describeUnknown, writeRDiagnosticsLine } from '../runtime-logging';
 import { GraphStateCache } from './graph-state-cache';
 import { ProcessSupervisor, type SupervisedProcessHandle } from './process-supervisor';
+import { DesktopEnvironmentService } from './desktop-environment';
 import { SessionStatusStore } from './session-status';
 import { WebSocketHub } from './websocket-hub';
 
@@ -96,9 +97,9 @@ repeat {
 export class RProcessService extends Context.Tag('glade/RProcessService')<
   RProcessService,
   {
-    readonly start: Effect.Effect<void>;
+    readonly start: Effect.Effect<void, unknown>;
     readonly stop: Effect.Effect<void>;
-    readonly restart: Effect.Effect<void>;
+    readonly restart: Effect.Effect<void, unknown>;
     readonly isRunning: Effect.Effect<boolean>;
     readonly sendInput: (data: string) => Effect.Effect<void, RProcessInputError>;
   }
@@ -108,6 +109,7 @@ export const RProcessServiceLive = Layer.scoped(
   RProcessService,
   Effect.gen(function* () {
     const config = yield* ServerConfig;
+    const desktopEnvironment = yield* DesktopEnvironmentService;
     const statusStore = yield* SessionStatusStore;
     const hub = yield* WebSocketHub;
     const cache = yield* GraphStateCache;
@@ -206,15 +208,12 @@ export const RProcessServiceLive = Layer.scoped(
     });
 
     const start = Effect.gen(function* () {
-      if (!config.projectPath) {
-        yield* publishStatus('error', 'project_path_not_configured');
-        return;
-      }
-
       const current = yield* Ref.get(processRef);
       if (current) {
         return;
       }
+
+      const runtime = yield* desktopEnvironment.getSessionRuntime;
 
       yield* Ref.set(stoppingRef, false);
       yield* Ref.set(readySeenRef, false);
@@ -224,8 +223,8 @@ export const RProcessServiceLive = Layer.scoped(
       );
 
       const currentProcess = yield* supervisor.spawn({
-        command: config.rExecutable,
-        args: ['-e', makeRExpression(config.projectPath!, config.rHost, config.rPort, config.rPollInterval)],
+        command: runtime.rExecutablePath,
+        args: ['-e', makeRExpression(runtime.projectPath, config.rHost, config.rPort, config.rPollInterval)],
         cwd: config.rootDir,
         env: process.env,
         stdio: ['pipe', 'pipe', 'pipe'],

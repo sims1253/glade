@@ -1,5 +1,10 @@
 import type {
   AckResult,
+  DesktopEnvironmentState,
+  DesktopGetEnvironmentInput,
+  DesktopRefreshEnvironmentInput,
+  DesktopResetSettingsInput,
+  DesktopSaveSettingsInput,
   HostOpenInEditorInput,
   RpcError,
   SessionRestartInput,
@@ -38,6 +43,13 @@ export interface WorkflowRpc {
   readonly setNodeFile: (input: WithoutTag<WorkflowSetNodeFileInput>) => Promise<RpcCallResult<AckResult>>;
 }
 
+export interface DesktopRpc {
+  readonly getEnvironment: (input?: WithoutTag<DesktopGetEnvironmentInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
+  readonly refreshEnvironment: (input?: WithoutTag<DesktopRefreshEnvironmentInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
+  readonly saveSettings: (input: WithoutTag<DesktopSaveSettingsInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
+  readonly resetSettings: (input?: WithoutTag<DesktopResetSettingsInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
+}
+
 export interface SessionRpc {
   readonly restart: (input?: WithoutTag<SessionRestartInput>) => Promise<RpcCallResult<AckResult>>;
 }
@@ -56,6 +68,7 @@ export interface SystemRpc {
 }
 
 export interface RpcClient {
+  readonly desktop: DesktopRpc;
   readonly workflow: WorkflowRpc;
   readonly session: SessionRpc;
   readonly repl: ReplRpc;
@@ -83,6 +96,14 @@ export function makeRequest<TMethod extends RpcMethod>(
 
 export function describeRpcCall(method: WebSocketRequest['method'], body: WebSocketRequest['body']) {
   switch (method) {
+    case 'desktop.getEnvironment':
+      return 'Loaded desktop environment';
+    case 'desktop.refreshEnvironment':
+      return 'Refreshed desktop environment';
+    case 'desktop.saveSettings':
+      return 'Saved desktop settings';
+    case 'desktop.resetSettings':
+      return 'Reset desktop settings';
     case 'workflow.addNode': {
       const request = body as WorkflowAddNodeInput;
       return `Added ${request.label?.trim() || request.kind}`;
@@ -126,6 +147,14 @@ export function shouldSuppressSuccessToast(method: WebSocketRequest['method']) {
 
 export function failureTitle(method: WebSocketRequest['method']) {
   switch (method) {
+    case 'desktop.getEnvironment':
+      return 'Could not load desktop environment';
+    case 'desktop.refreshEnvironment':
+      return 'Could not refresh desktop environment';
+    case 'desktop.saveSettings':
+      return 'Could not save desktop settings';
+    case 'desktop.resetSettings':
+      return 'Could not reset desktop settings';
     case 'workflow.addNode':
       return 'Could not add node';
     case 'workflow.deleteNode':

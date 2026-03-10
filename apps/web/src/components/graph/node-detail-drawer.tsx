@@ -17,7 +17,7 @@ import {
 } from '../../lib/legacy-commands';
 import { formatKindLabel } from '../../lib/graph-types';
 import type { HostRpc, WorkflowRpc } from '../../lib/rpc';
-import { hasNativeFilePicker, readDesktopRuntime } from '../../lib/runtime';
+import { hasNativeFilePicker, readDesktopBridge } from '../../lib/runtime';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { SchemaDrivenForm } from '../extensions/schema-form';
@@ -418,12 +418,12 @@ export function NodeDetailDrawer({
   }
 
   async function handlePickFile() {
-    const runtime = readDesktopRuntime();
-    if (!runtime?.selectFilePath) {
+    const bridge = readDesktopBridge();
+    if (!bridge?.pickFile) {
       return;
     }
 
-    const selectedPath = await runtime.selectFilePath();
+    const selectedPath = await bridge.pickFile();
     if (!selectedPath) {
       return;
     }

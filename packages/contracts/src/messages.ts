@@ -74,6 +74,48 @@ export const HealthResponse = Schema.Struct({
 });
 export type HealthResponse = Schema.Schema.Type<typeof HealthResponse>;
 
+export const UpdateChannel = Schema.Literal('stable', 'beta');
+export type UpdateChannel = Schema.Schema.Type<typeof UpdateChannel>;
+
+export const DesktopSettings = Schema.Struct({
+  rExecutablePath: Schema.String,
+  editorCommand: Schema.String,
+  updateChannel: UpdateChannel,
+});
+export type DesktopSettings = Schema.Schema.Type<typeof DesktopSettings>;
+
+export const DesktopPreflightIssueCode = Schema.Literal(
+  'r_missing',
+  'bayesgrove_missing',
+  'environment_inspection_failed',
+  'project_bootstrap_failed',
+  'session_connection_failed',
+);
+export type DesktopPreflightIssueCode = Schema.Schema.Type<typeof DesktopPreflightIssueCode>;
+
+export const DesktopPreflightIssue = Schema.Struct({
+  code: DesktopPreflightIssueCode,
+  title: Schema.String,
+  description: Schema.String,
+  command: Schema.optional(Schema.NullOr(Schema.String)),
+  href: Schema.optional(Schema.NullOr(Schema.String)),
+});
+export type DesktopPreflightIssue = Schema.Schema.Type<typeof DesktopPreflightIssue>;
+
+export const DesktopPreflightState = Schema.Struct({
+  checkedAt: Schema.String,
+  projectPath: Schema.String,
+  status: Schema.Literal('ok', 'action_required'),
+  issues: Schema.Array(DesktopPreflightIssue),
+});
+export type DesktopPreflightState = Schema.Schema.Type<typeof DesktopPreflightState>;
+
+export const DesktopEnvironmentState = Schema.Struct({
+  settings: DesktopSettings,
+  preflight: DesktopPreflightState,
+});
+export type DesktopEnvironmentState = Schema.Schema.Type<typeof DesktopEnvironmentState>;
+
 export const BayesgroveStatus = Schema.Struct({
   workflow_state: Schema.String,
   runnable_nodes: Schema.Number,

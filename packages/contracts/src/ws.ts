@@ -1,9 +1,19 @@
 import { Schema } from 'effect';
 
 import { JsonObject, JsonValue } from './json';
-import { GraphSnapshot, HealthResponse, ProtocolEvent } from './messages';
+import {
+  DesktopEnvironmentState,
+  DesktopSettings,
+  GraphSnapshot,
+  HealthResponse,
+  ProtocolEvent,
+} from './messages';
 
 export const WS_METHODS = [
+  'desktop.getEnvironment',
+  'desktop.refreshEnvironment',
+  'desktop.saveSettings',
+  'desktop.resetSettings',
   'workflow.addNode',
   'workflow.deleteNode',
   'workflow.connectNodes',
@@ -24,6 +34,7 @@ export type WsMethod = (typeof WS_METHODS)[number];
 
 export const WS_CHANNELS = [
   'server.bootstrap',
+  'desktop.environment',
   'session.status',
   'workflow.snapshot',
   'workflow.event',
@@ -65,6 +76,7 @@ export const ServerBootstrap = Schema.TaggedStruct('ServerBootstrap', {
   hostedMode: Schema.Boolean,
   projectPath: Schema.NullOr(Schema.String),
   sessionStatus: SessionStatus,
+  desktopEnvironment: Schema.optional(DesktopEnvironmentState),
   snapshot: Schema.optional(GraphSnapshot),
   replHistory: Schema.Array(Schema.String),
 });
@@ -77,6 +89,24 @@ export type ReplOutput = Schema.Schema.Type<typeof ReplOutput>;
 
 export const ReplCleared = Schema.TaggedStruct('ReplCleared', {});
 export type ReplCleared = Schema.Schema.Type<typeof ReplCleared>;
+
+export const DesktopGetEnvironmentInput = Schema.TaggedStruct('desktop.getEnvironment', {});
+export type DesktopGetEnvironmentInput = Schema.Schema.Type<typeof DesktopGetEnvironmentInput>;
+export const DesktopGetEnvironmentResult = DesktopEnvironmentState;
+
+export const DesktopRefreshEnvironmentInput = Schema.TaggedStruct('desktop.refreshEnvironment', {});
+export type DesktopRefreshEnvironmentInput = Schema.Schema.Type<typeof DesktopRefreshEnvironmentInput>;
+export const DesktopRefreshEnvironmentResult = DesktopEnvironmentState;
+
+export const DesktopSaveSettingsInput = Schema.TaggedStruct('desktop.saveSettings', {
+  settings: DesktopSettings,
+});
+export type DesktopSaveSettingsInput = Schema.Schema.Type<typeof DesktopSaveSettingsInput>;
+export const DesktopSaveSettingsResult = DesktopEnvironmentState;
+
+export const DesktopResetSettingsInput = Schema.TaggedStruct('desktop.resetSettings', {});
+export type DesktopResetSettingsInput = Schema.Schema.Type<typeof DesktopResetSettingsInput>;
+export const DesktopResetSettingsResult = DesktopEnvironmentState;
 
 export const WorkflowAddNodeInput = Schema.TaggedStruct('workflow.addNode', {
   kind: Schema.String,
@@ -223,6 +253,10 @@ function pushSchema<TChannel extends WsChannel, TPayload extends Schema.Schema.A
 }
 
 export const WebSocketRequest = Schema.Union(
+  requestSchema('desktop.getEnvironment', DesktopGetEnvironmentInput),
+  requestSchema('desktop.refreshEnvironment', DesktopRefreshEnvironmentInput),
+  requestSchema('desktop.saveSettings', DesktopSaveSettingsInput),
+  requestSchema('desktop.resetSettings', DesktopResetSettingsInput),
   requestSchema('workflow.addNode', WorkflowAddNodeInput),
   requestSchema('workflow.deleteNode', WorkflowDeleteNodeInput),
   requestSchema('workflow.connectNodes', WorkflowConnectNodesInput),
@@ -242,6 +276,10 @@ export const WebSocketRequest = Schema.Union(
 export type WebSocketRequest = Schema.Schema.Type<typeof WebSocketRequest>;
 
 export const WebSocketResponse = Schema.Union(
+  successResponseSchema('desktop.getEnvironment', DesktopGetEnvironmentResult),
+  successResponseSchema('desktop.refreshEnvironment', DesktopRefreshEnvironmentResult),
+  successResponseSchema('desktop.saveSettings', DesktopSaveSettingsResult),
+  successResponseSchema('desktop.resetSettings', DesktopResetSettingsResult),
   successResponseSchema('workflow.addNode', WorkflowAddNodeResult),
   successResponseSchema('workflow.deleteNode', WorkflowDeleteNodeResult),
   successResponseSchema('workflow.connectNodes', WorkflowConnectNodesResult),
@@ -257,6 +295,10 @@ export const WebSocketResponse = Schema.Union(
   successResponseSchema('repl.clear', ReplClearResult),
   successResponseSchema('host.openInEditor', HostOpenInEditorResult),
   successResponseSchema('system.getInfo', SystemInfoResult),
+  errorResponseSchema('desktop.getEnvironment'),
+  errorResponseSchema('desktop.refreshEnvironment'),
+  errorResponseSchema('desktop.saveSettings'),
+  errorResponseSchema('desktop.resetSettings'),
   errorResponseSchema('workflow.addNode'),
   errorResponseSchema('workflow.deleteNode'),
   errorResponseSchema('workflow.connectNodes'),
@@ -277,6 +319,7 @@ export type WebSocketResponse = Schema.Schema.Type<typeof WebSocketResponse>;
 
 export const WsPush = Schema.Union(
   pushSchema('server.bootstrap', ServerBootstrap),
+  pushSchema('desktop.environment', DesktopEnvironmentState),
   pushSchema('session.status', SessionStatus),
   pushSchema('workflow.snapshot', GraphSnapshot),
   pushSchema('workflow.event', ProtocolEvent),

@@ -1,11 +1,22 @@
 import { mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-import type {
-  DesktopPreflightIssue,
-  DesktopPreflightState,
-  DesktopSettings,
-} from '@glade/shared';
+import type { DesktopSettings } from './settings';
+
+interface DesktopPreflightIssue {
+  readonly code: 'r_missing' | 'bayesgrove_missing' | 'project_bootstrap_failed' | 'session_connection_failed';
+  readonly title: string;
+  readonly description: string;
+  readonly command?: string | null;
+  readonly href?: string | null;
+}
+
+interface DesktopPreflightState {
+  readonly checkedAt: string;
+  readonly projectPath: string;
+  readonly status: 'ok' | 'action_required';
+  readonly issues: ReadonlyArray<DesktopPreflightIssue>;
+}
 
 const PROBE_TIMEOUT_MS = 10_000;
 

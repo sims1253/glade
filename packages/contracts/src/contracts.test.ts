@@ -14,6 +14,7 @@ import {
 import {
   AckResult,
   BayesgroveCommand,
+  DesktopEnvironmentState,
   GraphSnapshot,
   HealthResponse,
   RpcError,
@@ -23,6 +24,20 @@ import {
   WebSocketResponse,
   WsPush,
 } from './index';
+
+const desktopEnvironment: DesktopEnvironmentState = {
+  settings: {
+    rExecutablePath: '/usr/bin/Rscript',
+    editorCommand: 'auto',
+    updateChannel: 'stable',
+  },
+  preflight: {
+    checkedAt: '2026-03-09T10:00:00.000Z',
+    projectPath: '/tmp/project',
+    status: 'ok',
+    issues: [],
+  },
+};
 
 function roundTrip<TSchema extends Schema.Schema.AnyNoContext>(
   schema: TSchema,
@@ -96,6 +111,33 @@ const snapshot: GraphSnapshot = {
 };
 
 const requestFixtures: ReadonlyArray<Schema.Schema.Type<typeof WebSocketRequest>> = [
+  {
+    _tag: 'WebSocketRequest',
+    id: 'req-0',
+    method: 'desktop.getEnvironment',
+    body: { _tag: 'desktop.getEnvironment' },
+  },
+  {
+    _tag: 'WebSocketRequest',
+    id: 'req-0b',
+    method: 'desktop.refreshEnvironment',
+    body: { _tag: 'desktop.refreshEnvironment' },
+  },
+  {
+    _tag: 'WebSocketRequest',
+    id: 'req-0c',
+    method: 'desktop.saveSettings',
+    body: {
+      _tag: 'desktop.saveSettings',
+      settings: desktopEnvironment.settings,
+    },
+  },
+  {
+    _tag: 'WebSocketRequest',
+    id: 'req-0d',
+    method: 'desktop.resetSettings',
+    body: { _tag: 'desktop.resetSettings' },
+  },
   {
     _tag: 'WebSocketRequest',
     id: 'req-1',
@@ -217,9 +259,15 @@ const pushFixtures: ReadonlyArray<Schema.Schema.Type<typeof WsPush>> = [
       hostedMode: false,
       projectPath: '/tmp/project',
       sessionStatus: { _tag: 'SessionStatus', state: 'ready' },
+      desktopEnvironment,
       snapshot,
       replHistory: ['> 1 + 1', '[1] 2'],
     },
+  },
+  {
+    _tag: 'WsPush',
+    channel: 'desktop.environment',
+    payload: desktopEnvironment,
   },
   {
     _tag: 'WsPush',
@@ -289,6 +337,13 @@ describe('contracts', () => {
       code: 'invalid_request',
       message: 'Bad body.',
       details: { field: 'body' },
+    });
+
+    roundTrip(WebSocketResponse, {
+      _tag: 'WebSocketSuccess',
+      id: 'req-0',
+      method: 'desktop.getEnvironment',
+      result: desktopEnvironment,
     });
 
     roundTrip(WebSocketResponse, {

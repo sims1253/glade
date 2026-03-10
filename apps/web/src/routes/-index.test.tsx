@@ -3,10 +3,11 @@ import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { GraphSnapshot } from '@glade/contracts';
-import type { DesktopRuntimeSnapshot } from '@glade/shared';
+import type { DesktopEnvironmentState, GraphSnapshot } from '@glade/contracts';
+import type { DesktopUpdateState } from '@glade/shared';
 
 import { useAppStore } from '../store/app';
+import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
 import { IndexRoute } from './index';
 
@@ -16,9 +17,13 @@ const reconnect = vi.fn();
 const replWrite = vi.fn();
 const replClear = vi.fn();
 const fitMock = vi.fn();
-const getDesktopState = vi.fn<() => Promise<DesktopRuntimeSnapshot>>();
+const desktopGetEnvironment = vi.fn();
+const desktopRefreshEnvironment = vi.fn();
+const desktopSaveSettings = vi.fn();
+const desktopResetSettings = vi.fn();
+const getUpdateState = vi.fn<() => Promise<DesktopUpdateState>>();
 
-const desktopSnapshot: DesktopRuntimeSnapshot = {
+const desktopEnvironment: DesktopEnvironmentState = {
   settings: {
     rExecutablePath: '/usr/bin/Rscript',
     editorCommand: 'auto',
@@ -37,14 +42,13 @@ const desktopSnapshot: DesktopRuntimeSnapshot = {
       },
     ],
   },
-  update: {
-    channel: 'stable',
-    status: 'idle',
-    version: null,
-    message: null,
-    progressPercent: null,
-  },
-  logTail: ['[desktop] initial diagnostics'],
+};
+
+const desktopUpdateState: DesktopUpdateState = {
+  status: 'idle',
+  version: null,
+  message: null,
+  progressPercent: null,
 };
 
 vi.mock('xterm', () => ({
@@ -67,6 +71,12 @@ vi.mock('@xterm/addon-fit', () => ({
 
 vi.mock('../hooks/useRpcClient', () => ({
   useRpcClient: () => ({
+    desktop: {
+      getEnvironment: desktopGetEnvironment,
+      refreshEnvironment: desktopRefreshEnvironment,
+      saveSettings: desktopSaveSettings,
+      resetSettings: desktopResetSettings,
+    },
     workflow: {
       addNode: vi.fn(),
       deleteNode: vi.fn(),
@@ -230,8 +240,16 @@ describe('IndexRoute phase 5 workflow UI', () => {
     reconnect.mockReset();
     replWrite.mockReset();
     replClear.mockReset();
-    getDesktopState.mockReset();
-    getDesktopState.mockResolvedValue(desktopSnapshot);
+    desktopGetEnvironment.mockReset();
+    desktopGetEnvironment.mockResolvedValue({ success: true, result: desktopEnvironment });
+    desktopRefreshEnvironment.mockReset();
+    desktopRefreshEnvironment.mockResolvedValue({ success: true, result: desktopEnvironment });
+    desktopSaveSettings.mockReset();
+    desktopSaveSettings.mockResolvedValue({ success: true, result: desktopEnvironment });
+    desktopResetSettings.mockReset();
+    desktopResetSettings.mockResolvedValue({ success: true, result: desktopEnvironment });
+    getUpdateState.mockReset();
+    getUpdateState.mockResolvedValue(desktopUpdateState);
     useGraphStore.getState().clear();
     vi.stubGlobal('ResizeObserver', class ResizeObserver {
       observe() {}
@@ -246,25 +264,22 @@ describe('IndexRoute phase 5 workflow UI', () => {
       sessionReason: null,
       notifications: [],
     });
-    (window as typeof window & {
-      __GLADE_DESKTOP__?: unknown;
-    }).__GLADE_DESKTOP__ = {
-      platform: 'linux',
-      serverPort: 7842,
-      getDesktopState,
-      refreshDesktopState: getDesktopState,
-      saveDesktopSettings: getDesktopState,
-      resetDesktopSettings: getDesktopState,
-      checkForUpdates: getDesktopState,
-      downloadUpdate: getDesktopState,
+    useConnectionStore.setState({
+      desktopEnvironment,
+    });
+    window.desktopBridge = {
+      getWsUrl: () => 'ws://127.0.0.1:7842/ws',
+      getUpdateState,
+      checkForUpdates: vi.fn(async () => desktopUpdateState),
+      downloadUpdate: vi.fn(async () => desktopUpdateState),
       installDownloadedUpdate: vi.fn(async () => true),
-      onDesktopStateChange: vi.fn(() => () => {}),
+      onUpdateState: vi.fn(() => () => {}),
     };
   });
 
   afterEach(() => {
     cleanup();
-    delete (window as typeof window & { __GLADE_DESKTOP__?: unknown }).__GLADE_DESKTOP__;
+    delete window.desktopBridge;
     vi.unstubAllGlobals();
   });
 
@@ -345,7 +360,5 @@ describe('IndexRoute phase 5 workflow UI', () => {
 
     expect(await screen.findByText('Complete local setup before running workflows')).toBeInTheDocument();
     expect(screen.getByText('Install R before using Glade')).toBeInTheDocument();
-    expect(screen.getByText((content) => content.includes('/tmp/glade/project'))).toBeInTheDocument();
-    expect(screen.getByText('[desktop] initial diagnostics')).toBeInTheDocument();
   });
 });

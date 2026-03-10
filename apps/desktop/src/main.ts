@@ -1,18 +1,11 @@
 import path from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
-import {
-  APP_DISPLAY_NAME,
-  type DesktopPreflightState,
-  type DesktopRuntimeSnapshot,
-  type DesktopSettings,
-  type DesktopUpdateState,
-} from '@glade/shared';
+import { APP_DISPLAY_NAME, type DesktopUpdateState } from '@glade/shared';
 import { writeRotatingLogLine } from '@glade/shared/logging';
 
-import { runDesktopPreflight } from './preflight';
 import {
   serverUrl,
   startServerProcess,
@@ -20,37 +13,20 @@ import {
   type ServerProcessHandle,
   waitForServer,
 } from './server-process';
-import {
-  DEFAULT_DESKTOP_SETTINGS,
-  defaultProjectPath,
-  loadDesktopSettings,
-  normalizeDesktopSettings,
-  resetDesktopSettings,
-  saveDesktopSettings,
-} from './settings';
+import { loadDesktopSettings } from './settings';
 import { runSmokeScenario } from './smoke-runner';
 
 let mainWindow: BrowserWindow | null = null;
 let detachedTerminalWindow: BrowserWindow | null = null;
 let backendProcess: ServerProcessHandle | null = null;
-let isQuitting = false;
-let desktopSettings: DesktopSettings = DEFAULT_DESKTOP_SETTINGS;
-let desktopPreflight: DesktopPreflightState = {
-  checkedAt: new Date(0).toISOString(),
-  projectPath: '',
-  status: 'action_required',
-  issues: [],
-};
-let projectPath = '';
 let updateState: DesktopUpdateState = {
-  channel: DEFAULT_DESKTOP_SETTINGS.updateChannel,
   status: 'idle',
   version: null,
   message: null,
   progressPercent: null,
 };
 const runtimeLogTail: string[] = [];
-let desktopStateBroadcastTimer: NodeJS.Timeout | null = null;
+const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
 function shouldLogSmokeConsoleMessage(message: string) {
   return !(
@@ -75,15 +51,6 @@ function appendRuntimeLog(line: string) {
   }
 }
 
-function desktopSnapshot(): DesktopRuntimeSnapshot {
-  return {
-    settings: desktopSettings,
-    preflight: desktopPreflight,
-    update: updateState,
-    logTail: runtimeLogTail,
-  };
-}
-
 function broadcastDetachedTerminalState(isDetached: boolean) {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
@@ -92,45 +59,44 @@ function broadcastDetachedTerminalState(isDetached: boolean) {
   }
 }
 
-function broadcastDesktopState() {
-  if (desktopStateBroadcastTimer) {
-    clearTimeout(desktopStateBroadcastTimer);
-    desktopStateBroadcastTimer = null;
-  }
-  const snapshot = desktopSnapshot();
+function broadcastUpdateState() {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
-      window.webContents.send('glade:desktop-state', snapshot);
+      window.webContents.send('glade:update-state', updateState);
     }
   }
-}
-
-function scheduleDesktopStateBroadcast(delayMs = 100) {
-  if (desktopStateBroadcastTimer) {
-    return;
-  }
-
-  desktopStateBroadcastTimer = setTimeout(() => {
-    desktopStateBroadcastTimer = null;
-    broadcastDesktopState();
-  }, delayMs);
-  desktopStateBroadcastTimer.unref?.();
 }
 
 function setUpdateState(next: Partial<DesktopUpdateState>) {
   updateState = {
     ...updateState,
     ...next,
-    channel: desktopSettings.updateChannel,
   };
-  broadcastDesktopState();
+  broadcastUpdateState();
 }
 
-function configureAutoUpdater() {
+async function configureAutoUpdater() {
+  let updateChannel: 'stable' | 'beta' = 'stable';
+  try {
+    updateChannel = (await loadDesktopSettings(app.getPath('userData'))).updateChannel;
+  } catch (error) {
+    appendRuntimeLog(
+      `[desktop] failed to load settings for auto-updater: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.channel = desktopSettings.updateChannel === 'beta' ? 'beta' : 'latest';
-  autoUpdater.allowDowngrade = desktopSettings.updateChannel === 'beta';
+  autoUpdater.channel = updateChannel === 'beta' ? 'beta' : 'latest';
+  autoUpdater.allowDowngrade = updateChannel === 'beta';
+}
+
+function isAllowedExternalUrl(url: string) {
+  try {
+    return ALLOWED_EXTERNAL_PROTOCOLS.has(new URL(url).protocol);
+  } catch {
+    return false;
+  }
 }
 
 autoUpdater.on('checking-for-update', () => {
@@ -274,6 +240,12 @@ function createWindow() {
             appendRuntimeLog(`[desktop] failed to open detached terminal window: ${String(error)}`);
           }
         });
+      } else if (isAllowedExternalUrl(url)) {
+        void shell.openExternal(url).catch((error) => {
+          appendRuntimeLog(`[desktop] failed to open external url: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      } else {
+        appendRuntimeLog(`[desktop] blocked external url with unsupported protocol: ${target.protocol}`);
       }
     } catch {
     }
@@ -285,7 +257,7 @@ function createWindow() {
   });
 
   window.webContents.on('did-finish-load', () => {
-    window.webContents.send('glade:desktop-state', desktopSnapshot());
+    window.webContents.send('glade:update-state', updateState);
     const smokeScenario = process.env.BAYESGROVE_SMOKE_SCENARIO?.trim();
     if (smokeScenario) {
       window.webContents.on('console-message', (_event) => {
@@ -320,35 +292,18 @@ function attachBackendLifecycle(handle: ServerProcessHandle) {
     }
 
     appendRuntimeLog(`[desktop] embedded server exited (${code ?? 'null'}/${signal ?? 'null'})`);
-    if (!isQuitting) {
-      broadcastDesktopState();
-    }
   });
 }
 
-async function refreshDesktopState() {
-  projectPath = process.env.BAYESGROVE_PROJECT_PATH?.trim() || defaultProjectPath(app.getPath('userData'));
-  desktopPreflight = runDesktopPreflight(desktopSettings, projectPath);
-  updateState = {
-    ...updateState,
-    channel: desktopSettings.updateChannel,
-  };
-  broadcastDesktopState();
-
+async function ensureServerProcess() {
   await stopServerProcess(backendProcess);
   backendProcess = await startServerProcess({
-    projectPath,
+    projectPath: process.env.BAYESGROVE_PROJECT_PATH?.trim() || null,
     stateDir: app.getPath('userData'),
-    settings: desktopSettings,
-    onLogLine: (line) => {
-      appendRuntimeLog(line);
-      scheduleDesktopStateBroadcast();
-    },
+    onLogLine: appendRuntimeLog,
   });
   attachBackendLifecycle(backendProcess);
   await waitForServer(backendProcess);
-  broadcastDesktopState();
-  return desktopSnapshot();
 }
 
 async function checkForUpdates() {
@@ -358,10 +313,10 @@ async function checkForUpdates() {
       message: 'Auto-updates are available only in packaged builds.',
       progressPercent: null,
     });
-    return desktopSnapshot();
+    return updateState;
   }
 
-  configureAutoUpdater();
+  await configureAutoUpdater();
   try {
     await autoUpdater.checkForUpdates();
   } catch (error) {
@@ -373,7 +328,7 @@ async function checkForUpdates() {
       progressPercent: null,
     });
   }
-  return desktopSnapshot();
+  return updateState;
 }
 
 async function downloadUpdate() {
@@ -383,10 +338,10 @@ async function downloadUpdate() {
       message: 'Auto-updates are available only in packaged builds.',
       progressPercent: null,
     });
-    return desktopSnapshot();
+    return updateState;
   }
 
-  configureAutoUpdater();
+  await configureAutoUpdater();
   try {
     await autoUpdater.downloadUpdate();
   } catch (error) {
@@ -398,7 +353,7 @@ async function downloadUpdate() {
       progressPercent: null,
     });
   }
-  return desktopSnapshot();
+  return updateState;
 }
 
 function installDownloadedUpdate() {
@@ -413,18 +368,18 @@ function installDownloadedUpdate() {
 function registerIpcHandlers() {
   ipcMain.handle('glade:select-file-path', selectSingleFile);
   ipcMain.handle('glade:select-executable-path', selectSingleFile);
-  ipcMain.handle('glade:get-desktop-state', () => desktopSnapshot());
-  ipcMain.handle('glade:refresh-desktop-state', () => refreshDesktopState());
-  ipcMain.handle('glade:save-desktop-settings', async (_event, nextSettings: unknown) => {
-    desktopSettings = await saveDesktopSettings(app.getPath('userData'), normalizeDesktopSettings(nextSettings));
-    configureAutoUpdater();
-    return refreshDesktopState();
+  ipcMain.handle('glade:open-external', (_event, url: string) => {
+    if (!isAllowedExternalUrl(url)) {
+      appendRuntimeLog('[desktop] blocked open-external request with unsupported or invalid url');
+      return false;
+    }
+
+    return shell.openExternal(url).then(() => true).catch((error) => {
+      appendRuntimeLog(`[desktop] failed to open external url: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    });
   });
-  ipcMain.handle('glade:reset-desktop-settings', async () => {
-    desktopSettings = await resetDesktopSettings(app.getPath('userData'));
-    configureAutoUpdater();
-    return refreshDesktopState();
-  });
+  ipcMain.handle('glade:get-update-state', () => updateState);
   ipcMain.handle('glade:check-for-updates', () => checkForUpdates());
   ipcMain.handle('glade:download-update', () => downloadUpdate());
   ipcMain.handle('glade:install-downloaded-update', () => installDownloadedUpdate());
@@ -432,11 +387,6 @@ function registerIpcHandlers() {
 }
 
 function shutdown() {
-  isQuitting = true;
-  if (desktopStateBroadcastTimer) {
-    clearTimeout(desktopStateBroadcastTimer);
-    desktopStateBroadcastTimer = null;
-  }
   detachedTerminalWindow?.close();
   void stopServerProcess(backendProcess).catch((error) => {
     appendRuntimeLog(
@@ -447,9 +397,8 @@ function shutdown() {
 }
 
 async function bootstrap() {
-  desktopSettings = await loadDesktopSettings(app.getPath('userData'));
-  configureAutoUpdater();
-  await refreshDesktopState();
+  await configureAutoUpdater();
+  await ensureServerProcess();
   mainWindow = createWindow();
 
   if (app.isPackaged) {

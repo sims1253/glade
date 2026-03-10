@@ -13,10 +13,7 @@ import {
 import { writeRotatingLogLine } from '@glade/shared/logging';
 import { DEFAULT_SERVER_PORT } from '@glade/shared';
 
-import type { DesktopSettings } from '@glade/shared';
 import type { ChildProcess } from 'node:child_process';
-
-import { resolveEditorCommand } from './settings';
 
 const MAX_LOG_LINES = 160;
 
@@ -26,9 +23,8 @@ export interface ServerProcessHandle {
 }
 
 interface StartServerProcessOptions {
-  readonly projectPath: string;
   readonly stateDir: string;
-  readonly settings: DesktopSettings;
+  readonly projectPath?: string | null;
   readonly onLogLine?: (line: string) => void;
 }
 
@@ -100,22 +96,23 @@ function forwardOutput(
   });
 }
 
-export async function startServerProcess(options: StartServerProcessOptions): Promise<ServerProcessHandle> {
+export function startServerProcess(options: StartServerProcessOptions): Promise<ServerProcessHandle> {
   const root = appRoot();
   const binaryPath = bundledServerBinary();
   const useCompiledBinary = process.env.BAYESGROVE_SMOKE_TEST !== '1' && existsSync(binaryPath);
   const envRoot = useCompiledBinary ? (process.resourcesPath || root) : root;
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     BAYESGROVE_APP_ROOT: envRoot,
     BAYESGROVE_RUNTIME: 'desktop',
     BAYESGROVE_SERVER_PORT: String(serverPort()),
-    BAYESGROVE_PROJECT_PATH: options.projectPath,
-    BAYESGROVE_R_PATH: options.settings.rExecutablePath,
     BAYESGROVE_STATE_DIR: options.stateDir,
-    BAYESGROVE_EDITOR: await resolveEditorCommand(options.settings),
     NODE_ENV: process.env.NODE_ENV ?? 'production',
   };
+  const projectPath = options.projectPath?.trim();
+  if (projectPath) {
+    env.BAYESGROVE_PROJECT_PATH = projectPath;
+  }
   const logs: string[] = [];
 
   const spawnOptions: SpawnProcessOptions = useCompiledBinary
@@ -139,10 +136,11 @@ export async function startServerProcess(options: StartServerProcessOptions): Pr
   forwardOutput(child.stdout, process.stdout, logs, options.stateDir, 'stdout', options.onLogLine);
   forwardOutput(child.stderr, process.stderr, logs, options.stateDir, 'stderr', options.onLogLine);
 
-  return {
+  return Promise.resolve({
     child,
+    // logTail is a live view backed by the mutable internal logs array.
     logTail: logs,
-  };
+  });
 }
 
 export async function stopServerProcess(handle: ServerProcessHandle | null) {

@@ -1,8 +1,8 @@
-import type { DesktopRuntimeInfo } from '@glade/shared';
+import type { DesktopBridge } from '@glade/shared';
 
 declare global {
   interface Window {
-    __GLADE_DESKTOP__?: DesktopRuntimeInfo;
+    desktopBridge?: DesktopBridge;
     __GLADE_EXTENSION_HOST__?: {
       React: typeof import('react');
       ReactDOM: typeof import('react-dom/client');

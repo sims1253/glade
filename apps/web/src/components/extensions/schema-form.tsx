@@ -8,7 +8,7 @@ import {
 } from 'react-hook-form';
 
 import { cn } from '../../lib/utils';
-import { hasNativeFilePicker, readDesktopRuntime } from '../../lib/runtime';
+import { hasNativeFilePicker, readDesktopBridge } from '../../lib/runtime';
 import { Button } from '../ui/button';
 
 type JsonRecord = Record<string, unknown>;
@@ -311,7 +311,7 @@ function FormField({
               className={cn('px-3 py-2 text-xs', compact && 'px-2')}
               onClick={async () => {
                 try {
-                  const nextPath = await readDesktopRuntime()?.selectFilePath?.();
+                  const nextPath = await readDesktopBridge()?.pickFile?.();
                   if (nextPath) {
                     setValue(name, nextPath, {
                       shouldDirty: true,

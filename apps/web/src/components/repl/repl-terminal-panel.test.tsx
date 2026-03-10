@@ -48,7 +48,7 @@ describe('ReplTerminalPanel', () => {
       unobserve() {}
       disconnect() {}
     });
-    vi.stubGlobal('__GLADE_DESKTOP__', undefined);
+    delete window.desktopBridge;
   });
 
   afterEach(() => {
