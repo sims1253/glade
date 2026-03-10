@@ -18,10 +18,10 @@ function Tab({ tab, isActive, onClick, onClose }: {
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex items-center gap-2 rounded-t-lg border border-b-0 border-slate-200 px-4 py-2 text-sm transition-colors',
+        'group relative flex items-center gap-2 rounded-t-lg border border-b-0 border-slate-200 px-4 py-2 text-sm transition-colors',
         isActive
-          ? 'bg-white text-slate-900 font-medium shadow-sm relative'
-          : 'bg-slate-100 text-slate-600 hover:bg-slate-50',
+          ? 'bg-white text-slate-900 font-medium shadow-sm'
+          : 'bg-slate-100/80 text-slate-500 hover:bg-slate-50',
         isActive && 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-white',
       )}
     >
@@ -62,7 +62,7 @@ export function TabBar({ className }: TabBarProps) {
   const removeTab = useWorkspaceStore((state) => state.removeTab);
 
   return (
-    <div className={cn('flex items-end gap-1 bg-slate-100 px-2 pt-2', className)}>
+    <div className={cn('flex items-end gap-1 bg-slate-200/70 px-2 pt-2', className)}>
       {tabs.map((tab) => (
         <Tab
           key={tab.id}

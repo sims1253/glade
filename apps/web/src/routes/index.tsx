@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { Activity, ExternalLink, RefreshCw, Settings2, TerminalSquare } from 'lucide-react';
-
-import { APP_DISPLAY_NAME } from '@glade/shared';
+import { Activity, RefreshCw, Settings2, TerminalSquare } from 'lucide-react';
 
 import { WorkspaceShell, type CommandItem } from '../components/shell';
 import { Button } from '../components/ui/button';
@@ -15,7 +13,7 @@ import {
 } from '../components/workflow/protocol-panels';
 import type { WorkflowActionRecord, WorkflowNodeData, WorkflowObligationRecord } from '../lib/graph-types';
 import { toJsonObject } from '../lib/json';
-import { setupDesktopIssues, trimCommand } from '../lib/desktop-preflight';
+import { setupDesktopIssues } from '../lib/desktop-preflight';
 import { useServerSession } from '../lib/server-session-context';
 import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
@@ -235,7 +233,7 @@ export function IndexRoute() {
   useTransientGuidanceReset(guidanceActions, () => setGuidanceActions(null));
 
   return (
-    <section className="min-h-screen bg-slate-100 px-6 py-6 sm:px-8">
+    <div className="flex h-screen flex-col overflow-hidden">
       <ToastViewport />
       <WorkflowActionPreviewDialog
         action={previewAction}
@@ -247,13 +245,13 @@ export function IndexRoute() {
 
       {isHealthDialogOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm"
           onClick={() => setIsHealthDialogOpen(false)}
         >
           <div
             aria-labelledby="health-dialog-title"
             aria-modal="true"
-            className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white p-6 shadow-2xl"
+            className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.35)]"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
@@ -304,124 +302,61 @@ export function IndexRoute() {
                 Close
               </Button>
             </div>
-            <pre className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <pre className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
               {healthPayload}
             </pre>
           </div>
         </div>
       ) : null}
 
-      <div className="mx-auto flex max-w-[1700px] flex-col gap-6">
-        <header className="grid gap-4 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">Phase 05 · workspace shell rebuild</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">{APP_DISPLAY_NAME}</h1>
-            <p className="mt-3 max-w-3xl text-base text-slate-600">
-              Explorer, tabs, inspector, and the shared REPL now live in the primary workspace shell.
-            </p>
+      {desktopEnvironment && desktopIssues.length > 0 ? (
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-amber-300 bg-amber-50 px-4 py-2">
+          <p className="text-sm font-medium text-amber-900">
+            <span className="font-semibold">Setup required:</span>{' '}
+            {desktopIssues.length} check{desktopIssues.length !== 1 ? 's' : ''} need attention before running workflows.
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button className="h-7 border-amber-300 bg-white px-3 text-xs text-amber-900 hover:bg-amber-100" variant="ghost" onClick={() => navigateTo('/settings')}>
+              <Settings2 className="size-3" />
+              Settings
+            </Button>
+            <Button
+              className="h-7 px-3 text-xs"
+              onClick={() => {
+                void nativeApi.environment.refresh()
+                  .then((environment) => {
+                    useConnectionStore.getState().setDesktopEnvironment(environment);
+                  })
+                  .catch((error) => {
+                    pushNotification({
+                      tone: 'error',
+                      title: 'Retry checks failed',
+                      description: error instanceof Error ? error.message : String(error),
+                    });
+                  });
+              }}
+            >
+              <RefreshCw className="size-3" />
+              Retry
+            </Button>
           </div>
-          <dl className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatusCard label="Version" value={serverVersion ?? 'checking…'} />
-            <StatusCard label="Server" value={isConnected ? 'connected' : 'disconnected'} />
-            <StatusCard label="Session" value={sessionState} />
-            <StatusCard label="Workflow" value={graph ? `${graph.obligations.length} obligations / ${graph.actions.length} actions` : 'waiting…'} />
-          </dl>
-        </header>
+        </div>
+      ) : null}
 
-        {desktopEnvironment && desktopIssues.length > 0 ? (
-          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">First launch</p>
-                <h2 className="mt-2 text-2xl font-semibold text-amber-950">Complete local setup before running workflows</h2>
-                <p className="mt-2 max-w-3xl text-sm text-amber-900/80">
-                  Glade does not bundle R. Fix the checks below, then retry the session. The embedded Bun server is already bundled by the desktop shell.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button className="border-amber-300 bg-white text-amber-950 hover:bg-amber-100" variant="ghost" onClick={() => navigateTo('/settings')}>
-                  <Settings2 className="size-4" />
-                  Settings
-                </Button>
-                <Button
-                  onClick={() => {
-                    void nativeApi.environment.refresh()
-                      .then((environment) => {
-                        useConnectionStore.getState().setDesktopEnvironment(environment);
-                      })
-                      .catch((error) => {
-                        pushNotification({
-                          tone: 'error',
-                          title: 'Retry checks failed',
-                          description: error instanceof Error ? error.message : String(error),
-                        });
-                      });
-                  }}
-                >
-                  <RefreshCw className="size-4" />
-                  Retry checks
-                </Button>
-              </div>
-            </div>
+      {guidanceActions?.length ? <PostActionGuidanceBanner actions={guidanceActions} onDismiss={() => setGuidanceActions(null)} /> : null}
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              {desktopIssues.map((issue) => (
-                <article key={`${issue.code}-${issue.title}`} className="rounded-[1.5rem] border border-amber-200 bg-white p-5">
-                  <h3 className="text-lg font-medium text-slate-900">{issue.title}</h3>
-                  <p className="mt-2 text-sm text-slate-600">{issue.description}</p>
-                  {trimCommand(issue.command) ? (
-                    <pre className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                      {issue.command}
-                    </pre>
-                  ) : null}
-                  {issue.href ? (
-                    <button
-                      className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-emerald-700 hover:text-emerald-600"
-                      onClick={() => {
-                        void nativeApi.openExternal(issue.href!).catch((error) => {
-                          pushNotification({
-                            tone: 'error',
-                            title: 'Could not open link',
-                            description: error instanceof Error ? error.message : String(error),
-                          });
-                        });
-                      }}
-                      type="button"
-                    >
-                      <ExternalLink className="size-4" />
-                      Open install instructions
-                    </button>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {guidanceActions?.length ? <PostActionGuidanceBanner actions={guidanceActions} onDismiss={() => setGuidanceActions(null)} /> : null}
-
-        <WorkspaceShell
-          commands={commands}
-          graph={graph}
-          headerActions={headerActions}
-          host={rpc.host}
-          onCompareSelection={handleCompareSelection}
-          onRunAction={handleRunAction}
-          onRunNode={handleRunNode}
-          onSelectObligation={handleSelectObligation}
-          repl={rpc.repl}
-          workflow={rpc.workflow}
-        />
-      </div>
-    </section>
-  );
-}
-
-function StatusCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="mt-2 break-words text-lg font-medium text-slate-900">{value}</dd>
+      <WorkspaceShell
+        commands={commands}
+        graph={graph}
+        headerActions={headerActions}
+        host={rpc.host}
+        onCompareSelection={handleCompareSelection}
+        onRunAction={handleRunAction}
+        onRunNode={handleRunNode}
+        onSelectObligation={handleSelectObligation}
+        repl={rpc.repl}
+        workflow={rpc.workflow}
+      />
     </div>
   );
 }

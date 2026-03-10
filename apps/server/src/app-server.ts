@@ -187,7 +187,7 @@ export const AppServerLive: Layer.Layer<AppServer, unknown, ServerConfig | Serve
             });
           }),
       ).pipe(Effect.orDie));
-    yield* router.startSession;
+    yield* Effect.forkScoped(router.startSession);
 
     const address = httpServer.address();
     const url = typeof address === 'string'

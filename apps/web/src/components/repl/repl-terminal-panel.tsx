@@ -410,18 +410,18 @@ export function ReplTerminalPanel({
     return (
       <div
         className={cn(
-          'rounded-[1.5rem] border border-slate-800/80 bg-slate-950/80 px-4 py-3 shadow-xl shadow-slate-950/30',
+          'rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.28)]',
           resolvedPresentation === 'overlay' && 'absolute inset-x-4 bottom-[var(--workflow-repl-bottom-offset)] z-20 sm:left-auto sm:w-[26rem]',
         )}
       >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 p-2 text-emerald-200">
+            <div className="rounded-full border border-sky-200 bg-sky-50 p-2 text-sky-700">
               <TerminalSquare className="size-4" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-100">REPL terminal hidden</p>
-              <p className="text-xs text-slate-400">Press `Ctrl+\`` to reopen it.</p>
+              <p className="text-sm font-medium text-slate-900">REPL terminal hidden</p>
+              <p className="text-xs text-slate-500">Press `Ctrl+\`` to reopen it.</p>
             </div>
           </div>
           <Button onClick={() => setResolvedPanelOpen(true)}>
@@ -437,7 +437,7 @@ export function ReplTerminalPanel({
     <section
       aria-label={detachedView ? 'Detached REPL terminal' : 'REPL terminal'}
       className={cn(
-        'overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-slate-950/70 shadow-2xl shadow-slate-950/40 backdrop-blur',
+        'overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-slate-950/92 shadow-2xl shadow-slate-950/30 backdrop-blur',
         detachedView ? 'flex h-screen flex-col rounded-none border-0 shadow-none' : 'flex flex-col',
         resolvedPresentation === 'overlay' && 'absolute inset-x-4 bottom-[var(--workflow-repl-bottom-offset)] z-20 sm:left-auto sm:w-[var(--workflow-repl-overlay-max-width)]',
       )}
@@ -451,9 +451,9 @@ export function ReplTerminalPanel({
           type="button"
         />
       ) : null}
-      <header className="flex items-center justify-between gap-4 border-b border-slate-800/80 px-5 py-4">
+      <header className="flex items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/95 px-5 py-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.26em] text-emerald-300/80">Workspace terminal</p>
+          <p className="text-xs uppercase tracking-[0.26em] text-sky-300/80">Workspace terminal</p>
           <h2 className="mt-1 text-lg font-semibold text-slate-100">
             {interactive ? 'Shared R session' : 'Console output'}
           </h2>
@@ -465,16 +465,17 @@ export function ReplTerminalPanel({
           <span className="rounded-full border border-slate-700/80 px-3 py-1 text-xs text-slate-300">
             session {sessionState}
           </span>
-          <Button onClick={() => void handleClear()} variant="ghost">
+          <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => void handleClear()} variant="ghost">
             <Trash2 className="size-4" />
             Clear
           </Button>
-          <Button onClick={() => void handleCopyLogs()} variant="ghost">
+          <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => void handleCopyLogs()} variant="ghost">
             <Copy className="size-4" />
             Copy logs
           </Button>
           {detachable ? (
             <Button
+              className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white"
               onClick={async () => {
                 const opened = await readDesktopBridge()?.openDetachedTerminal?.();
                 if (!opened) {
@@ -491,7 +492,7 @@ export function ReplTerminalPanel({
             </Button>
           ) : null}
           {!detachedView ? (
-            <Button onClick={() => setResolvedPanelOpen(false)} variant="ghost">
+            <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => setResolvedPanelOpen(false)} variant="ghost">
               Hide
             </Button>
           ) : null}

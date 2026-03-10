@@ -35,7 +35,7 @@ export function FloatingNodeToolbar({
   return (
     <div
       className={cn(
-        'absolute z-20 flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-1 py-1 shadow-lg',
+        'absolute z-20 flex items-center gap-1 rounded-xl border border-slate-900/90 bg-slate-900 px-1 py-1 text-white shadow-[0_18px_36px_-18px_rgba(15,23,42,0.65)]',
         className,
       )}
       style={{
@@ -58,10 +58,10 @@ export function FloatingNodeToolbar({
         </>
       ) : (
         <>
-          {onRun && (node.kind === 'fit' || node.kind === 'model') && (
+          {onRun && (node.rendererKind === 'fit' || node.rendererKind === 'model_spec') && (
             <ToolbarButton
               icon={<Play className="size-4" />}
-              label={node.kind === 'fit' ? 'Fit' : 'Run'}
+              label={node.rendererKind === 'fit' ? 'Fit' : 'Run'}
               shortcut="⌘↵"
               onClick={onRun}
               highlight
@@ -102,17 +102,17 @@ function ToolbarButton({ icon, label, shortcut, highlight, onClick }: ToolbarBut
       type="button"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors',
+        'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
         highlight
-          ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
-          : 'hover:bg-slate-100 hover:text-slate-900',
+          ? 'bg-sky-600 text-white hover:bg-sky-500'
+          : 'text-slate-100 hover:bg-white/10 hover:text-white',
       )}
       title={shortcut ? `${label} (${shortcut})` : label}
     >
       {icon}
       <span>{label}</span>
       {shortcut && (
-        <span className={cn('ml-1', highlight ? 'text-emerald-950/80' : 'text-slate-400')}>
+        <span className={cn('ml-1', highlight ? 'text-sky-100/80' : 'text-slate-400')}>
           {shortcut}
         </span>
       )}

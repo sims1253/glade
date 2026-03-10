@@ -90,7 +90,7 @@ function NodeInspector({
   return (
     <>
       <header className="border-b border-slate-200 px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Inspector</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Inspector</p>
         <h2 className="mt-2 text-lg font-semibold text-slate-900">{node.label}</h2>
         <p className="mt-1 text-sm text-slate-500">{node.kind.replaceAll('_', ' ')}</p>
       </header>
@@ -99,14 +99,14 @@ function NodeInspector({
         <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Node status</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Node status</p>
               <p className="mt-2 text-sm text-slate-600">{node.blockReason ? node.blockReason.replaceAll('_', ' ') : 'Ready for the next workflow action.'}</p>
             </div>
             {getStatusBadge(node)}
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl bg-white p-3">
-              <dt className="text-slate-500">Obligations</dt>
+              <dt className="text-slate-500">Linked obligations</dt>
               <dd className="mt-1 font-semibold text-slate-900">{node.obligationCount}</dd>
             </div>
             <div className="rounded-xl bg-white p-3">
@@ -132,14 +132,14 @@ function NodeInspector({
         </section>
 
         {node.notes ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Notes</p>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Notes</p>
             <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{node.notes}</p>
           </section>
         ) : null}
 
         {node.linkedFilePath ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <FileCode2 className="size-4 text-slate-500" />
               Linked file
@@ -148,8 +148,8 @@ function NodeInspector({
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Recent summaries</p>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Recent summaries</p>
           {node.summaries.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {node.summaries.slice(0, 3).map((summary) => (
@@ -192,7 +192,7 @@ function DefaultInspector({
   return (
     <>
       <header className="border-b border-slate-200 px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Inspector</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Inspector</p>
         <div className="mt-3 grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Inspector tabs">
           <button
             aria-controls={obligationsPanelId}
@@ -236,7 +236,7 @@ function DefaultInspector({
         {rows.length > 0 ? (
           <ul className="space-y-3">
             {rows.map((row) => (
-              <li key={row.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <li key={row.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-xs">
                 <p className="text-sm font-semibold text-slate-900">{row.title}</p>
                 {row.description ? <p className="mt-2 text-sm text-slate-600">{row.description}</p> : null}
                 <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{row.scopeLabel}</p>

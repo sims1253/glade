@@ -9,7 +9,6 @@ import { CommandPalette, CommandPaletteTrigger, type CommandItem } from './comma
 import { InspectorPanel } from './inspector-panel';
 import { WorkflowCanvas } from '../graph/workflow-canvas';
 import { ReplTerminalPanel } from '../repl/repl-terminal-panel';
-import { APP_VERSION } from '../../lib/app-version';
 import { cn } from '../../lib/utils';
 import type { WorkflowActionRecord, WorkflowGraph, WorkflowNodeData, WorkflowObligationRecord } from '../../lib/graph-types';
 import type { HostRpc, ReplRpc, WorkflowRpc } from '../../lib/rpc';
@@ -64,6 +63,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const [layoutTokens, setLayoutTokens] = useState(DEFAULT_LAYOUT_TOKENS);
+  const [toolbarPosition, setToolbarPosition] = useState<{ x: number; y: number } | null>(null);
 
   const tabs = useWorkspaceStore((state) => state.tabs);
   const activeTabId = useWorkspaceStore((state) => state.activeTabId);
@@ -135,6 +135,18 @@ export function WorkspaceShell({
     () => graph?.nodes.find((node) => node.id === graphSelectedNodeId) ?? null,
     [graph?.nodes, graphSelectedNodeId],
   );
+  const explorerActions = useMemo(() => {
+    if (!headerActions && commands.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <CommandPaletteTrigger className="border-slate-200 bg-slate-50 text-slate-500 shadow-xs" />
+        {headerActions}
+      </div>
+    );
+  }, [commands.length, headerActions]);
 
   useEffect(() => {
     if (!selectedNode) {
@@ -179,11 +191,65 @@ export function WorkspaceShell({
     }
   }, [activeTab, graphSelectedNodeId, graphSetSelectedNodeId, setSelectedNode]);
 
+  useEffect(() => {
+    if (activeTab?.type !== 'canvas' || !selectedNode) {
+      setToolbarPosition(null);
+      return;
+    }
+
+    const shell = shellRef.current;
+    if (!shell) {
+      setToolbarPosition(null);
+      return;
+    }
+
+    const getNodeElement = () => {
+      const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(selectedNode.id)
+        : selectedNode.id;
+      return shell.querySelector<HTMLElement>(`.react-flow__node[data-id="${escapedId}"]`);
+    };
+
+    const syncToolbarPosition = () => {
+      const nodeElement = getNodeElement();
+      if (!nodeElement) {
+        setToolbarPosition(null);
+        return;
+      }
+
+      const shellRect = shell.getBoundingClientRect();
+      const nodeRect = nodeElement.getBoundingClientRect();
+      setToolbarPosition({
+        x: nodeRect.left - shellRect.left + (nodeRect.width / 2),
+        y: nodeRect.top - shellRect.top - 10,
+      });
+    };
+
+    const frame = window.requestAnimationFrame(syncToolbarPosition);
+    const resizeObserver = new ResizeObserver(syncToolbarPosition);
+    resizeObserver.observe(shell);
+    const nodeElement = getNodeElement();
+    if (nodeElement) {
+      resizeObserver.observe(nodeElement);
+    }
+
+    const mutationObserver = new MutationObserver(syncToolbarPosition);
+    if (nodeElement) {
+      mutationObserver.observe(nodeElement, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [activeTab?.type, selectedNode]);
+
   return (
     <div
       ref={shellRef}
       className={cn(
-        'workspace-shell flex min-h-[46rem] flex-1 flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-[var(--bg,#f8fafc)] text-[var(--text-main,#111827)] shadow-[0_24px_80px_-36px_rgba(15,23,42,0.35)]',
+        'workspace-shell flex flex-1 flex-col overflow-hidden bg-[var(--bg,#f3f4f6)] text-[var(--text-main,#111827)]',
       )}
       style={{
         '--workspace-center-min-width': `${DEFAULT_LAYOUT_TOKENS.centerMinWidth}px`,
@@ -198,31 +264,19 @@ export function WorkspaceShell({
     >
       <CommandPalette commands={commands} />
 
-      <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white/90 px-5 py-4 backdrop-blur">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Workspace shell</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-900">{graph?.projectName ?? 'Loading workspace'}</h2>
-          <p className="mt-1 text-xs font-medium text-slate-500">Glade v{APP_VERSION}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <CommandPaletteTrigger className="border-slate-200 bg-slate-50 text-slate-600" />
-          {headerActions}
-        </div>
-      </header>
-
       <div className={cn('min-h-0 flex-1 overflow-hidden', mode === 'wide' ? 'grid grid-cols-[260px_minmax(0,1fr)_320px]' : 'flex flex-col')}>
         {mode === 'wide' ? (
           <div className="min-h-0 border-r border-slate-200 bg-white">
-            <ExplorerPanel graph={graph} />
+            <ExplorerPanel actionsSlot={explorerActions} graph={graph} />
           </div>
         ) : (
           <div className="max-h-72 min-h-52 border-b border-slate-200 bg-white">
-            <ExplorerPanel graph={graph} />
+            <ExplorerPanel actionsSlot={explorerActions} graph={graph} />
           </div>
         )}
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <TabBar className="border-b border-slate-200 bg-slate-100/80" />
+          <TabBar className="border-b border-slate-200 bg-slate-200/80" />
 
           <div className="relative min-h-0 flex-1 overflow-hidden bg-slate-50">
             {activeTab?.type === 'canvas' ? (
@@ -236,11 +290,11 @@ export function WorkspaceShell({
               <NodeWorkbenchPanel host={host} node={activeNode} />
             )}
 
-            {selectedNode ? (
+            {selectedNode && activeTab?.type === 'canvas' && toolbarPosition ? (
               <FloatingNodeToolbar
                 className="pointer-events-auto"
                 node={selectedNode}
-                position={{ x: 128, y: 56 }}
+                position={toolbarPosition}
                 onCompare={multiSelectedNodeIds.length > 1 ? () => onCompareSelection?.(multiSelectedNodeIds) : undefined}
                 onRun={onRunNode ? () => onRunNode(selectedNode) : undefined}
               />
@@ -280,69 +334,73 @@ function NodeWorkbenchPanel({ host, node }: { host: HostRpc; node: WorkflowNodeD
   if (!node) {
     return (
       <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-md rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-8 py-10 text-center">
-          <h3 className="text-lg font-semibold text-slate-900">Open a node from the explorer</h3>
-          <p className="mt-2 text-sm text-slate-500">The center pane keeps node-specific tabs focused while the inspector stays persistent.</p>
+        <div className="max-w-sm border border-dashed border-slate-300 bg-white px-8 py-10 text-center">
+          <h3 className="text-sm font-semibold text-slate-900">Open a node from the explorer</h3>
+          <p className="mt-2 text-xs text-slate-500">The center pane keeps node-specific tabs focused while the inspector stays persistent.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="mx-auto flex max-w-4xl flex-col gap-6">
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Active tab</p>
-              <h3 className="mt-2 text-2xl font-semibold text-slate-900">{node.label}</h3>
-              <p className="mt-2 text-sm text-slate-600">{node.kind.replaceAll('_', ' ')} · state {node.status}</p>
-            </div>
-            {node.linkedFilePath ? (
-              <Button
-                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
-                variant="ghost"
-                onClick={() => node.linkedFilePath ? void host.openInEditor({ path: node.linkedFilePath }) : undefined}
-              >
-                <ExternalLink className="size-4" />
-                Open in editor
-              </Button>
-            ) : null}
+    <div className="flex h-full flex-col overflow-hidden bg-white">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">{node.kind.replaceAll('_', ' ')}</p>
+          <h3 className="mt-1 text-base font-semibold text-slate-900">{node.label}</h3>
+          <p className="mt-1 text-sm text-slate-500">{node.kind.replaceAll('_', ' ')} · state {node.status}</p>
+        </div>
+        {node.linkedFilePath ? (
+          <Button
+            className="border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+            variant="ghost"
+            onClick={() => node.linkedFilePath ? void host.openInEditor({ path: node.linkedFilePath }) : undefined}
+          >
+            <ExternalLink className="size-4" />
+            Open in editor
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-3 border-b border-slate-200">
+          <MetricCell label="Obligations" value={String(node.obligationCount)} />
+          <MetricCell label="Summaries" value={String(node.summaries.length)} bordered />
+          <MetricCell label="Decisions" value={String(node.decisions.length)} bordered />
+        </div>
+
+        {node.notes ? (
+          <div className="border-b border-slate-200 px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">Notes</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{node.notes}</p>
           </div>
-          {node.notes ? <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">{node.notes}</p> : null}
-        </section>
+        ) : null}
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <MetricCard label="Obligations" value={String(node.obligationCount)} />
-          <MetricCard label="Summaries" value={String(node.summaries.length)} />
-          <MetricCard label="Decisions" value={String(node.decisions.length)} />
-        </section>
-
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Recent workflow summaries</h4>
+        <div className="px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">Recent summaries</p>
           {node.summaries.length > 0 ? (
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-3 divide-y divide-slate-100">
               {node.summaries.slice(0, 5).map((summary) => (
-                <li key={summary.id} className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-medium text-slate-900">{summary.label}</p>
-                  <p className="mt-1 text-sm text-slate-500">{summary.recordedAt ?? 'Unknown time'}</p>
+                <li key={summary.id} className="py-3">
+                  <p className="text-sm font-medium text-slate-900">{summary.label}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{summary.recordedAt ?? 'Unknown time'}</p>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-slate-500">No summaries recorded for this node yet.</p>
+            <p className="mt-3 text-xs text-slate-400">No summaries recorded for this node yet.</p>
           )}
-        </section>
+        </div>
       </div>
     </div>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCell({ label, value, bordered }: { label: string; value: string; bordered?: boolean }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+    <div className={cn('px-5 py-4', bordered && 'border-l border-slate-200')}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</p>
     </div>
   );
 }

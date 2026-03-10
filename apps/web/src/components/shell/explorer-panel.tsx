@@ -105,11 +105,11 @@ function ExplorerGroupHeader({ group, count, onAddNode, onToggle }: ExplorerGrou
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+        className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
       >
         {group.expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         <span className="flex-1 text-left">{group.title}</span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">{count}</span>
+        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] text-slate-600">{count}</span>
       </button>
       {onAddNode ? (
         <button
@@ -142,7 +142,7 @@ function ExplorerNodeItem({
       onClick={onClick}
       className={cn(
         'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors',
-        isSelected && 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200',
+        isSelected && 'bg-sky-50 text-sky-900 ring-1 ring-sky-200',
         isHighlighted && !isSelected && 'bg-sky-50 text-sky-900',
         !isSelected && !isHighlighted && 'text-slate-700 hover:bg-slate-100',
       )}
@@ -188,10 +188,8 @@ export function ExplorerPanel({ graph, onAddNode, actionsSlot }: ExplorerPanelPr
   return (
     <aside className="flex h-full flex-col bg-white">
       <header className="border-b border-slate-200 px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Workspace</p>
-        <h1 className="mt-2 truncate text-base font-semibold text-slate-900">{graph?.projectName ?? 'Glade project'}</h1>
-        <p className="mt-1 text-xs text-slate-500">Explorer stays in sync with the active workflow selection.</p>
-        {actionsSlot ? <div className="mt-4">{actionsSlot}</div> : null}
+        <h1 className="truncate text-sm font-semibold text-slate-900">{graph?.projectName ?? 'Glade project'}</h1>
+        {actionsSlot ? <div className="mt-2">{actionsSlot}</div> : null}
       </header>
 
       <nav className="relative flex-1 overflow-y-auto py-3">

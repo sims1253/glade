@@ -79,4 +79,4 @@ it('serves cached extension bundles and returns 404 for missing bundle paths', a
 
   const emptyPathResponse = await fetch(`http://127.0.0.1:${port}/extension-bundles/`);
   expect(emptyPathResponse.status).toBe(404);
-});
+}, STANDALONE_HEALTH_TIMEOUT_MS);

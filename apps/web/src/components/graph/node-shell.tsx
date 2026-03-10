@@ -30,23 +30,23 @@ const statusIconMap: Record<NodeVisualState, typeof CircleCheckBig> = {
 };
 
 const statusClassMap: Record<NodeVisualState, string> = {
-  ok: 'border-emerald-400/40 text-emerald-200',
-  warning: 'border-amber-400/50 text-amber-200',
-  error: 'border-rose-400/60 text-rose-200',
-  stale: 'border-slate-500/50 text-slate-300 italic',
-  pending: 'border-sky-400/50 text-sky-200',
-  held: 'border-violet-400/50 text-violet-200',
-  blocked: 'border-orange-400/50 text-orange-200',
+  ok: 'border-emerald-200 text-emerald-700',
+  warning: 'border-amber-200 text-amber-700',
+  error: 'border-rose-200 text-rose-700',
+  stale: 'border-slate-200 text-slate-500 italic',
+  pending: 'border-sky-200 text-sky-700',
+  held: 'border-violet-200 text-violet-700',
+  blocked: 'border-orange-200 text-orange-700',
 };
 
 const cardClassMap: Record<NodeVisualState, string> = {
-  ok: 'border-emerald-500/20 shadow-emerald-950/30',
-  warning: 'border-amber-500/40 shadow-amber-950/30',
-  error: 'border-rose-500/50 shadow-rose-950/30',
-  stale: 'border-slate-700/90 opacity-80',
-  pending: 'border-sky-500/40 shadow-sky-950/25',
-  held: 'border-violet-500/40 shadow-violet-950/30',
-  blocked: 'border-orange-500/40 shadow-orange-950/25',
+  ok: 'border-slate-200 shadow-slate-200/80',
+  warning: 'border-amber-200 shadow-amber-100/80',
+  error: 'border-rose-200 shadow-rose-100/80',
+  stale: 'border-slate-200 opacity-80',
+  pending: 'border-sky-200 shadow-sky-100/80',
+  held: 'border-violet-200 shadow-violet-100/80',
+  blocked: 'border-orange-200 shadow-orange-100/80',
 };
 
 export const NodeShell = memo(function NodeShell({
@@ -77,12 +77,12 @@ export const NodeShell = memo(function NodeShell({
     ? data.blockReason.replace(/[_-]+/g, ' ')
     : null;
   const handleClassName = cn(
-    '!h-3.5 !w-3.5 !border-2 !border-slate-950 shadow-lg transition-colors',
+    '!h-3.5 !w-3.5 !border-2 !border-white shadow-md transition-colors',
     isConnectionSource || selected
-      ? '!bg-sky-300'
+      ? '!bg-sky-500'
       : isValidTarget
-        ? '!bg-emerald-300'
-        : '!bg-slate-400',
+        ? '!bg-emerald-500'
+        : '!bg-slate-300',
   );
   // Connection affordances intentionally override passive selection/highlight rings.
   const ringClass = isValidTarget
@@ -92,7 +92,7 @@ export const NodeShell = memo(function NodeShell({
       : data.isHighlighted
         ? 'ring-2 ring-sky-400/65'
         : selected
-          ? 'ring-2 ring-emerald-300/50'
+          ? 'ring-2 ring-sky-300/60'
           : null;
 
   return (
@@ -105,7 +105,7 @@ export const NodeShell = memo(function NodeShell({
       />
       <div
         className={cn(
-          'relative min-w-[248px] rounded-2xl border bg-slate-950/95 p-4 shadow-xl backdrop-blur transition-colors',
+          'relative min-w-[248px] rounded-2xl border bg-white p-3 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.28)] transition-colors',
           cardClassMap[data.status],
           ringClass,
           isInvalidTarget && 'opacity-40 saturate-50',
@@ -113,7 +113,7 @@ export const NodeShell = memo(function NodeShell({
       >
         {hasBlockingObligation ? (
           <div
-            className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-rose-400/60 bg-rose-500/18 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-50"
+            className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-700"
             role="status"
             aria-label={`${data.blockingObligationCount} blocking obligation${data.blockingObligationCount === 1 ? '' : 's'}`}
           >
@@ -121,10 +121,10 @@ export const NodeShell = memo(function NodeShell({
             locked
           </div>
         ) : null}
-        <div className={cn('rounded-xl border border-white/8 bg-linear-to-br p-3', accentClassName)}>
+        <div className={cn('rounded-xl border border-slate-200 bg-linear-to-br p-3', accentClassName)}>
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
-              <span className="inline-flex rounded-full border border-white/10 bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">
+              <span className="inline-flex rounded-full border border-white/70 bg-white/85 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 shadow-xs">
                 {badgeLabel}
               </span>
               <div onDoubleClick={() => beginRename(data.id, data.label)}>
@@ -145,12 +145,12 @@ export const NodeShell = memo(function NodeShell({
                         cancelRename();
                       }
                     }}
-                    className="w-full rounded-lg border border-emerald-400/40 bg-slate-950/90 px-2 py-1 text-sm font-semibold text-slate-50 outline-hidden"
+                    className="w-full rounded-lg border border-sky-300 bg-white/90 px-2 py-1 text-sm font-semibold text-slate-900 outline-hidden"
                   />
                 ) : (
-                  <h3 className="cursor-text text-sm font-semibold text-slate-50">{data.label}</h3>
+                  <h3 className="cursor-text text-sm font-semibold text-slate-900">{data.label}</h3>
                 )}
-                <p className="mt-1 text-xs text-slate-400">id: {data.id}</p>
+                <p className="mt-1 text-xs text-slate-500">id: {data.id}</p>
               </div>
             </div>
             <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium capitalize', statusClassMap[data.status])}>
@@ -158,12 +158,12 @@ export const NodeShell = memo(function NodeShell({
               {data.status}
             </span>
           </div>
-          <div className="mt-4 flex items-center justify-between text-xs text-slate-300">
+          <div className="mt-4 flex items-center justify-between text-xs text-slate-600">
             <span>{data.obligationCount} obligation{data.obligationCount === 1 ? '' : 's'}</span>
-            <span className="text-slate-400">{blockReason ?? 'interactive'}</span>
+            <span className="text-slate-500">{blockReason ?? 'interactive'}</span>
           </div>
           {children ? (
-            <div className="mt-4 border-t border-white/8 pt-3">
+            <div className="mt-4 border-t border-slate-200/80 pt-3">
               {children}
             </div>
           ) : null}

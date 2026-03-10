@@ -8,6 +8,7 @@ import { getAvailablePort, terminateChildren, waitFor } from './integration-supp
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ReturnType<typeof spawn>>();
+const HOSTED_REPL_TIMEOUT_MS = 15_000;
 
 afterEach(async () => {
   await terminateChildren(children);
@@ -47,7 +48,7 @@ it('rejects interactive repl input in hosted mode', async () => {
   }));
 
   const result = await new Promise<Record<string, unknown>>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Timed out waiting for hosted REPL rejection.')), 15_000);
+    const timeout = setTimeout(() => reject(new Error('Timed out waiting for hosted REPL rejection.')), HOSTED_REPL_TIMEOUT_MS);
     socket.on('message', (payload) => {
       const message = JSON.parse(String(payload)) as Record<string, unknown>;
       if (message._tag === 'WebSocketError' && message.id === 'cmd.repl.hosted') {
@@ -72,4 +73,4 @@ it('rejects interactive repl input in hosted mode', async () => {
   });
 
   socket.close();
-});
+}, HOSTED_REPL_TIMEOUT_MS);

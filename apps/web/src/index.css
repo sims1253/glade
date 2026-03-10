@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 
 :root {
-  color: #e5eef7;
-  background: #08111b;
+  color: #0f172a;
+  background: #f3f4f6;
   font-family: "Space Grotesk", "Avenir Next", ui-sans-serif, system-ui, sans-serif;
   --workflow-workspace-gap: 24px;
   --workflow-workspace-rail-width: 352px;
@@ -17,11 +17,10 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top, rgba(34, 197, 94, 0.15), transparent 32%),
-    linear-gradient(180deg, #08111b 0%, #0f172a 100%);
-  color: #e5eef7;
+  height: 100vh;
+  overflow: hidden;
+  background: #f3f4f6;
+  color: #0f172a;
 }
 
 * {
@@ -29,11 +28,12 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .xterm .xterm-viewport {
-  scrollbar-color: rgba(100, 116, 139, 0.8) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.8) transparent;
 }
 
 .xterm .xterm-screen canvas {
@@ -42,8 +42,8 @@ body {
 
 .workflow-flow {
   background:
-    radial-gradient(circle at top, rgba(34, 197, 94, 0.08), transparent 30%),
-    linear-gradient(180deg, rgba(8, 17, 27, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%);
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent 26%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .workflow-flow .react-flow__node {
@@ -51,17 +51,31 @@ body {
 }
 
 .workflow-flow .react-flow__edge-path {
-  stroke: rgba(148, 163, 184, 0.55);
+  stroke: rgba(148, 163, 184, 0.9);
   stroke-width: 1.5;
 }
 
+.workflow-flow .react-flow__edge.selected .react-flow__edge-path,
+.workflow-flow .react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: #2563eb;
+  stroke-width: 2.5;
+}
+
 .workflow-flow .react-flow__edge-text {
-  fill: #cbd5e1;
+  fill: #64748b;
   font-size: 11px;
 }
 
 .workflow-flow .react-flow__controls-button {
-  background: rgba(2, 6, 23, 0.96);
-  border-bottom: 1px solid rgba(30, 41, 59, 0.85);
-  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+  color: #334155;
+}
+
+.workflow-flow .react-flow__controls-button:hover {
+  background: #f8fafc;
+}
+
+.workflow-flow .react-flow__minimap {
+  background: rgba(255, 255, 255, 0.96);
 }

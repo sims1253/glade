@@ -43,7 +43,7 @@ export function WorkflowCanvasToolbar({
     <div
       ref={toolbarRef}
       className={cn(
-        'absolute left-4 top-4 z-10 flex max-w-[calc(100%-2rem)] items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/85 px-3 py-2 text-xs text-slate-300 shadow-lg backdrop-blur',
+        'absolute left-4 top-4 z-10 flex max-w-[calc(100%-2rem)] items-center gap-3 rounded-2xl border border-slate-200 bg-white/92 px-3 py-2 text-xs text-slate-600 shadow-[0_18px_36px_-24px_rgba(15,23,42,0.28)] backdrop-blur',
         compact ? 'flex-col items-stretch' : 'flex-row',
       )}
     >
@@ -55,8 +55,8 @@ export function WorkflowCanvasToolbar({
           Auto arrange
         </Button>
       </div>
-      <div className={cn('min-w-0', compact ? 'border-t border-slate-800/80 pt-2' : 'ml-auto')}>
-        <p ref={summaryRef} className="truncate text-slate-300">{summary}</p>
+      <div className={cn('min-w-0', compact ? 'border-t border-slate-200 pt-2' : 'ml-auto')}>
+        <p ref={summaryRef} className="truncate text-slate-700">{summary}</p>
         {!compact ? (
           <p className="mt-1 truncate text-slate-500">Drag from a bottom port to a top port to connect nodes.</p>
         ) : null}

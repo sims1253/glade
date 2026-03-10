@@ -455,11 +455,11 @@ export function WorkflowCanvas({ className, workflow, host, showNodeDetailDrawer
 
   return (
     <WorkflowCanvasContextProvider value={contextValue}>
-      <div className={cn('relative h-full min-h-[38rem] overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/70 shadow-2xl shadow-slate-950/30', className)}>
+      <div className={cn('relative h-full min-h-[38rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]', className)}>
         <CanvasStatusBanner sessionState={sessionState} sessionReason={sessionReason} />
         {graph ? null : (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/90 px-5 py-4 text-sm text-slate-300 shadow-xl">
+            <div className="rounded-2xl border border-slate-200 bg-white/95 px-5 py-4 text-sm text-slate-600 shadow-xl">
               Waiting for the first graph snapshot from bayesgrove…
             </div>
           </div>
@@ -551,7 +551,7 @@ export function WorkflowCanvas({ className, workflow, host, showNodeDetailDrawer
           <MiniMap
             pannable
             zoomable
-            className="!bottom-4 !right-4 !border !border-slate-800 !bg-slate-950/90"
+            className="!bottom-4 !right-4 !border !border-slate-200 !bg-white/95"
             nodeColor={(node) => {
               const status = (node.data as WorkflowNodeData).status;
               switch (status) {
@@ -572,25 +572,25 @@ export function WorkflowCanvas({ className, workflow, host, showNodeDetailDrawer
               }
             }}
           />
-          <Controls className="!bottom-4 !left-4 !border !border-slate-800 !bg-slate-950/90" showInteractive={false} />
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} color="rgba(148, 163, 184, 0.18)" />
+          <Controls className="!bottom-4 !left-4 !border !border-slate-200 !bg-white/95" showInteractive={false} />
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} color="rgba(148, 163, 184, 0.45)" />
         </ReactFlow>
 
         {contextMenu ? (
           <div
-            className="fixed z-40 min-w-48 rounded-2xl border border-slate-700 bg-slate-950/95 p-2 shadow-2xl backdrop-blur"
+            className="fixed z-40 min-w-48 rounded-2xl border border-slate-200 bg-white/96 p-2 shadow-2xl backdrop-blur"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             {contextMenu.mode === 'pane' ? (
-              <button className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-800" onClick={openAddDialog}>
+              <button className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100" onClick={openAddDialog}>
                 Add node
               </button>
             ) : (
               <>
-                <button className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-800" onClick={() => beginRename(contextMenu.nodeId, contextMenu.label)}>
+                <button className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100" onClick={() => beginRename(contextMenu.nodeId, contextMenu.label)}>
                   Rename {contextMenu.label}
                 </button>
-                <button className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-rose-200 hover:bg-rose-950/60" onClick={() => {
+                <button className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50" onClick={() => {
                   setIsDeleteDialogOpen(true);
                   closeMenus();
                 }}>
@@ -602,46 +602,46 @@ export function WorkflowCanvas({ className, workflow, host, showNodeDetailDrawer
         ) : null}
 
         {isAddDialogOpen ? (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-              <h2 className="text-xl font-semibold text-slate-50">Add node</h2>
-              <p className="mt-2 text-sm text-slate-400">Pick a node kind exposed by the live bayesgrove session and optionally give it a label.</p>
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/18 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+              <h2 className="text-xl font-semibold text-slate-900">Add node</h2>
+              <p className="mt-2 text-sm text-slate-500">Pick a node kind exposed by the live bayesgrove session and optionally give it a label.</p>
               <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                <div className="max-h-72 space-y-2 overflow-auto rounded-2xl border border-slate-800 p-2">
+                <div className="max-h-72 space-y-2 overflow-auto rounded-2xl border border-slate-200 p-2">
                   {graph?.nodeKinds.map((kind) => (
                     <button
                       key={kind.kind}
                       className={cn(
                         'w-full rounded-2xl border px-3 py-3 text-left transition-colors',
                         pendingNodeKind === kind.kind
-                          ? 'border-emerald-500/40 bg-emerald-500/10'
-                          : 'border-slate-800 bg-slate-900/70 hover:bg-slate-900',
+                          ? 'border-sky-300 bg-sky-50'
+                          : 'border-slate-200 bg-slate-50 hover:bg-white',
                       )}
                       onClick={() => setPendingNodeKind(kind.kind)}
                     >
-                      <div className="text-sm font-semibold text-slate-100">{kind.label}</div>
-                      <div className="mt-1 text-xs text-slate-400">{kind.description}</div>
+                      <div className="text-sm font-semibold text-slate-900">{kind.label}</div>
+                      <div className="mt-1 text-xs text-slate-500">{kind.description}</div>
                     </button>
                   ))}
                 </div>
-                <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div>
-                    <label className="text-xs uppercase tracking-[0.18em] text-slate-400">Selected kind</label>
-                    <p className="mt-2 text-sm text-slate-100">{formatKindLabel(pendingNodeKind || 'node')}</p>
+                    <label className="text-xs uppercase tracking-[0.18em] text-slate-500">Selected kind</label>
+                    <p className="mt-2 text-sm text-slate-900">{formatKindLabel(pendingNodeKind || 'node')}</p>
                   </div>
                   <div>
-                    <label className="text-xs uppercase tracking-[0.18em] text-slate-400" htmlFor="phase4-node-label">Node label</label>
+                    <label className="text-xs uppercase tracking-[0.18em] text-slate-500" htmlFor="phase4-node-label">Node label</label>
                     <input
                       id="phase4-node-label"
                       value={pendingNodeLabel}
                       onChange={(event) => setPendingNodeLabel(event.target.value)}
                       placeholder="Optional label"
-                      className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-hidden"
                     />
                   </div>
                   {selectedPendingNodeKind?.parameterSchema ? (
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
-                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Parameters</p>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Parameters</p>
                       <div className="mt-3">
                         <SchemaDrivenForm
                           schema={selectedPendingNodeKind.parameterSchema}
@@ -674,14 +674,14 @@ export function WorkflowCanvas({ className, workflow, host, showNodeDetailDrawer
         ) : null}
 
         {isDeleteDialogOpen && selectedNode ? (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-              <h2 className="text-xl font-semibold text-slate-50">Delete {selectedNode.label}?</h2>
-              <p className="mt-2 text-sm text-slate-400">
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/18 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+              <h2 className="text-xl font-semibold text-slate-900">Delete {selectedNode.label}?</h2>
+              <p className="mt-2 text-sm text-slate-500">
                 Deleting {selectedNode.label} will affect {downstreamNodes.length} downstream node{downstreamNodes.length === 1 ? '' : 's'}.
               </p>
               {downstreamNodes.length > 0 ? (
-                <ul className="mt-4 space-y-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-300">
+                <ul className="mt-4 space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                   {downstreamNodes.map((node) => (
                     <li key={node.id}>{node.label}</li>
                   ))}

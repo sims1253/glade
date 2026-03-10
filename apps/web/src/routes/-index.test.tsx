@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DesktopEnvironmentState, GraphSnapshot } from '@glade/contracts';
 import type { DesktopUpdateState } from '@glade/shared';
 
-import { APP_VERSION } from '../lib/app-version';
 import { useAppStore } from '../store/app';
 import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
@@ -334,7 +333,6 @@ describe('IndexRoute phase 5 workflow UI', () => {
 
     renderRoute();
 
-    expect(screen.getByText(`Glade v${APP_VERSION}`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: /Actions \(1\)/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
@@ -367,8 +365,6 @@ describe('IndexRoute phase 5 workflow UI', () => {
     fireEvent.click(screen.getByRole('button', { name: /baseline fit/i }));
 
     expect(await screen.findByRole('heading', { level: 3, name: 'Baseline fit' })).toBeInTheDocument();
-    expect(screen.getByText('fit · state blocked')).toBeInTheDocument();
-
     const inspectorHeader = screen.getByRole('heading', { level: 2, name: 'Baseline fit' }).closest('header');
     if (!inspectorHeader) {
       throw new Error('Expected inspector header for selected node.');
@@ -417,7 +413,6 @@ describe('IndexRoute phase 5 workflow UI', () => {
 
     renderRoute();
 
-    expect(await screen.findByText('Complete local setup before running workflows')).toBeInTheDocument();
-    expect(screen.getByText('Install R before using Glade')).toBeInTheDocument();
+    expect(await screen.findByText(/Setup required:/)).toBeInTheDocument();
   });
 });
