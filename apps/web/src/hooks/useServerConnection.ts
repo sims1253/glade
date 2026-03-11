@@ -8,7 +8,7 @@ export function useServerConnection() {
 
   return useMemo(() => ({
     dispatchCommand: legacyWorkflowDispatchFromRpc(rpc.workflow, rpc.repl, rpc.session),
-    dispatchHostCommand: legacyHostDispatchFromRpc(rpc.host, rpc.system),
+    dispatchHostCommand: legacyHostDispatchFromRpc(rpc.host),
     reconnect: rpc.reconnect,
-  }), [rpc.host, rpc.repl, rpc.session, rpc.system, rpc.workflow, rpc.reconnect]);
+  }), [rpc.host, rpc.repl, rpc.session, rpc.workflow, rpc.reconnect]);
 }

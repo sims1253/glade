@@ -1,8 +1,0 @@
-Package: glade.elicito
-Title: Glade Elicito Node Pack
-Version: 0.1.0
-Authors@R: person("Glade", "Team", email = "glade@example.com", role = c("aut", "cre"))
-Description: Example bayesgrove extension package for Glade phase 9 multi-runtime nodes.
-License: MIT
-Encoding: UTF-8
-LazyData: true

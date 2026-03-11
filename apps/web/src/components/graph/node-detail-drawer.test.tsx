@@ -289,15 +289,15 @@ describe('NodeDetailDrawer', () => {
     expect(useGraphStore.getState().selectedNodeId).toBe('source');
   });
 
-  it('surfaces hosted-mode editor capability errors while keeping the path visible', async () => {
+  it('surfaces editor capability errors while keeping the path visible', async () => {
     delete window.desktopBridge;
     dispatchHostCommand.mockResolvedValue({
       type: 'CommandResult',
       id: 'host',
       success: false,
       error: {
-        code: 'unsupported_in_hosted_mode',
-        message: 'OpenFileInEditor is unavailable in hosted mode.',
+        code: 'editor_open_failed',
+        message: 'OpenFileInEditor failed.',
       },
     });
 
@@ -314,57 +314,8 @@ describe('NodeDetailDrawer', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /open in editor/i })[0]!);
 
-    expect(await screen.findByText('OpenFileInEditor is unavailable in hosted mode.')).toBeInTheDocument();
+    expect(await screen.findByText('OpenFileInEditor failed.')).toBeInTheDocument();
     expect(screen.getByText('/tmp/project/model.R')).toBeInTheDocument();
     expect(screen.getByLabelText(/enter file path/i)).toBeInTheDocument();
-  });
-
-  it('dispatches ExecuteNode for non-R runtime nodes and handles trust confirmation', async () => {
-    dispatchCommand
-      .mockResolvedValueOnce({
-        type: 'CommandResult',
-        id: 'cmd',
-        success: false,
-        error: {
-          code: 'tool_execution_confirmation_required',
-          message: 'Confirm to continue.',
-        },
-      })
-      .mockResolvedValueOnce({ type: 'CommandResult', id: 'cmd-2', success: true });
-
-    render(
-      <NodeDetailDrawer
-        graph={graph}
-        node={{
-          ...graph.nodesById.export!,
-          runtime: 'uvx',
-          command: 'elicito',
-        }}
-        dispatchCommand={dispatchCommand}
-        dispatchHostCommand={dispatchHostCommand}
-        onClose={() => {}}
-        onSelectNode={() => {}}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Run node' }));
-
-    await waitFor(() =>
-      expect(dispatchCommand).toHaveBeenCalledWith({
-        type: 'ExecuteNode',
-        nodeId: 'export',
-      }),
-    );
-    expect(await screen.findByText('This extension resolves to a non-local tool. Confirm once to allow execution.')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Trust and run' }));
-
-    await waitFor(() =>
-      expect(dispatchCommand).toHaveBeenCalledWith({
-        type: 'ExecuteNode',
-        nodeId: 'export',
-        confirmNonLocalExecution: true,
-      }),
-    );
   });
 });

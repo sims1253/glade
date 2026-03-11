@@ -1,2 +1,0 @@
-export(glade_elicito_descriptor)
-export(glade_register_elicito_extension)

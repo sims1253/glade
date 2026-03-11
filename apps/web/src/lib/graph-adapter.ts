@@ -1,8 +1,9 @@
 import {
+  readDomainPacks,
   readExtensionRegistry,
+  readNodeTypes,
   type ExtensionDescriptor,
   type GraphSnapshot,
-  type NodeRuntime,
   type NodeTypeDescriptor,
 } from '@glade/contracts';
 
@@ -86,20 +87,32 @@ function normalizeTypeList(value: unknown): Array<string> {
 
 function extractParameterSchema(rawKind: JsonRecord | null, rawExtensionNode: NodeTypeDescriptor | null) {
   return firstObject(
+    rawKind?.parameterSchema,
     rawKind?.parameter_schema,
     rawExtensionNode?.parameter_schema,
   );
 }
 
-function extractBrowserBundlePath(rawExtension: ExtensionDescriptor, rawExtensionNode: NodeTypeDescriptor | null) {
-  const nodeGui = asObject(rawExtensionNode?.gui);
-  const extensionGui = asObject(rawExtension.gui);
-  return firstString(
-    rawExtensionNode?.browser_bundle_path,
-    rawExtension.browser_bundle_path,
-    nodeGui?.browser_path,
-    extensionGui?.browser_path,
-  );
+function asObjectEntries(value: unknown): Array<[string, JsonRecord]> {
+  const record = asObject(value);
+  return record
+    ? Object.entries(record)
+      .map(([key, entry]) => {
+        const normalized = asObject(entry);
+        return normalized ? [key, normalized] as const : null;
+      })
+      .filter((entry): entry is [string, JsonRecord] => entry !== null)
+    : [];
+}
+
+function firstArray(...values: Array<unknown>): Array<unknown> {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return [];
 }
 
 function extractNodeParameters(rawNode: JsonRecord, metadata: JsonRecord | null) {
@@ -138,20 +151,6 @@ function formatScopeLabel(scope: string) {
   }
 
   return formatKind(scope);
-}
-
-function normalizeNodeRuntime(value: unknown): NodeRuntime {
-  switch (value) {
-    case 'uvx':
-    case 'bunx':
-    case 'binary':
-    case 'shell':
-      return value;
-    case 'r':
-    case 'r_session':
-    default:
-      return 'r_session';
-  }
 }
 
 function firstObject(...values: Array<unknown>): JsonRecord | null {
@@ -193,16 +192,6 @@ function extensionIdentity(rawExtension: ExtensionDescriptor, index: number, war
     id: fallbackId,
     packageName: fallbackId,
   };
-}
-
-function firstArray(...values: Array<unknown>): Array<unknown> {
-  for (const value of values) {
-    if (Array.isArray(value)) {
-      return value;
-    }
-  }
-
-  return [];
 }
 
 function extractDescription(value: unknown) {
@@ -350,14 +339,13 @@ function extractDecisionEntries(rawNode: JsonRecord, metadata: JsonRecord | null
 function extractExtensionRegistry(snapshot: GraphSnapshot): Array<WorkflowExtensionDescriptor> {
   return readExtensionRegistry(snapshot)
     .map((rawExtension, index) => {
-      const rawNodeTypes = rawExtension.node_types ?? [];
-      const rawDomainPacks = rawExtension.domain_packs ?? [];
+      const rawNodeTypes = readNodeTypes(rawExtension);
+      const rawDomainPacks = readDomainPacks(rawExtension);
       const identity = extensionIdentity(rawExtension, index, true);
       return {
         id: identity.id,
         packageName: identity.packageName,
         version: firstString(rawExtension.version),
-        browserBundlePath: extractBrowserBundlePath(rawExtension, null),
         nodeKinds: rawNodeTypes.map((nodeType) => nodeType.kind).filter((kind): kind is string => Boolean(kind)),
         domainPacks: rawDomainPacks.map((domainPack) => firstString(domainPack.id, domainPack.kind)).filter((kind): kind is string => Boolean(kind)),
         raw: rawExtension as Record<string, unknown>,
@@ -370,7 +358,6 @@ function extensionNodeKindsByKind(snapshot: GraphSnapshot) {
   const result = new Map<string, {
     readonly extensionId: string;
     readonly extensionPackageName: string;
-    readonly browserBundlePath: string | null;
     readonly rawNodeType: NodeTypeDescriptor;
   }>();
 
@@ -378,8 +365,7 @@ function extensionNodeKindsByKind(snapshot: GraphSnapshot) {
     const identity = extensionIdentity(rawExtension, index, false);
     const extensionId = identity.id;
     const packageName = identity.packageName;
-    const browserBundlePath = extractBrowserBundlePath(rawExtension, null);
-    for (const rawNodeType of rawExtension.node_types ?? []) {
+    for (const rawNodeType of readNodeTypes(rawExtension)) {
       const kind = rawNodeType.kind;
       if (!kind) {
         continue;
@@ -387,13 +373,92 @@ function extensionNodeKindsByKind(snapshot: GraphSnapshot) {
       result.set(kind, {
         extensionId,
         extensionPackageName: packageName,
-        browserBundlePath: extractBrowserBundlePath(rawExtension, rawNodeType) ?? browserBundlePath,
         rawNodeType,
       });
     }
   }
 
   return result;
+}
+
+function candidateCommandSurfaceAddNodeSources(surface: JsonRecord) {
+  return [
+    asObject(surface.add_node),
+    asObject(surface.addNode),
+    asObject(surface['workflow.add_node']),
+    asObject(surface['workflow.addNode']),
+    asObject(surface.bg_add_node),
+    asObject(asObject(surface.workflow)?.add_node),
+    asObject(asObject(surface.workflow)?.addNode),
+    asObject(asObject(surface.commands)?.add_node),
+    asObject(asObject(surface.commands)?.addNode),
+    asObject(asObject(surface.methods)?.add_node),
+    asObject(asObject(surface.methods)?.addNode),
+  ].filter((entry): entry is JsonRecord => entry !== null);
+}
+
+function normalizeCommandSurfaceKindEntry(kind: string, rawEntry: JsonRecord): WorkflowNodeKindSpec {
+  const inputTypes = normalizeTypeList(rawEntry.input_contract ?? rawEntry.input_schema);
+  const outputTypes = normalizeTypeList(rawEntry.output_type ?? rawEntry.output_schema);
+
+  return {
+    kind,
+    label: firstString(rawEntry.title, rawEntry.label, rawEntry.name) ?? formatKind(kind),
+    description: firstString(rawEntry.description) ?? describeNodeKind(kind, inputTypes, outputTypes),
+    inputTypes,
+    outputTypes,
+    parameterSchema: firstObject(rawEntry.parameter_schema, rawEntry.parameterSchema),
+    extensionId: null,
+    extensionPackageName: null,
+    raw: rawEntry,
+  } satisfies WorkflowNodeKindSpec;
+}
+
+function kindsFromCommandSurfaceCollection(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      if (typeof entry === 'string' && entry.length > 0) {
+        return [normalizeCommandSurfaceKindEntry(entry, {})];
+      }
+
+      const record = asObject(entry);
+      const kind = firstString(record?.kind, record?.id, record?.name);
+      return record && kind ? [normalizeCommandSurfaceKindEntry(kind, record)] : [];
+    });
+  }
+
+  return asObjectEntries(value).map(([kind, record]) => normalizeCommandSurfaceKindEntry(kind, record));
+}
+
+function extractCommandSurfaceNodeKinds(snapshot: GraphSnapshot) {
+  const commandSurface = asObject(snapshot.command_surface);
+  if (!commandSurface) {
+    return [];
+  }
+
+  for (const source of candidateCommandSurfaceAddNodeSources(commandSurface)) {
+    const collections = [
+      source.kinds,
+      source.node_kinds,
+      source.nodeKinds,
+      source.options,
+      source.choices,
+    ];
+
+    for (const collection of collections) {
+      const normalized = kindsFromCommandSurfaceCollection(collection);
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    }
+
+    const direct = kindsFromCommandSurfaceCollection(source);
+    if (direct.length > 0) {
+      return direct;
+    }
+  }
+
+  return [];
 }
 
 function normalizeProtocolSummary(snapshot: GraphSnapshot): WorkflowProtocolSummary {
@@ -553,39 +618,44 @@ function extractNodeKinds(snapshot: GraphSnapshot): Array<WorkflowNodeKindSpec> 
   const registry = asObject(graph.registry) ?? {};
   const rawKinds = asObject(registry.kinds) ?? {};
   const extensionNodeKinds = extensionNodeKindsByKind(snapshot);
+  const commandSurfaceKinds = extractCommandSurfaceNodeKinds(snapshot);
+  const commandSurfaceKindsByKind = Object.fromEntries(commandSurfaceKinds.map((kind) => [kind.kind, kind]));
   const availableKinds = new Set<string>([
     ...Object.keys(rawKinds),
     ...asStringArray(snapshotObject.availableNodeKinds),
     ...extensionNodeKinds.keys(),
+    ...commandSurfaceKinds.map((kind) => kind.kind),
   ]);
 
   return [...availableKinds]
     .map((kind) => {
       const rawKind = asObject(rawKinds[kind]) ?? {};
       const extensionNode = extensionNodeKinds.get(kind) ?? null;
+      const commandSurfaceKind = commandSurfaceKindsByKind[kind] ?? null;
       const inputTypes = normalizeTypeList(
+        commandSurfaceKind?.raw.input_contract ??
+        commandSurfaceKind?.raw.input_schema ??
         rawKind.input_contract ??
         extensionNode?.rawNodeType.input_contract ??
         extensionNode?.rawNodeType.input_schema,
       );
       const outputTypes = normalizeTypeList(
+        commandSurfaceKind?.raw.output_type ??
+        commandSurfaceKind?.raw.output_schema ??
         rawKind.output_type ??
         extensionNode?.rawNodeType.output_type ??
         extensionNode?.rawNodeType.output_schema,
       );
       return {
         kind,
-        label: firstString(rawKind.title, rawKind.label, extensionNode?.rawNodeType.title) ?? formatKind(kind),
-        description: firstString(rawKind.description, extensionNode?.rawNodeType.description) ?? describeNodeKind(kind, inputTypes, outputTypes),
+        label: firstString(commandSurfaceKind?.label, rawKind.title, rawKind.label, extensionNode?.rawNodeType.title) ?? formatKind(kind),
+        description: firstString(commandSurfaceKind?.description, rawKind.description, extensionNode?.rawNodeType.description) ?? describeNodeKind(kind, inputTypes, outputTypes),
         inputTypes,
         outputTypes,
-        runtime: normalizeNodeRuntime(firstString(extensionNode?.rawNodeType.runtime, rawKind.runtime)),
-        command: firstString(extensionNode?.rawNodeType.command, rawKind.command),
-        parameterSchema: extractParameterSchema(rawKind, extensionNode?.rawNodeType ?? null),
+        parameterSchema: firstObject(commandSurfaceKind?.parameterSchema, extractParameterSchema(rawKind, extensionNode?.rawNodeType ?? null)),
         extensionId: extensionNode?.extensionId ?? null,
         extensionPackageName: extensionNode?.extensionPackageName ?? null,
-        browserBundlePath: extensionNode?.browserBundlePath ?? null,
-        raw: rawKind,
+        raw: commandSurfaceKind?.raw ?? rawKind,
       } satisfies WorkflowNodeKindSpec;
     })
     .sort((left, right) => left.label.localeCompare(right.label));
@@ -628,13 +698,10 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
         branchScopeLabel: extractBranchScopeLabel(rawNode, metadata),
         notes: extractNotes(rawNode, metadata),
         linkedFilePath: extractLinkedFilePath(rawNode, metadata),
-        runtime: kindSpec?.runtime ?? 'r_session',
-        command: kindSpec?.command ?? null,
         parameters: extractNodeParameters(rawNode, metadata),
         parameterSchema: kindSpec?.parameterSchema ?? null,
         extensionId: kindSpec?.extensionId ?? null,
         extensionPackageName: kindSpec?.extensionPackageName ?? null,
-        browserBundlePath: kindSpec?.browserBundlePath ?? null,
         summaries: extractSummaryEntries(rawNode, metadata),
         decisions: extractDecisionEntries(rawNode, metadata),
         metadata,

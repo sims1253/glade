@@ -241,16 +241,12 @@ export function NodeDetailDrawer({
   const [notesDraft, setNotesDraft] = useState(node.notes);
   const [notesPending, setNotesPending] = useState(false);
   const [paramsPending, setParamsPending] = useState(false);
-  const [executePending, setExecutePending] = useState(false);
-  const [executeError, setExecuteError] = useState<string | null>(null);
-  const [awaitingExecutionTrust, setAwaitingExecutionTrust] = useState(false);
   const [manualPathDraft, setManualPathDraft] = useState(node.linkedFilePath ?? '');
   const [filePending, setFilePending] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [showAllAncestors, setShowAllAncestors] = useState(false);
   const [showAllDescendants, setShowAllDescendants] = useState(false);
   const nativeFilePicker = hasNativeFilePicker();
-  const isExternalRuntimeNode = (node.runtime ?? 'r_session') !== 'r_session';
   const lastServerStateRef = useRef({
     id: node.id,
     label: node.label,
@@ -277,8 +273,6 @@ export function NodeDetailDrawer({
 
     if (nodeChanged) {
       setFileError(null);
-      setExecuteError(null);
-      setAwaitingExecutionTrust(false);
       setShowAllAncestors(false);
       setShowAllDescendants(false);
     }
@@ -432,32 +426,6 @@ export function NodeDetailDrawer({
     await setLinkedFile(selectedPath);
   }
 
-  async function executeNode(confirmNonLocalExecution = false) {
-    setExecutePending(true);
-    setExecuteError(null);
-    try {
-      const result = await workflowClient?.executeNode({
-        nodeId: node.id,
-        ...(confirmNonLocalExecution ? { confirmNonLocalExecution: true } : {}),
-      });
-
-      if (!result?.success) {
-        if (result?.error?.code === 'tool_execution_confirmation_required') {
-          setAwaitingExecutionTrust(true);
-          return;
-        }
-
-        throw new Error(result?.error?.message ?? 'Could not execute node.');
-      }
-
-      setAwaitingExecutionTrust(false);
-    } catch (error) {
-      setExecuteError(error instanceof Error ? error.message : 'Could not execute node.');
-    } finally {
-      setExecutePending(false);
-    }
-  }
-
   return (
     <aside className="absolute inset-y-0 right-0 z-20 w-full max-w-xl border-l border-slate-800/90 bg-slate-950/95 shadow-2xl shadow-slate-950/60 backdrop-blur xl:max-w-2xl">
       <div className="flex h-full flex-col">
@@ -507,42 +475,6 @@ export function NodeDetailDrawer({
         </header>
 
         <div className="flex-1 space-y-4 overflow-auto px-5 py-4">
-          {isExternalRuntimeNode ? (
-            <Section title="Execution" icon={<SquareDashedMousePointer className="size-4" />}>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
-                  <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-slate-100">
-                    Runtime: {node.runtime}
-                  </span>
-                  {node.command ? (
-                    <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-slate-100">
-                      {node.command}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-3 text-sm text-slate-300">
-                  This node executes through the Bun server instead of the shared R session.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Button onClick={() => void executeNode()} disabled={executePending}>
-                    {executePending ? 'Running node...' : 'Run node'}
-                  </Button>
-                  {awaitingExecutionTrust ? (
-                    <Button variant="ghost" onClick={() => void executeNode(true)} disabled={executePending}>
-                      Trust and run
-                    </Button>
-                  ) : null}
-                </div>
-                {awaitingExecutionTrust ? (
-                  <p className="mt-3 text-sm text-amber-200">
-                    This extension resolves to a non-local tool. Confirm once to allow execution.
-                  </p>
-                ) : null}
-                {executeError ? <p className="mt-3 text-sm text-rose-200">{executeError}</p> : null}
-              </div>
-            </Section>
-          ) : null}
-
           <Section title="Summary Log" icon={<SquareDashedMousePointer className="size-4" />}>
             {node.summaries.length > 0 ? (
               <div ref={summaryParentRef} className="h-80 overflow-auto pr-1">

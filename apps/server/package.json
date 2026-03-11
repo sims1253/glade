@@ -1,12 +1,11 @@
 {
   "name": "@glade/server",
-  "version": "0.11.8",
+  "version": "0.12.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "tsdown",
-    "build:standalone": "node ../../scripts/build-standalone-server.ts",
     "start": "bun run dist/index.mjs",
     "prepare": "effect-language-service patch",
     "typecheck": "tsc --noEmit",

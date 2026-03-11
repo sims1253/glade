@@ -20,7 +20,6 @@ export const WS_METHODS = [
   'workflow.renameNode',
   'workflow.recordDecision',
   'workflow.executeAction',
-  'workflow.executeNode',
   'workflow.updateNodeNotes',
   'workflow.updateNodeParameters',
   'workflow.setNodeFile',
@@ -28,7 +27,6 @@ export const WS_METHODS = [
   'repl.write',
   'repl.clear',
   'host.openInEditor',
-  'system.getInfo',
 ] as const;
 export type WsMethod = (typeof WS_METHODS)[number];
 
@@ -61,19 +59,8 @@ export const RpcError = Schema.TaggedStruct('RpcError', {
 });
 export type RpcError = Schema.Schema.Type<typeof RpcError>;
 
-export const SystemInfoResult = Schema.TaggedStruct('SystemInfo', {
-  platform: Schema.String,
-  arch: Schema.String,
-  hostedMode: Schema.Boolean,
-  runtime: Schema.String,
-  projectPath: Schema.NullOr(Schema.String),
-});
-export type SystemInfoResult = Schema.Schema.Type<typeof SystemInfoResult>;
-
 export const ServerBootstrap = Schema.TaggedStruct('ServerBootstrap', {
   version: Schema.String,
-  runtime: Schema.String,
-  hostedMode: Schema.Boolean,
   projectPath: Schema.NullOr(Schema.String),
   sessionStatus: SessionStatus,
   desktopEnvironment: Schema.optional(DesktopEnvironmentState),
@@ -161,13 +148,6 @@ export const WorkflowExecuteActionInput = Schema.TaggedStruct('workflow.executeA
 export type WorkflowExecuteActionInput = Schema.Schema.Type<typeof WorkflowExecuteActionInput>;
 export const WorkflowExecuteActionResult = AckResult;
 
-export const WorkflowExecuteNodeInput = Schema.TaggedStruct('workflow.executeNode', {
-  nodeId: Schema.String,
-  confirmNonLocalExecution: Schema.optional(Schema.Boolean),
-});
-export type WorkflowExecuteNodeInput = Schema.Schema.Type<typeof WorkflowExecuteNodeInput>;
-export const WorkflowExecuteNodeResult = AckResult;
-
 export const WorkflowUpdateNodeNotesInput = Schema.TaggedStruct('workflow.updateNodeNotes', {
   nodeId: Schema.String,
   notes: Schema.String,
@@ -208,9 +188,6 @@ export const HostOpenInEditorInput = Schema.TaggedStruct('host.openInEditor', {
 });
 export type HostOpenInEditorInput = Schema.Schema.Type<typeof HostOpenInEditorInput>;
 export const HostOpenInEditorResult = AckResult;
-
-export const SystemGetInfoInput = Schema.TaggedStruct('system.getInfo', {});
-export type SystemGetInfoInput = Schema.Schema.Type<typeof SystemGetInfoInput>;
 
 function requestSchema<TMethod extends WsMethod, TBody extends Schema.Schema.AnyNoContext>(
   method: TMethod,
@@ -263,7 +240,6 @@ export const WebSocketRequest = Schema.Union(
   requestSchema('workflow.renameNode', WorkflowRenameNodeInput),
   requestSchema('workflow.recordDecision', WorkflowRecordDecisionInput),
   requestSchema('workflow.executeAction', WorkflowExecuteActionInput),
-  requestSchema('workflow.executeNode', WorkflowExecuteNodeInput),
   requestSchema('workflow.updateNodeNotes', WorkflowUpdateNodeNotesInput),
   requestSchema('workflow.updateNodeParameters', WorkflowUpdateNodeParametersInput),
   requestSchema('workflow.setNodeFile', WorkflowSetNodeFileInput),
@@ -271,7 +247,6 @@ export const WebSocketRequest = Schema.Union(
   requestSchema('repl.write', ReplWriteInput),
   requestSchema('repl.clear', ReplClearInput),
   requestSchema('host.openInEditor', HostOpenInEditorInput),
-  requestSchema('system.getInfo', SystemGetInfoInput),
 );
 export type WebSocketRequest = Schema.Schema.Type<typeof WebSocketRequest>;
 
@@ -286,7 +261,6 @@ export const WebSocketResponse = Schema.Union(
   successResponseSchema('workflow.renameNode', WorkflowRenameNodeResult),
   successResponseSchema('workflow.recordDecision', WorkflowRecordDecisionResult),
   successResponseSchema('workflow.executeAction', WorkflowExecuteActionResult),
-  successResponseSchema('workflow.executeNode', WorkflowExecuteNodeResult),
   successResponseSchema('workflow.updateNodeNotes', WorkflowUpdateNodeNotesResult),
   successResponseSchema('workflow.updateNodeParameters', WorkflowUpdateNodeParametersResult),
   successResponseSchema('workflow.setNodeFile', WorkflowSetNodeFileResult),
@@ -294,7 +268,6 @@ export const WebSocketResponse = Schema.Union(
   successResponseSchema('repl.write', ReplWriteResult),
   successResponseSchema('repl.clear', ReplClearResult),
   successResponseSchema('host.openInEditor', HostOpenInEditorResult),
-  successResponseSchema('system.getInfo', SystemInfoResult),
   errorResponseSchema('desktop.getEnvironment'),
   errorResponseSchema('desktop.refreshEnvironment'),
   errorResponseSchema('desktop.saveSettings'),
@@ -305,7 +278,6 @@ export const WebSocketResponse = Schema.Union(
   errorResponseSchema('workflow.renameNode'),
   errorResponseSchema('workflow.recordDecision'),
   errorResponseSchema('workflow.executeAction'),
-  errorResponseSchema('workflow.executeNode'),
   errorResponseSchema('workflow.updateNodeNotes'),
   errorResponseSchema('workflow.updateNodeParameters'),
   errorResponseSchema('workflow.setNodeFile'),
@@ -313,7 +285,6 @@ export const WebSocketResponse = Schema.Union(
   errorResponseSchema('repl.write'),
   errorResponseSchema('repl.clear'),
   errorResponseSchema('host.openInEditor'),
-  errorResponseSchema('system.getInfo'),
 );
 export type WebSocketResponse = Schema.Schema.Type<typeof WebSocketResponse>;
 

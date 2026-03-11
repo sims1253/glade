@@ -268,7 +268,6 @@ export function useRpcClient(): RpcClient {
       renameNode: (input) => sendRequest('workflow.renameNode', { _tag: 'workflow.renameNode', ...input }),
       recordDecision: (input) => sendRequest('workflow.recordDecision', { _tag: 'workflow.recordDecision', ...input }),
       executeAction: (input) => sendRequest('workflow.executeAction', { _tag: 'workflow.executeAction', ...input }),
-      executeNode: (input) => sendRequest('workflow.executeNode', { _tag: 'workflow.executeNode', ...input }),
       updateNodeNotes: (input) => sendRequest('workflow.updateNodeNotes', { _tag: 'workflow.updateNodeNotes', ...input }),
       updateNodeParameters: (input) => sendRequest('workflow.updateNodeParameters', { _tag: 'workflow.updateNodeParameters', ...input }),
       setNodeFile: (input) => sendRequest('workflow.setNodeFile', { _tag: 'workflow.setNodeFile', ...input }),
@@ -282,9 +281,6 @@ export function useRpcClient(): RpcClient {
     },
     host: {
       openInEditor: (input) => sendRequest('host.openInEditor', { _tag: 'host.openInEditor', ...input }),
-    },
-    system: {
-      getInfo: () => sendRequest('system.getInfo', { _tag: 'system.getInfo' }),
     },
     reconnect: () => {
       manualReconnectRef.current = true;

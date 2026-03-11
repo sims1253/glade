@@ -1,12 +1,9 @@
-import { memo, useMemo, useState, type ComponentType } from 'react';
+import { memo, useMemo, useState } from 'react';
 import type { NodeProps } from '@xyflow/react';
-
-import type { NodeComponentProps } from '@glade/contracts';
 
 import { workflowRpcFromLegacyDispatch } from '../../../lib/legacy-commands';
 import { toJsonObject } from '../../../lib/json';
 import { useGraphStore } from '../../../store/graph';
-import { useNodeExtensionComponent } from '../../../lib/extension-loader';
 import type { WorkflowFlowNode } from '../../../lib/graph-types';
 import { SchemaDrivenForm } from '../../extensions/schema-form';
 import { NodeShell } from '../node-shell';
@@ -65,41 +62,16 @@ function GenericNodeAutoForm({ data }: { readonly data: WorkflowFlowNode['data']
   );
 }
 
-function GenericNodeExtension({
-  component: Component,
-  data,
-}: {
-  readonly component: ComponentType<NodeComponentProps>;
-  readonly data: WorkflowFlowNode['data'];
-}) {
-  return (
-    <div className="space-y-3">
-      <Component
-        nodeId={data.id}
-        label={data.label}
-        status={data.status}
-        parameters={data.parameters ?? {}}
-        metadata={data.metadata ?? {}}
-      />
-      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">
-        Trusted local extension UI
-      </p>
-    </div>
-  );
-}
-
 export const GenericNode = memo(function GenericNode(props: NodeProps<WorkflowFlowNode>) {
   const { data } = props;
-  const CustomComponent = useNodeExtensionComponent(data.kind, data.browserBundlePath ?? null);
   const schema = asObject(data.parameterSchema);
 
   return (
     <NodeShell {...props} accentClassName="from-slate-500/18 via-slate-300/8 to-transparent">
-      {CustomComponent ? <GenericNodeExtension component={CustomComponent} data={data} /> : null}
-      {!CustomComponent && schema ? <GenericNodeAutoForm data={data} /> : null}
-      {!CustomComponent && !schema ? (
+      {schema ? <GenericNodeAutoForm data={data} /> : null}
+      {!schema ? (
         <p className="text-xs text-slate-400">
-          Extension nodes without a GUI bundle fall back to the shared Glade shell.
+          Bayesgrove did not expose editable parameters for this node kind.
         </p>
       ) : null}
     </NodeShell>

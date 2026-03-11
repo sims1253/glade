@@ -10,9 +10,6 @@ import {
   ExtensionRegistry,
   GraphSnapshot,
   HealthResponse,
-  type NodeInputSerializer,
-  type NodeOutputParser,
-  type NodeRuntime,
   type NodeTypeDescriptor,
   ProtocolEvent,
 } from './messages';
@@ -41,24 +38,21 @@ function asString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-function asBoolean(value: unknown): boolean | null {
-  return typeof value === 'boolean' ? value : null;
-}
-
-function asStringArray(value: unknown): Array<string> {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
-}
-
 function asObjectArray(value: unknown): Array<JsonRecord> {
   return Array.isArray(value)
     ? value.map((entry) => asObject(entry)).filter((entry): entry is JsonRecord => entry !== null)
     : [];
 }
 
-function asObjectValues(value: unknown): Array<JsonRecord> {
+function asObjectEntries(value: unknown): Array<[string, JsonRecord]> {
   const record = asObject(value);
   return record
-    ? Object.values(record).map((entry) => asObject(entry)).filter((entry): entry is JsonRecord => entry !== null)
+    ? Object.entries(record)
+      .map(([key, entry]) => {
+        const object = asObject(entry);
+        return object ? [key, object] as const : null;
+      })
+      .filter((entry): entry is [string, JsonRecord] => entry !== null)
     : [];
 }
 
@@ -73,92 +67,32 @@ function firstString(...values: Array<unknown>): string | null {
   return null;
 }
 
-function libraryGuiBundlePath(libraryPath: string) {
-  const separator = libraryPath.includes('\\') && !libraryPath.includes('/') ? '\\' : '/';
-  return `${libraryPath.replace(/[\\/]+$/u, '')}${separator}inst${separator}gui${separator}index.js`;
-}
-
-function stableExtensionId(rawExtension: JsonRecord, index: number) {
+function stableExtensionId(rawExtension: JsonRecord, index: number, fallbackKey?: string) {
   return firstString(
     rawExtension.id,
     rawExtension.extension_id,
     rawExtension.package_name,
     rawExtension.name,
+    fallbackKey,
   ) ?? `extension:${index}`;
 }
 
-function normalizeNodeRuntime(value: string | null): NodeRuntime | null {
-  if (value === 'r') {
-    return 'r_session';
-  }
-
-  switch (value) {
-    case 'r_session':
-    case 'uvx':
-    case 'bunx':
-    case 'binary':
-    case 'shell':
-      return value;
-    default:
-      return null;
-  }
-}
-
-function normalizeInputSerializer(value: string | null): NodeInputSerializer | null {
-  switch (value) {
-    case 'json_file':
-    case 'json_stdin':
-    case 'argv':
-    case 'env':
-      return value;
-    default:
-      return null;
-  }
-}
-
-function normalizeOutputParser(value: string | null): NodeOutputParser | null {
-  switch (value) {
-    case 'json_file':
-    case 'json_stdout':
-    case 'lines_stdout':
-      return value;
-    default:
-      return null;
-  }
-}
-
-function normalizeNodeTypeDescriptor(value: JsonRecord): NodeTypeDescriptor | null {
-  const kind = firstString(value.kind, value.name);
+function normalizeNodeTypeDescriptor(value: JsonRecord, fallbackKind?: string): NodeTypeDescriptor | null {
+  const kind = firstString(value.kind, value.name, fallbackKind);
   if (!kind) {
     return null;
   }
 
   const id = firstString(value.id);
-  const runtime = normalizeNodeRuntime(firstString(value.runtime));
-  const command = firstString(value.command);
-  const argsTemplate = asStringArray(value.args_template);
-  const inputSerializer = normalizeInputSerializer(firstString(value.input_serializer));
-  const outputParser = normalizeOutputParser(firstString(value.output_parser));
-  const allowShell = asBoolean(value.allowShell) ?? asBoolean(value.allow_shell);
   const title = firstString(value.title);
   const description = firstString(value.description);
-  const guiBundlePath = firstString(value.gui_bundle_path);
-  const browserBundlePath = firstString(value.browser_bundle_path);
 
   return {
     ...value,
     kind,
     ...(id ? { id } : {}),
-    ...(runtime ? { runtime } : {}),
-    ...(command ? { command } : {}),
-    ...(argsTemplate.length > 0 ? { args_template: argsTemplate } : {}),
-    ...(inputSerializer ? { input_serializer: inputSerializer } : {}),
-    ...(outputParser ? { output_parser: outputParser } : {}),
-    ...(allowShell !== null ? { allowShell } : {}),
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
-    ...(guiBundlePath ? { gui_bundle_path: guiBundlePath } : {}),
-    ...(browserBundlePath ? { browser_bundle_path: browserBundlePath } : {}),
   } satisfies NodeTypeDescriptor;
 }
 
@@ -177,44 +111,83 @@ function normalizeDomainPackDescriptor(value: JsonRecord): DomainPackDescriptor 
   } satisfies DomainPackDescriptor;
 }
 
-function normalizeExtensionDescriptorInput(value: unknown, index: number): ExtensionDescriptor | null {
+function normalizeNodeTypeDescriptorCollectionInput(value: unknown) {
+  if (Array.isArray(value)) {
+    return asObjectArray(value)
+      .map((entry) => normalizeNodeTypeDescriptor(entry))
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  }
+
+  const entries = asObjectEntries(value);
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    entries
+      .map(([key, entry]) => {
+        const normalized = normalizeNodeTypeDescriptor(entry, key);
+        return normalized ? [key, normalized] as const : null;
+      })
+      .filter((entry): entry is readonly [string, NodeTypeDescriptor] => entry !== null),
+  );
+}
+
+function normalizeDomainPackDescriptorCollectionInput(value: unknown) {
+  if (Array.isArray(value)) {
+    return asObjectArray(value).map((entry) => normalizeDomainPackDescriptor(entry));
+  }
+
+  const entries = asObjectEntries(value);
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries.map(([key, entry]) => [key, normalizeDomainPackDescriptor(entry)]));
+}
+
+function normalizeExtensionDescriptorInput(value: unknown, index: number, fallbackKey?: string): ExtensionDescriptor | null {
   const rawExtension = asObject(value);
   if (!rawExtension) {
     return null;
   }
 
-  const id = stableExtensionId(rawExtension, index);
+  const id = stableExtensionId(rawExtension, index, fallbackKey);
   const packageName = firstString(rawExtension.package_name, rawExtension.name, id) ?? id;
   const version = firstString(rawExtension.version);
-  const libraryPath = firstString(rawExtension.library_path);
-  const guiBundlePath = firstString(rawExtension.gui_bundle_path) ?? (libraryPath ? libraryGuiBundlePath(libraryPath) : null);
-  const browserBundlePath = firstString(rawExtension.browser_bundle_path);
+  const nodeTypes = normalizeNodeTypeDescriptorCollectionInput(rawExtension.node_types);
+  const domainPacks = normalizeDomainPackDescriptorCollectionInput(rawExtension.domain_packs);
 
   return {
     ...rawExtension,
     id,
     package_name: packageName,
     ...(version ? { version } : {}),
-    ...(libraryPath ? { library_path: libraryPath } : {}),
-    ...(guiBundlePath ? { gui_bundle_path: guiBundlePath } : {}),
-    ...(browserBundlePath ? { browser_bundle_path: browserBundlePath } : {}),
-    node_types: normalizeExtensionDescriptorCollection(rawExtension.node_types)
-      .map((entry) => normalizeNodeTypeDescriptor(entry))
-      .filter((entry): entry is NonNullable<typeof entry> => entry !== null),
-    domain_packs: normalizeExtensionDescriptorCollection(rawExtension.domain_packs)
-      .map((entry) => normalizeDomainPackDescriptor(entry)),
+    ...(nodeTypes ? { node_types: nodeTypes } : {}),
+    ...(domainPacks ? { domain_packs: domainPacks } : {}),
   } satisfies ExtensionDescriptor;
 }
 
-function normalizeExtensionDescriptorCollection(value: unknown) {
-  return Array.isArray(value) ? asObjectArray(value) : asObjectValues(value);
-}
-
 function normalizeExtensionRegistryInput(value: unknown) {
-  const entries = normalizeExtensionDescriptorCollection(value);
-  return entries
-    .map((entry, index) => normalizeExtensionDescriptorInput(entry, index))
-    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  if (Array.isArray(value)) {
+    return asObjectArray(value)
+      .map((entry, index) => normalizeExtensionDescriptorInput(entry, index))
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  }
+
+  const entries = asObjectEntries(value);
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    entries
+      .map(([key, entry], index) => {
+        const normalized = normalizeExtensionDescriptorInput(entry, index, key);
+        return normalized ? [key, normalized] as const : null;
+      })
+      .filter((entry): entry is readonly [string, ExtensionDescriptor] => entry !== null),
+  );
 }
 
 function normalizeGraphSnapshotInput(value: unknown) {
@@ -234,7 +207,30 @@ export function normalizeGraphSnapshotExtensions(snapshot: GraphSnapshot): Graph
 }
 
 export function readExtensionRegistry(snapshot: Pick<GraphSnapshot, 'extension_registry'>) {
-  return snapshot.extension_registry ?? [];
+  const registry = snapshot.extension_registry;
+  if (!registry) {
+    return [];
+  }
+
+  return Array.isArray(registry) ? registry : Object.values(registry);
+}
+
+export function readNodeTypes(extension: Pick<ExtensionDescriptor, 'node_types'>) {
+  const nodeTypes = extension.node_types;
+  if (!nodeTypes) {
+    return [];
+  }
+
+  return Array.isArray(nodeTypes) ? nodeTypes : Object.values(nodeTypes);
+}
+
+export function readDomainPacks(extension: Pick<ExtensionDescriptor, 'domain_packs'>) {
+  const domainPacks = extension.domain_packs;
+  if (!domainPacks) {
+    return [];
+  }
+
+  return Array.isArray(domainPacks) ? domainPacks : Object.values(domainPacks);
 }
 
 export const decodeHealthResponse = makeDecoder(HealthResponse);

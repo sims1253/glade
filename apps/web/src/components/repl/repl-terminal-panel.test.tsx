@@ -56,11 +56,11 @@ describe('ReplTerminalPanel', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the hosted read-only state and clears via command', async () => {
+  it('renders the interactive session terminal and clears via command', async () => {
     render(<ReplTerminalPanel dispatchCommand={dispatchCommand} />);
 
-    expect(screen.getByText('Console output')).toBeInTheDocument();
-    expect(screen.getByText(/Interactive REPL unavailable in hosted mode/i)).toBeInTheDocument();
+    expect(screen.getByText('Shared R session')).toBeInTheDocument();
+    expect(screen.getByText('interactive')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Clear/i }));
 
@@ -76,7 +76,7 @@ describe('ReplTerminalPanel', () => {
     expect(screen.getByText('REPL terminal hidden')).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: '`', ctrlKey: true });
-    expect(screen.getByText('Console output')).toBeInTheDocument();
+    expect(screen.getByText('Shared R session')).toBeInTheDocument();
   });
 
   it('falls back to the /terminal route when native detach fails', async () => {

@@ -88,7 +88,6 @@ vi.mock('../hooks/useRpcClient', () => ({
       renameNode: vi.fn(),
       recordDecision: vi.fn(),
       executeAction: workflowExecuteAction,
-      executeNode: vi.fn(),
       updateNodeNotes: vi.fn(),
       updateNodeParameters: vi.fn(),
       setNodeFile: vi.fn(),
@@ -102,9 +101,6 @@ vi.mock('../hooks/useRpcClient', () => ({
     },
     host: {
       openInEditor: hostOpenInEditor,
-    },
-    system: {
-      getInfo: vi.fn(),
     },
     reconnect,
   }),

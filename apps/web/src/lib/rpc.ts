@@ -8,15 +8,12 @@ import type {
   HostOpenInEditorInput,
   RpcError,
   SessionRestartInput,
-  SystemGetInfoInput,
-  SystemInfoResult,
   WebSocketRequest,
   WebSocketResponse,
   WorkflowAddNodeInput,
   WorkflowConnectNodesInput,
   WorkflowDeleteNodeInput,
   WorkflowExecuteActionInput,
-  WorkflowExecuteNodeInput,
   WorkflowRecordDecisionInput,
   WorkflowRenameNodeInput,
   WorkflowSetNodeFileInput,
@@ -39,7 +36,6 @@ export interface WorkflowRpc {
   readonly renameNode: (input: WithoutTag<WorkflowRenameNodeInput>) => Promise<RpcCallResult<AckResult>>;
   readonly recordDecision: (input: WithoutTag<WorkflowRecordDecisionInput>) => Promise<RpcCallResult<AckResult>>;
   readonly executeAction: (input: WithoutTag<WorkflowExecuteActionInput>) => Promise<RpcCallResult<AckResult>>;
-  readonly executeNode: (input: WithoutTag<WorkflowExecuteNodeInput>) => Promise<RpcCallResult<AckResult>>;
   readonly updateNodeNotes: (input: WithoutTag<WorkflowUpdateNodeNotesInput>) => Promise<RpcCallResult<AckResult>>;
   readonly updateNodeParameters: (input: WithoutTag<WorkflowUpdateNodeParametersInput>) => Promise<RpcCallResult<AckResult>>;
   readonly setNodeFile: (input: WithoutTag<WorkflowSetNodeFileInput>) => Promise<RpcCallResult<AckResult>>;
@@ -65,17 +61,12 @@ export interface HostRpc {
   readonly openInEditor: (input: WithoutTag<HostOpenInEditorInput>) => Promise<RpcCallResult<AckResult>>;
 }
 
-export interface SystemRpc {
-  readonly getInfo: (input?: WithoutTag<SystemGetInfoInput>) => Promise<RpcCallResult<SystemInfoResult>>;
-}
-
 export interface RpcClient {
   readonly desktop: DesktopRpc;
   readonly workflow: WorkflowRpc;
   readonly session: SessionRpc;
   readonly repl: ReplRpc;
   readonly host: HostRpc;
-  readonly system: SystemRpc;
   readonly reconnect: () => void;
 }
 
@@ -120,8 +111,6 @@ export function describeRpcCall(method: WebSocketRequest['method'], body: WebSoc
       return 'Recorded workflow decision';
     case 'workflow.executeAction':
       return 'Executed workflow action';
-    case 'workflow.executeNode':
-      return 'Executed node';
     case 'workflow.updateNodeNotes':
       return 'Saved node notes';
     case 'workflow.updateNodeParameters':
@@ -136,15 +125,13 @@ export function describeRpcCall(method: WebSocketRequest['method'], body: WebSoc
       return 'Cleared REPL terminal';
     case 'host.openInEditor':
       return 'Opened linked file in editor';
-    case 'system.getInfo':
-      return 'Loaded system info';
     default:
       return assertUnreachable(method);
   }
 }
 
 export function shouldSuppressSuccessToast(method: WebSocketRequest['method']) {
-  return method === 'repl.write' || method === 'repl.clear' || method === 'system.getInfo';
+  return method === 'repl.write' || method === 'repl.clear';
 }
 
 export function failureTitle(method: WebSocketRequest['method']) {
@@ -169,8 +156,6 @@ export function failureTitle(method: WebSocketRequest['method']) {
       return 'Could not record workflow decision';
     case 'workflow.executeAction':
       return 'Could not execute workflow action';
-    case 'workflow.executeNode':
-      return 'Could not execute node';
     case 'workflow.updateNodeNotes':
       return 'Could not save node notes';
     case 'workflow.updateNodeParameters':
@@ -185,8 +170,6 @@ export function failureTitle(method: WebSocketRequest['method']) {
       return 'Could not clear REPL terminal';
     case 'host.openInEditor':
       return 'Could not open file in editor';
-    case 'system.getInfo':
-      return 'Could not load system info';
     default:
       return assertUnreachable(method);
   }

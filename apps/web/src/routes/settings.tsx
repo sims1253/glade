@@ -146,9 +146,9 @@ export function SettingsRoute() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Settings</p>
-              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Desktop environment and updates</h1>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Desktop Bayesgrove environment</h1>
               <p className="mt-2 max-w-3xl text-sm text-slate-600">
-                Manage the renderer-scoped session settings shared by the workspace and detached terminal.
+                Manage the local R, bayesgrove, and update settings shared by the workspace and detached terminal.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -168,7 +168,7 @@ export function SettingsRoute() {
 
         {desktopEnvironment && desktopIssues.length > 0 ? (
           <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-amber-950">Environment checks need attention</h2>
+            <h2 className="text-xl font-semibold text-amber-950">Bayesgrove desktop checks need attention</h2>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               {desktopIssues.map((issue) => (
                 <article key={`${issue.code}-${issue.title}`} className="rounded-[1.5rem] border border-amber-200 bg-white p-5">
@@ -338,8 +338,8 @@ export function SettingsRoute() {
           </div>
         ) : (
           <section className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <h2 className="text-xl font-semibold text-slate-900">Desktop settings are unavailable in this runtime.</h2>
-            <p className="mt-2 text-sm text-slate-500">Open Glade in the desktop shell to manage local environment checks and updates.</p>
+            <h2 className="text-xl font-semibold text-slate-900">Desktop settings are only available in the Glade desktop app.</h2>
+            <p className="mt-2 text-sm text-slate-500">Open the desktop app to manage local R, bayesgrove, and update checks.</p>
           </section>
         )}
       </div>

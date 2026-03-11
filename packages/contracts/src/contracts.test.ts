@@ -10,6 +10,9 @@ import {
   decodeWebSocketRequest,
   decodeWebSocketResponse,
   decodeWsPush,
+  readDomainPacks,
+  readExtensionRegistry,
+  readNodeTypes,
 } from './decode';
 import {
   AckResult,
@@ -19,7 +22,6 @@ import {
   HealthResponse,
   RpcError,
   ServerBootstrap,
-  SystemInfoResult,
   WebSocketRequest,
   WebSocketResponse,
   WsPush,
@@ -66,20 +68,32 @@ const snapshot: GraphSnapshot = {
   pending_gates: {},
   branches: {},
   branch_goals: {},
+  command_surface: {
+    workflow: {
+      add_node: {
+        kinds: {
+          posterior_summary: {
+            title: 'Posterior summary',
+            description: 'Summarize posterior draws.',
+            parameter_schema: {
+              type: 'object',
+              properties: {
+                draws: { type: 'number' },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
   extension_registry: [
     {
       id: 'pkg:test-extension',
       package_name: 'test.extension',
       version: '0.1.0',
-      browser_bundle_path: '/extension-bundles/test-extension.js',
       node_types: [
         {
           kind: 'posterior_summary',
-          runtime: 'uvx',
-          command: 'elicito',
-          args_template: ['--input', '{input_json_path}', '--output', '{output_json_path}'],
-          input_serializer: 'json_file',
-          output_parser: 'json_file',
           title: 'Posterior summary',
           description: 'Summarize posterior draws.',
           parameter_schema: {
@@ -195,56 +209,44 @@ const requestFixtures: ReadonlyArray<Schema.Schema.Type<typeof WebSocketRequest>
   {
     _tag: 'WebSocketRequest',
     id: 'req-7',
-    method: 'workflow.executeNode',
-    body: { _tag: 'workflow.executeNode', nodeId: 'node_a', confirmNonLocalExecution: true },
-  },
-  {
-    _tag: 'WebSocketRequest',
-    id: 'req-8',
     method: 'workflow.updateNodeNotes',
     body: { _tag: 'workflow.updateNodeNotes', nodeId: 'node_a', notes: 'Updated notes' },
   },
   {
     _tag: 'WebSocketRequest',
-    id: 'req-9',
+    id: 'req-8',
     method: 'workflow.updateNodeParameters',
     body: { _tag: 'workflow.updateNodeParameters', nodeId: 'node_a', params: { alpha: 0.5 } },
   },
   {
     _tag: 'WebSocketRequest',
-    id: 'req-10',
+    id: 'req-9',
     method: 'workflow.setNodeFile',
     body: { _tag: 'workflow.setNodeFile', nodeId: 'node_a', path: '/tmp/file.R' },
   },
   {
     _tag: 'WebSocketRequest',
-    id: 'req-11',
+    id: 'req-10',
     method: 'session.restart',
     body: { _tag: 'session.restart' },
   },
   {
     _tag: 'WebSocketRequest',
-    id: 'req-12',
+    id: 'req-11',
     method: 'repl.write',
     body: { _tag: 'repl.write', data: '1 + 1\n' },
   },
   {
     _tag: 'WebSocketRequest',
-    id: 'req-13',
+    id: 'req-12',
     method: 'repl.clear',
     body: { _tag: 'repl.clear' },
   },
   {
     _tag: 'WebSocketRequest',
-    id: 'req-14',
+    id: 'req-13',
     method: 'host.openInEditor',
     body: { _tag: 'host.openInEditor', path: '/tmp/file.R' },
-  },
-  {
-    _tag: 'WebSocketRequest',
-    id: 'req-15',
-    method: 'system.getInfo',
-    body: { _tag: 'system.getInfo' },
   },
 ];
 
@@ -255,8 +257,6 @@ const pushFixtures: ReadonlyArray<Schema.Schema.Type<typeof WsPush>> = [
     payload: {
       _tag: 'ServerBootstrap',
       version: '0.11.2',
-      runtime: 'desktop',
-      hostedMode: false,
       projectPath: '/tmp/project',
       sessionStatus: { _tag: 'SessionStatus', state: 'ready' },
       desktopEnvironment,
@@ -354,20 +354,6 @@ describe('contracts', () => {
     });
 
     roundTrip(WebSocketResponse, {
-      _tag: 'WebSocketSuccess',
-      id: 'req-15',
-      method: 'system.getInfo',
-      result: {
-        _tag: 'SystemInfo',
-        platform: 'linux',
-        arch: 'x64',
-        hostedMode: false,
-        runtime: 'desktop',
-        projectPath: '/tmp/project',
-      },
-    });
-
-    roundTrip(WebSocketResponse, {
       _tag: 'WebSocketError',
       id: 'req-2',
       method: 'workflow.deleteNode',
@@ -397,14 +383,6 @@ describe('contracts', () => {
 
     roundTrip(ServerBootstrap, bootstrapFixture.payload);
     roundTrip(AckResult, { _tag: 'AckResult' });
-    roundTrip(SystemInfoResult, {
-      _tag: 'SystemInfo',
-      platform: 'darwin',
-      arch: 'arm64',
-      hostedMode: true,
-      runtime: 'server',
-      projectPath: null,
-    });
   });
 
   it('decodes extension registry descriptors into canonical snake_case fields', async () => {
@@ -413,11 +391,9 @@ describe('contracts', () => {
       extension_registry: {
         test_extension: {
           name: 'test.extension',
-          library_path: '/tmp/test.extension',
           node_types: {
             posterior_summary: {
               name: 'posterior_summary',
-              runtime: 'r',
               title: 'Posterior summary',
             },
           },
@@ -430,26 +406,38 @@ describe('contracts', () => {
       },
     }));
 
-    expect(decoded.extension_registry).toEqual([
-      {
+    expect(decoded.extension_registry).toEqual({
+      test_extension: {
         id: 'test.extension',
         name: 'test.extension',
         package_name: 'test.extension',
-        library_path: '/tmp/test.extension',
-        gui_bundle_path: '/tmp/test.extension/inst/gui/index.js',
-        node_types: [
-          {
+        node_types: {
+          posterior_summary: {
             kind: 'posterior_summary',
             name: 'posterior_summary',
-            runtime: 'r_session',
             title: 'Posterior summary',
           },
-        ],
-        domain_packs: [
-          {
+        },
+        domain_packs: {
+          reporting: {
             title: 'Reporting',
           },
-        ],
+        },
+      },
+    });
+
+    const extension = readExtensionRegistry(decoded)[0];
+    expect(extension).toBeDefined();
+    expect(readNodeTypes(extension!)).toEqual([
+      {
+        kind: 'posterior_summary',
+        name: 'posterior_summary',
+        title: 'Posterior summary',
+      },
+    ]);
+    expect(readDomainPacks(extension!)).toEqual([
+      {
+        title: 'Reporting',
       },
     ]);
   });
@@ -483,11 +471,7 @@ describe('contracts', () => {
       node_types: [
         {
           kind: 'prior_elicitation',
-          runtime: 'uvx',
-          command: 'elicito',
-          args_template: ['--input', '{input_json_path}', '--output', '{output_json_path}'],
-          input_serializer: 'json_file',
-          output_parser: 'json_file',
+          title: 'Prior elicitation',
         },
       ],
     }));
@@ -495,11 +479,7 @@ describe('contracts', () => {
     expect(descriptor.node_types).toEqual([
       expect.objectContaining({
         kind: 'prior_elicitation',
-        runtime: 'uvx',
-        command: 'elicito',
-        args_template: ['--input', '{input_json_path}', '--output', '{output_json_path}'],
-        input_serializer: 'json_file',
-        output_parser: 'json_file',
+        title: 'Prior elicitation',
       }),
     ]);
   });
@@ -543,16 +523,9 @@ describe('contracts', () => {
     }));
     const response = await Effect.runPromise(decodeWebSocketResponse({
       _tag: 'WebSocketSuccess',
-      id: 'req-15',
-      method: 'system.getInfo',
-      result: {
-        _tag: 'SystemInfo',
-        platform: 'linux',
-        arch: 'x64',
-        hostedMode: false,
-        runtime: 'desktop',
-        projectPath: '/tmp/project',
-      },
+      id: 'req-1',
+      method: 'workflow.addNode',
+      result: { _tag: 'AckResult' },
     }));
 
     expect(bootstrap._tag).toBe('ServerBootstrap');

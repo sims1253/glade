@@ -27,7 +27,6 @@ function makeProps(): NodeProps<WorkflowFlowNode> {
     parameterSchema: null,
     extensionId: null,
     extensionPackageName: null,
-    browserBundlePath: null,
     summaries: [],
     decisions: [],
     metadata: null,

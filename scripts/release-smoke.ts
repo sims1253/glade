@@ -87,18 +87,10 @@ async function assertDesktopArtifacts(outputDir: string) {
   }
 }
 
-async function assertStandaloneArtifacts(outputDir: string) {
-  const entries = await readdir(outputDir, { withFileTypes: true });
-  if (!entries.some((entry) => entry.isFile() && entry.name.startsWith('glade-server-'))) {
-    throw new Error(`Missing expected release smoke standalone artifact in ${outputDir}`);
-  }
-}
-
 await rm(smokeRoot, { recursive: true, force: true });
 
 const version = await loadVersion();
 const desktopOutputDir = path.join(smokeRoot, 'desktop');
-const standaloneOutputDir = path.join(smokeRoot, 'standalone');
 const desktopTargets = currentTargets().builderTargets;
 
 await run(process.execPath, [
@@ -115,13 +107,4 @@ await run(process.execPath, [
   desktopOutputDir,
 ]);
 
-await run(process.execPath, [
-  path.join(root, 'scripts', 'build-standalone-server.ts'),
-  '--version',
-  version,
-  '--output-dir',
-  standaloneOutputDir,
-]);
-
 await assertDesktopArtifacts(desktopOutputDir);
-await assertStandaloneArtifacts(standaloneOutputDir);

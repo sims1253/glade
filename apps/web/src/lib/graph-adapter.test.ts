@@ -69,7 +69,6 @@ describe('adaptSnapshotToGraph', () => {
     expect(graph.nodesById.ext_1).toMatchObject({
       kind: 'posterior_summary',
       extensionId: null,
-      browserBundlePath: null,
     });
   });
 
@@ -128,13 +127,11 @@ describe('adaptSnapshotToGraph', () => {
       extension_registry: {
         test_extension: {
           package_name: 'test.extension',
-          browser_bundle_path: '/extension-bundles/test-extension.js',
           node_types: {
             posterior_summary: {
               kind: 'posterior_summary',
               title: 'Posterior summary',
               description: 'Summarize posterior draws.',
-              browser_bundle_path: '/extension-bundles/test-extension.js',
               parameter_schema: {
                 type: 'object',
                 properties: {
@@ -153,17 +150,14 @@ describe('adaptSnapshotToGraph', () => {
       expect.objectContaining({
         id: 'test.extension',
         packageName: 'test.extension',
-        browserBundlePath: '/extension-bundles/test-extension.js',
         nodeKinds: ['posterior_summary'],
       }),
     ]);
 
     expect(graph.nodeKindsByKind.posterior_summary).toMatchObject({
       kind: 'posterior_summary',
-      runtime: 'r_session',
       extensionId: 'test.extension',
       extensionPackageName: 'test.extension',
-      browserBundlePath: '/extension-bundles/test-extension.js',
       parameterSchema: {
         type: 'object',
         properties: {
@@ -174,10 +168,8 @@ describe('adaptSnapshotToGraph', () => {
 
     expect(graph.nodesById.ext_1).toMatchObject({
       kind: 'posterior_summary',
-      runtime: 'r_session',
       extensionId: 'test.extension',
       extensionPackageName: 'test.extension',
-      browserBundlePath: '/extension-bundles/test-extension.js',
       parameters: {
         draws: 200,
       },
@@ -245,34 +237,24 @@ describe('adaptSnapshotToGraph', () => {
     expect(warning).toHaveBeenCalledTimes(2);
   });
 
-  it('hydrates multi-runtime extension descriptors onto node kinds and nodes', async () => {
+  it('derives addable node kinds from command_surface when the legacy registry catalog is absent', async () => {
     const snapshot = await Effect.runPromise(decodeGraphSnapshot({
       protocol_version: '0.1.0',
       message_type: 'GraphSnapshot',
       emitted_at: '2026-03-09T12:00:00.000Z',
-      project_id: 'proj_extensions',
-      project_name: 'extension-ui',
+      project_id: 'proj_command_surface',
+      project_name: 'command-surface',
       graph: {
         version: 1,
         registry: {
           kinds: {},
         },
-        nodes: {
-          elicito_1: {
-            id: 'elicito_1',
-            kind: 'prior_elicitation',
-            label: 'Prior elicitation',
-            params: {
-              shape: 'normal',
-            },
-            metadata: {},
-          },
-        },
+        nodes: {},
         edges: {},
       },
       status: {
         workflow_state: 'open',
-        runnable_nodes: 1,
+        runnable_nodes: 0,
         blocked_nodes: 0,
         pending_gates: 0,
         active_jobs: 0,
@@ -297,31 +279,38 @@ describe('adaptSnapshotToGraph', () => {
           actions: {},
         },
       },
-      extension_registry: [
-        {
-          id: 'elicito.node.pack',
-          package_name: 'elicito.node.pack',
-          node_types: [
-            {
-              kind: 'prior_elicitation',
-              runtime: 'uvx',
-              command: 'elicito',
+      command_surface: {
+        workflow: {
+          add_node: {
+            kinds: {
+              compare: {
+                title: 'Compare fits',
+                description: 'Compare candidate fits.',
+                parameter_schema: {
+                  type: 'object',
+                  properties: {
+                    baseline: { type: 'string', title: 'Baseline fit' },
+                  },
+                },
+              },
             },
-          ],
-          domain_packs: [],
+          },
         },
-      ],
+      },
     }));
 
     const graph = adaptSnapshotToGraph(snapshot);
 
-    expect(graph.nodeKindsByKind.prior_elicitation).toMatchObject({
-      runtime: 'uvx',
-      command: 'elicito',
-    });
-    expect(graph.nodesById.elicito_1).toMatchObject({
-      runtime: 'uvx',
-      command: 'elicito',
+    expect(graph.nodeKindsByKind.compare).toMatchObject({
+      kind: 'compare',
+      label: 'Compare fits',
+      description: 'Compare candidate fits.',
+      parameterSchema: {
+        type: 'object',
+        properties: {
+          baseline: { type: 'string', title: 'Baseline fit' },
+        },
+      },
     });
   });
 });

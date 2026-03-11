@@ -7,8 +7,6 @@ import * as Layer from 'effect/Layer';
 import { DEFAULT_SERVER_PORT } from '@glade/shared';
 import { version } from '../package.json' with { type: 'json' };
 
-const RuntimeSchema = Schema.Literal('desktop', 'server');
-
 const ServerConfigSchema = Schema.Struct({
   host: Schema.String,
   nodeEnv: Schema.Literal('development', 'production'),
@@ -18,8 +16,6 @@ const ServerConfigSchema = Schema.Struct({
   version: Schema.String,
   viteDevServerUrl: Schema.NullOr(Schema.String),
   projectPath: Schema.NullOr(Schema.String),
-  runtime: RuntimeSchema,
-  hostedMode: Schema.Boolean,
   editorCommand: Schema.String,
   rExecutable: Schema.String,
   rHost: Schema.String,
@@ -38,7 +34,6 @@ export class ServerConfig extends Context.Tag('glade/ServerConfig')<
 
 export const ServerConfigLive = Layer.sync(ServerConfig, () => {
   const rootDir = process.env.BAYESGROVE_APP_ROOT?.trim() || path.resolve(import.meta.dirname, '../../..');
-  const runtime = process.env.BAYESGROVE_RUNTIME === 'desktop' ? 'desktop' : 'server';
   const projectPath = process.env.BAYESGROVE_PROJECT_PATH?.trim() || null;
 
   return Schema.decodeUnknownSync(ServerConfigSchema)({
@@ -50,8 +45,6 @@ export const ServerConfigLive = Layer.sync(ServerConfig, () => {
     version,
     viteDevServerUrl: process.env.VITE_DEV_SERVER_URL?.trim() || null,
     projectPath,
-    runtime,
-    hostedMode: runtime !== 'desktop',
     editorCommand: process.env.BAYESGROVE_EDITOR?.trim() || process.env.EDITOR?.trim() || 'code',
     rExecutable: process.env.BAYESGROVE_R_PATH?.trim() || 'Rscript',
     rHost: process.env.BAYESGROVE_R_HOST?.trim() || '127.0.0.1',

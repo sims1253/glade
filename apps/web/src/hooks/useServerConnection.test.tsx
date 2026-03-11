@@ -139,8 +139,6 @@ beforeEach(() => {
     serverVersion: null,
     sessionState: 'connecting',
     sessionReason: null,
-    runtime: null,
-    hostedMode: null,
     projectPath: null,
     bootstrapped: false,
   });
@@ -158,8 +156,6 @@ describe('useServerConnection', () => {
   const bootstrap: ServerBootstrap = {
     _tag: 'ServerBootstrap',
     version: '0.4.0',
-    runtime: 'server',
-    hostedMode: true,
     projectPath: null,
     sessionStatus: {
       _tag: 'SessionStatus',

@@ -3,11 +3,10 @@ import type {
   JsonObject,
   JsonValue,
   RpcError,
-  SystemInfoResult,
 } from '@glade/contracts';
 
 import { isJsonValue, toJsonObject, toJsonValue } from './json';
-import type { HostRpc, ReplRpc, RpcCallResult, SessionRpc, SystemRpc, WorkflowRpc } from './rpc';
+import type { HostRpc, ReplRpc, RpcCallResult, SessionRpc, WorkflowRpc } from './rpc';
 import { randomUUID } from './utils';
 
 export interface LegacyCommandResult {
@@ -29,7 +28,6 @@ export type LegacyWorkflowCommand =
   | { readonly type: 'RenameNode'; readonly nodeId: string; readonly label: string }
   | { readonly type: 'RecordDecision'; readonly scope: string; readonly prompt: string; readonly choice: string; readonly rationale: string; readonly alternatives?: ReadonlyArray<string> | undefined; readonly refs?: ReadonlyArray<unknown> | undefined; readonly evidence?: ReadonlyArray<string> | undefined; readonly kind?: string | undefined; readonly metadata?: Record<string, unknown> | undefined }
   | { readonly type: 'ExecuteAction'; readonly actionId: string; readonly payload?: Record<string, unknown> | undefined }
-  | { readonly type: 'ExecuteNode'; readonly nodeId: string; readonly confirmNonLocalExecution?: boolean | undefined }
   | { readonly type: 'UpdateNodeNotes'; readonly nodeId: string; readonly notes: string }
   | { readonly type: 'UpdateNodeParameters'; readonly nodeId: string; readonly params: Record<string, unknown> }
   | { readonly type: 'SetNodeFile'; readonly nodeId: string; readonly path: string | null }
@@ -38,8 +36,7 @@ export type LegacyWorkflowCommand =
   | { readonly type: 'ClearRepl' };
 
 export type LegacyHostCommand =
-  | { readonly type: 'OpenFileInEditor'; readonly path: string }
-  | { readonly type: 'GetSystemInfo' };
+  | { readonly type: 'OpenFileInEditor'; readonly path: string };
 
 export type LegacyWorkflowDispatch = (command: LegacyWorkflowCommand) => Promise<LegacyCommandResult>;
 export type LegacyHostDispatch = (command: LegacyHostCommand) => Promise<LegacyCommandResult>;
@@ -97,7 +94,6 @@ export function workflowRpcFromLegacyDispatch(dispatch: LegacyWorkflowDispatch):
     renameNode: async (input) => fromLegacyAck(await dispatch({ type: 'RenameNode', ...input })),
     recordDecision: async (input) => fromLegacyAck(await dispatch({ type: 'RecordDecision', ...input })),
     executeAction: async (input) => fromLegacyAck(await dispatch({ type: 'ExecuteAction', ...input })),
-    executeNode: async (input) => fromLegacyAck(await dispatch({ type: 'ExecuteNode', ...input })),
     updateNodeNotes: async (input) => fromLegacyAck(await dispatch({ type: 'UpdateNodeNotes', ...input })),
     updateNodeParameters: async (input) => fromLegacyAck(await dispatch({ type: 'UpdateNodeParameters', ...input })),
     setNodeFile: async (input) => fromLegacyAck(await dispatch({ type: 'SetNodeFile', ...input })),
@@ -158,13 +154,6 @@ export function legacyWorkflowDispatchFromRpc(
           actionId: command.actionId,
           ...(command.payload === undefined ? {} : { payload: toJsonObject(command.payload) }),
         }));
-      case 'ExecuteNode':
-        return toLegacyResult(await workflow.executeNode({
-          nodeId: command.nodeId,
-          ...(command.confirmNonLocalExecution === undefined
-            ? {}
-            : { confirmNonLocalExecution: command.confirmNonLocalExecution }),
-        }));
       case 'UpdateNodeNotes':
         return toLegacyResult(await workflow.updateNodeNotes({ nodeId: command.nodeId, notes: command.notes }));
       case 'UpdateNodeParameters':
@@ -186,17 +175,8 @@ export function legacyWorkflowDispatchFromRpc(
   };
 }
 
-export function legacyHostDispatchFromRpc(host: HostRpc, system: SystemRpc): LegacyHostDispatch {
-  return async (command) => {
-    switch (command.type) {
-      case 'OpenFileInEditor':
-        return toLegacyResult(await host.openInEditor({ path: command.path }));
-      case 'GetSystemInfo':
-        return toLegacyResult(await system.getInfo());
-      default:
-        return assertUnreachable(command);
-    }
-  };
+export function legacyHostDispatchFromRpc(host: HostRpc): LegacyHostDispatch {
+  return async (command) => toLegacyResult(await host.openInEditor({ path: command.path }));
 }
 
 export function createWorkflowCommandEnvelope(
@@ -207,8 +187,4 @@ export function createWorkflowCommandEnvelope(
     id,
     command,
   };
-}
-
-export function toLegacySystemInfo(result: RpcCallResult<SystemInfoResult>): LegacyCommandResult {
-  return toLegacyResult(result);
 }

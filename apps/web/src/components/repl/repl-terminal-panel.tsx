@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { Copy, CornerDownLeft, ExternalLink, TerminalSquare, Trash2 } from 'lucide-react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
@@ -6,7 +6,6 @@ import 'xterm/css/xterm.css';
 
 import {
   canDetachTerminal,
-  isDesktopRuntime,
   readDesktopBridge,
   subscribeToDetachedTerminalState,
 } from '../../lib/runtime';
@@ -224,11 +223,6 @@ function TerminalSurface({
   return (
     <div className="relative h-full overflow-hidden rounded-[1.5rem] border border-slate-800/80 bg-[#050b14]">
       <div ref={terminalHostRef} className="h-full min-h-0 w-full px-3 py-3" />
-      {!interactive ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#050b14] via-[#050b14]/95 to-transparent px-4 py-3 text-xs text-amber-200">
-          Interactive REPL unavailable in hosted mode. Console output remains visible for this session.
-        </div>
-      ) : null}
       {sessionState === 'error' ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 bg-rose-950/80 px-4 py-2 text-xs text-rose-100">
           Session error{sessionReason ? `: ${sessionReason}` : ''}.
@@ -258,13 +252,13 @@ export function ReplTerminalPanel({
   const setReplDetached = useReplStore((state) => state.setReplDetached);
   const replLines = useReplStore((state) => state.replLines);
   const sessionState = useConnectionStore((state) => state.sessionState);
-  const [interactive, setInteractive] = useState(() => isDesktopRuntime());
+  const interactive = true;
   const resolvedPanelOpen = panelOpen ?? storedPanelOpen;
   const setResolvedPanelOpen = onPanelOpenChange ?? setStoredPanelOpen;
   const resolvedPanelHeight = panelHeight ?? storedPanelHeight;
   const setResolvedPanelHeight = onPanelHeightChange ?? setStoredPanelHeight;
   const resolvedPresentation = detachedView ? 'detached' : presentation;
-  const detachable = interactive && canDetachTerminal() && !detachedView;
+  const detachable = canDetachTerminal() && !detachedView;
 
   const getResizeBounds = () => {
     const fallbackRect = {
@@ -291,16 +285,6 @@ export function ReplTerminalPanel({
       minHeight,
     };
   };
-
-  useEffect(() => {
-    const syncRuntime = () => {
-      setInteractive(isDesktopRuntime());
-    };
-
-    syncRuntime();
-    const timeout = window.setTimeout(syncRuntime, 250);
-    return () => window.clearTimeout(timeout);
-  }, []);
 
   useEffect(() => {
     if (detachedView) {
@@ -454,24 +438,23 @@ export function ReplTerminalPanel({
       <header className="flex items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/95 px-5 py-4">
         <div>
           <p className="text-xs uppercase tracking-[0.26em] text-sky-300/80">Workspace terminal</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-100">
-            {interactive ? 'Shared R session' : 'Console output'}
-          </h2>
+          <h2 className="mt-1 text-lg font-semibold text-slate-100">Shared R session</h2>
+          <p className="mt-1 text-sm text-slate-400">Run ad hoc checks in the live Bayesgrove session without leaving the workspace.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-slate-700/80 px-3 py-1 text-xs text-slate-300">
-            {interactive ? 'interactive' : 'read-only'}
+            interactive
           </span>
           <span className="rounded-full border border-slate-700/80 px-3 py-1 text-xs text-slate-300">
             session {sessionState}
           </span>
           <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => void handleClear()} variant="ghost">
             <Trash2 className="size-4" />
-            Clear
+            Clear output
           </Button>
           <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => void handleCopyLogs()} variant="ghost">
             <Copy className="size-4" />
-            Copy logs
+            Copy output
           </Button>
           {detachable ? (
             <Button

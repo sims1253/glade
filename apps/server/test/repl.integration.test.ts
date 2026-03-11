@@ -95,7 +95,6 @@ describe('phase 7 repl terminal', () => {
         BAYESGROVE_STATE_DIR: stateDir,
         BAYESGROVE_SERVER_PORT: String(port),
         BAYESGROVE_R_PORT: String(rPort),
-        BAYESGROVE_RUNTIME: 'desktop',
         NODE_ENV: 'production',
       },
       stdio: 'inherit',

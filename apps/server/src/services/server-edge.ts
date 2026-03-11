@@ -25,7 +25,6 @@ import {
   type RpcError,
   type ServerBootstrap,
   type SessionStatus,
-  type SystemInfoResult,
   type WebSocketRequest,
   type WebSocketResponse,
   type WsPush,
@@ -33,26 +32,16 @@ import {
 } from '@glade/contracts';
 
 import { ServerConfig } from '../config';
-import { cacheSnapshotExtensionBundles } from '../lib/extension-registry';
 import {
   CommandDispatchError,
-  HostedCapabilityError,
   RSessionUnavailableError,
 } from '../errors';
 import { BayesgroveSocket } from './bayesgrove-socket';
 import { toExecuteActionCommand } from './execute-action';
-import {
-  mergeToolExecutionMetadata,
-  resolveNodeExecution,
-  toSubmitNodeCommand,
-  toUpdateNodeMetadataCommand,
-} from './execute-node';
 import { GraphStateCache } from './graph-state-cache';
-import { ProcessSupervisor } from './process-supervisor';
 import { RProcessService } from './r-process';
 import { SessionStatusStore } from './session-status';
 import { DesktopEnvironmentService } from './desktop-environment';
-import { executeToolNode } from './tool-runtime';
 import { WebSocketHub } from './websocket-hub';
 
 export class ServerEdge extends Context.Tag('glade/ServerEdge')<
@@ -88,7 +77,7 @@ function rpcError(code: string, message: string, details?: unknown): RpcError {
 function successResponse(
   id: string,
   method: WebSocketRequest['method'],
-  result: AckResult | DesktopEnvironmentState | SystemInfoResult,
+  result: AckResult | DesktopEnvironmentState,
 ): WebSocketResponse {
   return {
     _tag: 'WebSocketSuccess',
@@ -155,7 +144,8 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
         scopes: [],
       },
     }) as GraphSnapshot['protocol'],
-    extension_registry: (state.extension_registry ?? []) as GraphSnapshot['extension_registry'],
+    ...(state.command_surface === undefined ? {} : { command_surface: state.command_surface as GraphSnapshot['command_surface'] }),
+    ...(state.extension_registry === undefined ? {} : { extension_registry: state.extension_registry as GraphSnapshot['extension_registry'] }),
   });
 }
 
@@ -282,7 +272,7 @@ function wrapCommandMappingError(cause: unknown) {
 }
 
 function commandErrorPayload(error: unknown): RpcError {
-  if (error instanceof HostedCapabilityError || error instanceof CommandDispatchError) {
+  if (error instanceof CommandDispatchError) {
     return rpcError(error.code, error.message);
   }
 
@@ -331,12 +321,10 @@ export const ServerEdgeLive = Layer.scoped(
     const bayesgroveSocket = yield* BayesgroveSocket;
     const cache = yield* GraphStateCache;
     const hub = yield* WebSocketHub;
-    const processSupervisor = yield* ProcessSupervisor;
     const statusStore = yield* SessionStatusStore;
     const effectRuntime = yield* Effect.runtime<never>();
     const pendingRequests = yield* Ref.make(new Map<string, PendingRequest>());
     const refreshInFlight = yield* Ref.make(false);
-    const approvedNonLocalExecutions = yield* Ref.make(new Set<string>());
 
     const publishStatus = (state: SessionStatus['state'], reason?: string) =>
       Effect.gen(function* () {
@@ -372,14 +360,7 @@ export const ServerEdgeLive = Layer.scoped(
       );
     });
 
-    const prepareSnapshot = (snapshot: GraphSnapshot) =>
-      Effect.tryPromise(() => cacheSnapshotExtensionBundles(snapshot, config.stateDir)).pipe(
-        Effect.catchAll((error) =>
-          publishStatus('error', `snapshot_cache_failed:${error instanceof Error ? error.message : String(error)}`).pipe(
-            Effect.zipRight(Effect.succeed(snapshot)),
-          )),
-      );
-
+    const prepareSnapshot = (snapshot: GraphSnapshot) => Effect.succeed(snapshot);
     const registerPending = (id: string, method: WebSocketRequest['method'], socket: WebSocket) =>
       Ref.update(pendingRequests, (current) => new Map(current).set(id, { socket, method }));
 
@@ -479,26 +460,7 @@ export const ServerEdgeLive = Layer.scoped(
             yield* hub.send(socket, successResponse(request.id, request.method, result));
             return;
           }
-          case 'system.getInfo': {
-            const result: SystemInfoResult = {
-              _tag: 'SystemInfo',
-              platform: process.platform,
-              arch: process.arch,
-              hostedMode: config.hostedMode,
-              runtime: config.runtime,
-              projectPath: config.projectPath,
-            };
-            yield* hub.send(socket, successResponse(request.id, request.method, result));
-            return;
-          }
           case 'host.openInEditor': {
-            if (config.hostedMode) {
-              return yield* new HostedCapabilityError({
-                code: 'unsupported_in_hosted_mode',
-                message: 'OpenInEditor is unavailable in hosted mode.',
-              });
-            }
-
             const runtime = yield* desktopEnvironment.getSessionRuntime;
 
             yield* Effect.tryPromise({
@@ -528,13 +490,6 @@ export const ServerEdgeLive = Layer.scoped(
             return;
           }
           case 'repl.write': {
-            if (config.hostedMode) {
-              return yield* new HostedCapabilityError({
-                code: 'interactive_repl_unavailable',
-                message: 'Interactive REPL is unavailable in hosted mode.',
-              });
-            }
-
             const running = yield* rProcess.isRunning;
             if (!running) {
               return yield* new RSessionUnavailableError({
@@ -570,96 +525,6 @@ export const ServerEdgeLive = Layer.scoped(
           return yield* new RSessionUnavailableError({
             message: 'The bayesgrove session is not connected.',
           });
-        }
-
-        if (request.method === 'workflow.executeNode') {
-          const snapshot = yield* cache.getSnapshot;
-          const currentSnapshot = Option.getOrNull(snapshot);
-          if (!currentSnapshot) {
-            return yield* new CommandDispatchError({
-              code: 'missing_graph_snapshot',
-              message: 'ExecuteNode requires a current GraphSnapshot.',
-            });
-          }
-
-          const execution = yield* Effect.try({
-            try: () => resolveNodeExecution(currentSnapshot, request.body.nodeId, {
-              rootDir: config.rootDir,
-              projectPath: config.projectPath,
-            }),
-            catch: wrapCommandMappingError,
-          });
-
-          if (execution.runtime === 'r_session') {
-            yield* registerPending(request.id, request.method, socket);
-            yield* bayesgroveSocket.send(toSubmitNodeCommand(request.id, request.body.nodeId));
-            return;
-          }
-
-          if (!execution.command) {
-            return yield* new CommandDispatchError({
-              code: 'missing_tool_command',
-              message: `Node ${execution.nodeId} does not declare a command for runtime ${execution.runtime}.`,
-            });
-          }
-
-          const command = execution.command;
-
-          const approvalKey = execution.extensionId ?? execution.kind;
-          const approved = yield* Ref.get(approvedNonLocalExecutions);
-          if (!execution.isLocalExtension && !approved.has(approvalKey) && !request.body.confirmNonLocalExecution) {
-            return yield* new CommandDispatchError({
-              code: 'tool_execution_confirmation_required',
-              message: `Running ${execution.label} will execute a command from non-local extension ${execution.extensionPackageName ?? execution.kind}. Confirm to continue.`,
-            });
-          }
-
-          const toolResult = yield* Effect.tryPromise({
-            try: () => executeToolNode({
-              nodeId: execution.nodeId,
-              runtime: execution.runtime,
-              command,
-              argsTemplate: execution.argsTemplate,
-              inputSerializer: execution.inputSerializer,
-              outputParser: execution.outputParser,
-              allowShell: execution.allowShell,
-              inputs: execution.inputs,
-              stateDir: config.stateDir,
-              timeoutMs: config.toolExecutionTimeoutMs,
-            }, {
-              runProcess: (options) =>
-                Runtime.runPromise(effectRuntime, processSupervisor.runBuffered({
-                  command: options.command,
-                  args: options.args,
-                  env: options.env,
-                  stdin: options.stdin,
-                  stdio: ['pipe', 'pipe', 'pipe'],
-                  timeoutMs: options.timeoutMs,
-                })),
-            }),
-            catch: (error) =>
-              error instanceof CommandDispatchError
-                ? error
-                : new CommandDispatchError({
-                    code: 'tool_execution_failed',
-                    message: error instanceof Error ? error.message : String(error),
-                    cause: error,
-                  }),
-          });
-
-          if (!execution.isLocalExtension && !approved.has(approvalKey) && request.body.confirmNonLocalExecution) {
-            yield* Ref.set(approvedNonLocalExecutions, new Set(approved).add(approvalKey));
-          }
-
-          yield* registerPending(request.id, request.method, socket);
-          yield* bayesgroveSocket.send(
-            toUpdateNodeMetadataCommand(
-              request.id,
-              request.body.nodeId,
-              mergeToolExecutionMetadata(execution.metadata, toolResult),
-            ),
-          );
-          return;
         }
 
         if (request.method === 'workflow.executeAction') {
@@ -700,8 +565,6 @@ export const ServerEdgeLive = Layer.scoped(
     ): ServerBootstrap => ({
       _tag: 'ServerBootstrap',
       version: config.version,
-      runtime: config.runtime,
-      hostedMode: config.hostedMode,
       projectPath: config.projectPath,
       sessionStatus: currentStatus,
       desktopEnvironment: currentDesktopEnvironment,

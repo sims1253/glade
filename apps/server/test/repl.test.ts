@@ -8,14 +8,14 @@ import { getAvailablePort, terminateChildren, waitFor } from './integration-supp
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ReturnType<typeof spawn>>();
-const HOSTED_REPL_TIMEOUT_MS = 15_000;
+const REPL_TIMEOUT_MS = 15_000;
 
 afterEach(async () => {
   await terminateChildren(children);
   children.clear();
 });
 
-it('rejects interactive repl input in hosted mode', async () => {
+it('rejects interactive repl input when the R session is unavailable', async () => {
   const port = await getAvailablePort();
   const child = spawn('bun', ['run', 'apps/server/src/index.ts'], {
     cwd,
@@ -39,7 +39,7 @@ it('rejects interactive repl input in hosted mode', async () => {
 
   socket.send(JSON.stringify({
     _tag: 'WebSocketRequest',
-    id: 'cmd.repl.hosted',
+    id: 'cmd.repl.unavailable',
     method: 'repl.write',
     body: {
       _tag: 'repl.write',
@@ -48,10 +48,10 @@ it('rejects interactive repl input in hosted mode', async () => {
   }));
 
   const result = await new Promise<Record<string, unknown>>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Timed out waiting for hosted REPL rejection.')), HOSTED_REPL_TIMEOUT_MS);
+    const timeout = setTimeout(() => reject(new Error('Timed out waiting for REPL rejection.')), REPL_TIMEOUT_MS);
     socket.on('message', (payload) => {
       const message = JSON.parse(String(payload)) as Record<string, unknown>;
-      if (message._tag === 'WebSocketError' && message.id === 'cmd.repl.hosted') {
+      if (message._tag === 'WebSocketError' && message.id === 'cmd.repl.unavailable') {
         clearTimeout(timeout);
         resolve(message);
       }
@@ -64,13 +64,13 @@ it('rejects interactive repl input in hosted mode', async () => {
 
   expect(result).toMatchObject({
     _tag: 'WebSocketError',
-    id: 'cmd.repl.hosted',
+    id: 'cmd.repl.unavailable',
     error: {
       _tag: 'RpcError',
-      code: 'interactive_repl_unavailable',
-      message: 'Interactive REPL is unavailable in hosted mode.',
+      code: 'r_session_unavailable',
+      message: 'The R process is not running.',
     },
   });
 
   socket.close();
-}, HOSTED_REPL_TIMEOUT_MS);
+}, REPL_TIMEOUT_MS);

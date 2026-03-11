@@ -9,8 +9,6 @@ interface ConnectionState {
   readonly serverVersion: string | null;
   readonly sessionState: SessionState;
   readonly sessionReason: string | null;
-  readonly runtime: string | null;
-  readonly hostedMode: boolean | null;
   readonly projectPath: string | null;
   readonly desktopEnvironment: DesktopEnvironmentState | null;
   readonly bootstrapped: boolean;
@@ -26,8 +24,6 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   serverVersion: null,
   sessionState: 'connecting',
   sessionReason: null,
-  runtime: null,
-  hostedMode: null,
   projectPath: null,
   desktopEnvironment: null,
   bootstrapped: false,
@@ -49,8 +45,6 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
       serverVersion: bootstrap.version,
       sessionState: bootstrap.sessionStatus.state,
       sessionReason: bootstrap.sessionStatus.reason ?? null,
-      runtime: bootstrap.runtime,
-      hostedMode: bootstrap.hostedMode,
       projectPath: bootstrap.projectPath,
       desktopEnvironment: bootstrap.desktopEnvironment ?? null,
       bootstrapped: true,

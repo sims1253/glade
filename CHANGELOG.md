@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0 - 2026-03-11
+
+- Realigned Glade around the desktop-first Bayesgrove GUI path by removing hosted-mode flows, standalone hosted packaging, Glade-owned node execution, and the old extension-platform runtime surfaces across the server, web app, examples, and tests.
+- Thinned the client around Bayesgrove-owned actions and the shared R session, simplifying REPL/editor behavior, node detail flows, and workspace copy so the app reads clearly as a local Bayesgrove operator surface.
+- Hardened the shared contracts against the newer Bayesgrove snapshot semantics by narrowing passive legacy descriptor fields, accepting object-shaped extension registries plus `command_surface`, and extending contract/web tests to cover the updated protocol shape.
+
 ## 0.11.8 - 2026-03-10
 
 - Replaced the tracked `electron-builder.yml` release path with a staged desktop artifact builder, runtime-generated packaging config, manual preflight/build/publish release workflow, and release smoke validation for rerunnable GitHub Releases.

@@ -104,7 +104,6 @@ export function startServerProcess(options: StartServerProcessOptions): Promise<
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     BAYESGROVE_APP_ROOT: envRoot,
-    BAYESGROVE_RUNTIME: 'desktop',
     BAYESGROVE_SERVER_PORT: String(serverPort()),
     BAYESGROVE_STATE_DIR: options.stateDir,
     NODE_ENV: process.env.NODE_ENV ?? 'production',

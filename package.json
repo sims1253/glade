@@ -1,6 +1,6 @@
 {
   "name": "glade",
-  "version": "0.11.8",
+  "version": "0.12.0",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.10",
@@ -24,14 +24,12 @@
   },
   "scripts": {
     "dev": "bun ./scripts/dev-runner.ts",
-    "dev:hosted": "bun ./scripts/hosted-dev-runner.ts",
     "dev:web": "turbo run dev --filter=@glade/web",
     "dev:server": "turbo run dev --filter=@glade/server",
     "dev:desktop": "turbo run dev --filter=@glade/desktop",
     "build": "turbo run build",
     "build:desktop-bundle": "node ./scripts/build-desktop-bundle.ts",
     "build:desktop:artifact": "node ./scripts/build-desktop-artifact.ts",
-    "build:server:standalone": "node ./scripts/build-standalone-server.ts",
     "diagnostics:effect": "node ./scripts/check-effect-diagnostics.ts",
     "release:smoke": "node ./scripts/release-smoke.ts",
     "typecheck": "turbo run typecheck",
@@ -40,7 +38,7 @@
     "test:desktop-smoke": "turbo run smoke-test",
     "test:integration": "turbo run test:integration",
     "lint": "oxlint . --deny-warnings",
-    "clean": "rm -rf node_modules bun.lock .turbo apps/*/node_modules packages/*/node_modules scripts/node_modules apps/*/dist apps/*/dist-electron packages/*/dist dist/release-artifacts dist/release-smoke dist/standalone"
+    "clean": "rm -rf node_modules bun.lock .turbo apps/*/node_modules packages/*/node_modules scripts/node_modules apps/*/dist apps/*/dist-electron packages/*/dist dist/release-artifacts dist/release-smoke"
   },
   "devDependencies": {
     "oxlint": "1.51.0",

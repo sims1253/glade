@@ -6,11 +6,6 @@ export class CommandDispatchError extends Data.TaggedError('CommandDispatchError
   readonly cause?: unknown;
 }> {}
 
-export class HostedCapabilityError extends Data.TaggedError('HostedCapabilityError')<{
-  readonly message: string;
-  readonly code: string;
-}> {}
-
 export class ProtocolDecodeError extends Data.TaggedError('ProtocolDecodeError')<{
   readonly message: string;
   readonly cause?: unknown;
