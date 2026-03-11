@@ -13,7 +13,7 @@ jobs:
       # pull_request_target runs in the context of the base branch by default.
       # This is intentional, so we read the trusted .github/VOUCHED list from
       # the target branch, preventing attackers from modifying the list in their PR.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/VOUCHED
@@ -28,7 +28,7 @@ jobs:
           fi
 
       - name: Apply Vouch Labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const isVouched = '${{ steps.check.outputs.is_vouched }}' === 'true';

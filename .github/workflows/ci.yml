@@ -11,18 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: package.json
 
       - name: Cache Bun and Turbo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.bun/install/cache
@@ -39,7 +39,7 @@ jobs:
         run: echo "version=$(bun x playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
@@ -65,10 +65,8 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Build Desktop Bundle & Standalone Server
-        run: |
-          bun run build:desktop-bundle
-          bun run build:server:standalone
+      - name: Build Desktop Bundle
+        run: bun run build:desktop-bundle
 
       - name: Test (Desktop Smoke)
         run: bun run test:desktop-smoke
@@ -78,12 +76,12 @@ jobs:
           test -f apps/web/dist/index.html
           test -f apps/desktop/dist-electron/main.cjs
           test -f apps/desktop/dist-electron/preload.cjs
-          test -f apps/server/dist/index.js
+          test -f apps/server/dist/index.mjs
 
       - name: Assert Bridge Strings in Preload
         run: |
           grep -q "glade:select-file-path" apps/desktop/dist-electron/preload.cjs
-          grep -q "glade:get-desktop-state" apps/desktop/dist-electron/preload.cjs
+          grep -q "glade:get-update-state" apps/desktop/dist-electron/preload.cjs
 
   integration:
     runs-on: ubuntu-latest
@@ -91,20 +89,20 @@ jobs:
     if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'vouch:trusted')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: package.json
 
       - uses: r-lib/actions/setup-r@v2
 
       - name: Cache Bun and Turbo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.bun/install/cache
