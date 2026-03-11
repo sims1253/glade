@@ -68,6 +68,23 @@ const snapshot: GraphSnapshot = {
           title: 'Record review decision',
           basis: { node_ids: ['fit'] },
           payload: { template_ref: 'review_decision' },
+          invocation: {
+            prompt: 'What should happen next?',
+            input: {
+              fields: {
+                choice: {
+                  label: 'Decision',
+                  required: true,
+                  choices: ['accept', 'revise'],
+                },
+                rationale: {
+                  label: 'Why?',
+                  required: true,
+                  multiline: true,
+                },
+              },
+            },
+          },
           explanation: { why_now: 'Record the decision before proceeding.' },
         },
       },
@@ -114,6 +131,13 @@ describe('useGraphStore', () => {
     expect(graph?.actions[0]).toMatchObject({
       id: 'act_review',
       templateRef: 'review_decision',
+      invocation: {
+        prompt: 'What should happen next?',
+        fields: [
+          expect.objectContaining({ key: 'choice', required: true }),
+          expect.objectContaining({ key: 'rationale', multiline: true }),
+        ],
+      },
     });
   });
 

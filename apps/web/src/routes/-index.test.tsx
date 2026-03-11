@@ -167,10 +167,31 @@ const baseSnapshot: GraphSnapshot = {
           basis: { node_ids: ['fit_1'] },
           payload: {
             template_ref: 'review_decision',
-            prompt: 'What is your fit criticism assessment for these summaries?',
-            choice: 'needs_revision',
-            rationale: 'Posterior predictive checks need remediation.',
             decision_type: 'fit_criticism',
+            allowed_goal_kinds: ['needs_revision', 'acceptable'],
+          },
+          invocation: {
+            command: 'bg_record_decision',
+            prompt: 'What is your fit criticism assessment for these summaries?',
+            input: {
+              mode: 'form',
+              fields: {
+                choice: {
+                  label: 'Assessment',
+                  required: true,
+                  choices: ['needs_revision', 'acceptable'],
+                },
+                choice_label: {
+                  label: 'Optional label',
+                  required: false,
+                },
+                rationale: {
+                  label: 'Rationale',
+                  required: true,
+                  multiline: true,
+                },
+              },
+            },
           },
           explanation: { why_now: 'Record the review outcome before branching or comparing.' },
         },
@@ -221,17 +242,12 @@ const updatedSnapshot: GraphSnapshot = {
   },
 };
 
-const reviewActionPayload = (
-  (baseSnapshot.protocol as unknown as {
-    project: {
-      actions: {
-        act_review: {
-          payload: Record<string, unknown>;
-        };
-      };
-    };
-  }).project.actions.act_review.payload
-);
+const reviewActionPayload = {
+  prompt: 'What is your fit criticism assessment for these summaries?',
+  choice: 'needs_revision',
+  choice_label: 'Tighten model before rerun',
+  rationale: 'Posterior predictive checks need remediation.',
+};
 
 describe('IndexRoute phase 5 workflow UI', () => {
   beforeEach(() => {
@@ -335,6 +351,12 @@ describe('IndexRoute phase 5 workflow UI', () => {
     expect(screen.getByText('Action Preview')).toBeInTheDocument();
     expect(screen.getAllByText('Record fit criticism decision')[0]).toBeInTheDocument();
     expect(screen.getByText(/Record an explicit review-oriented decision/i)).toBeInTheDocument();
+    expect(screen.getByText('What is your fit criticism assessment for these summaries?')).toBeInTheDocument();
+
+    const choiceSelect = screen.getByLabelText(/Assessment \*/i);
+    fireEvent.change(choiceSelect, { target: { value: 'needs_revision' } });
+    fireEvent.change(screen.getByLabelText(/Optional label/i), { target: { value: 'Tighten model before rerun' } });
+    fireEvent.change(screen.getByLabelText(/Rationale \*/i), { target: { value: 'Posterior predictive checks need remediation.' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm and run' }));
 
@@ -351,6 +373,23 @@ describe('IndexRoute phase 5 workflow UI', () => {
 
     expect(await screen.findByText('Next from bayesgrove')).toBeInTheDocument();
     expect(screen.getAllByText('Compare revised branches')[0]).toBeInTheDocument();
+  });
+
+  it('keeps submit disabled until required invocation inputs are provided', () => {
+    useGraphStore.getState().applySnapshot(baseSnapshot);
+
+    renderRoute();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Actions \(1\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+
+    expect(screen.getByRole('button', { name: 'Confirm and run' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Complete the required fields: Assessment, Rationale.');
+
+    fireEvent.change(screen.getByLabelText(/Assessment \*/i), { target: { value: 'needs_revision' } });
+    fireEvent.change(screen.getByLabelText(/Rationale \*/i), { target: { value: 'Posterior predictive checks need remediation.' } });
+
+    expect(screen.getByRole('button', { name: 'Confirm and run' })).toBeEnabled();
   });
 
   it('opens a node tab from the explorer and keeps the inspector in sync', async () => {

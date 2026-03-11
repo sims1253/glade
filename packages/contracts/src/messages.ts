@@ -135,6 +135,58 @@ export const ObligationItem = Schema.Struct({
 });
 export type ObligationItem = Schema.Schema.Type<typeof ObligationItem>;
 
+export const ActionInvocationInputFieldOption = Schema.Union(
+  Schema.String,
+  Schema.Struct({
+    value: JsonValue,
+    label: Schema.optional(Schema.String),
+  }).pipe(
+    Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
+  ),
+);
+export type ActionInvocationInputFieldOption = Schema.Schema.Type<typeof ActionInvocationInputFieldOption>;
+
+export const ActionInvocationInputField = Schema.Struct({
+  label: Schema.optional(Schema.String),
+  title: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  help: Schema.optional(Schema.String),
+  type: Schema.optional(Schema.String),
+  widget: Schema.optional(Schema.String),
+  format: Schema.optional(Schema.String),
+  placeholder: Schema.optional(Schema.String),
+  required: Schema.optional(Schema.Boolean),
+  optional: Schema.optional(Schema.Boolean),
+  multiline: Schema.optional(Schema.Boolean),
+  rows: Schema.optional(Schema.Number),
+  default: Schema.optional(JsonValue),
+  value: Schema.optional(JsonValue),
+  options: Schema.optional(Schema.Array(ActionInvocationInputFieldOption)),
+  choices: Schema.optional(Schema.Array(ActionInvocationInputFieldOption)),
+  enum: Schema.optional(Schema.Array(Schema.String)),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
+);
+export type ActionInvocationInputField = Schema.Schema.Type<typeof ActionInvocationInputField>;
+
+export const ActionInvocationInput = Schema.Struct({
+  mode: Schema.optional(Schema.String),
+  fields: Schema.optional(Schema.Record({ key: Schema.String, value: ActionInvocationInputField })),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
+);
+export type ActionInvocationInput = Schema.Schema.Type<typeof ActionInvocationInput>;
+
+export const ActionInvocation = Schema.Struct({
+  command: Schema.optional(Schema.String),
+  args: Schema.optional(JsonValue),
+  prompt: Schema.optional(Schema.String),
+  input: Schema.optional(ActionInvocationInput),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: JsonValue })),
+);
+export type ActionInvocation = Schema.Schema.Type<typeof ActionInvocation>;
+
 export const ActionItem = Schema.Struct({
   action_id: Schema.String,
   kind: Schema.String,
@@ -144,6 +196,7 @@ export const ActionItem = Schema.Struct({
   payload: Schema.optional(JsonValue),
   explanation: Schema.optional(JsonValue),
   metadata: Schema.optional(JsonValue),
+  invocation: Schema.optional(ActionInvocation),
 });
 export type ActionItem = Schema.Schema.Type<typeof ActionItem>;
 

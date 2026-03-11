@@ -2,12 +2,13 @@
 
 Glade is a desktop app for working with local Bayesgrove workflows.
 
-Current release: `0.12.1`
+Current release: `0.12.2`
 
 ## What you get
 
 - a desktop-first workspace for local Bayesgrove projects
 - a workflow canvas with guided actions and obligations
+- guided action dialogs that render Bayesgrove-provided prompts and required inputs
 - a shared REPL and terminal surface inside the app
 - setup checks for local dependencies such as R and `bayesgrove`
 - in-app settings and health status for the local Glade session
@@ -38,8 +39,13 @@ From the main workspace you can:
 
 - inspect your workflow graph
 - review recommended actions and blocking obligations
+- run guided actions that ask for prompt-driven inputs such as decisions and rationales
 - open Settings to fix local environment issues
 - open the Health dialog to inspect the local session status
+
+When Bayesgrove includes structured invocation metadata on an action, Glade shows the prompt, renders the required fields, and prevents submission until the required values are present.
+
+If Glade can open an existing local Bayesgrove project but setup still needs attention, Settings now shows the failing preparation step and a safe stderr snippet so you can tell whether `bg_open()` failed, `bg_init()` failed, or a local dependency is missing.
 
 ## Notes
 

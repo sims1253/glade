@@ -325,6 +325,99 @@ describe('contracts', () => {
     roundTrip(GraphSnapshot, snapshot);
   });
 
+  it('preserves structured invocation metadata for inputful actions', async () => {
+    const decoded = await Effect.runPromise(decodeGraphSnapshot({
+      ...snapshot,
+      protocol: {
+        ...snapshot.protocol,
+        summary: {
+          ...snapshot.protocol.summary,
+          n_actions: 1,
+        },
+        project: {
+          scope: 'project',
+          scope_label: 'Project',
+          obligations: {},
+          actions: {
+            act_goal: {
+              action_id: 'act_goal',
+              kind: 'record_decision',
+              scope: 'project',
+              title: 'Record an inferential goal',
+              basis: { node_ids: ['fit_1'] },
+              payload: {
+                decision_type: 'goal_update',
+                allowed_goal_kinds: ['observable_prediction', 'latent_inference'],
+              },
+              invocation: {
+                command: 'bg_record_decision',
+                prompt: 'What inferential goal should this branch pursue?',
+                input: {
+                  mode: 'form',
+                  fields: {
+                    choice: {
+                      label: 'Goal kind',
+                      required: true,
+                      choices: ['observable_prediction', 'latent_inference'],
+                    },
+                    choice_label: {
+                      label: 'Goal label',
+                      required: false,
+                    },
+                    rationale: {
+                      label: 'Why this goal?',
+                      required: true,
+                      multiline: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }));
+
+    const projectProtocol = decoded.protocol as typeof snapshot.protocol & {
+      project: {
+        actions: {
+          act_goal: {
+            invocation?: {
+              prompt?: string;
+              input?: {
+                fields?: Record<string, { required?: boolean }>;
+              };
+            };
+          };
+        };
+      };
+    };
+
+    expect(projectProtocol.project.actions.act_goal.invocation).toEqual({
+      command: 'bg_record_decision',
+      prompt: 'What inferential goal should this branch pursue?',
+      input: {
+        mode: 'form',
+        fields: {
+          choice: {
+            label: 'Goal kind',
+            required: true,
+            choices: ['observable_prediction', 'latent_inference'],
+          },
+          choice_label: {
+            label: 'Goal label',
+            required: false,
+          },
+          rationale: {
+            label: 'Why this goal?',
+            required: true,
+            multiline: true,
+          },
+        },
+      },
+    });
+  });
+
   it('round-trips every websocket request shape', () => {
     for (const request of requestFixtures) {
       roundTrip(WebSocketRequest, request);

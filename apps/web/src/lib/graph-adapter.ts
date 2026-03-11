@@ -9,6 +9,8 @@ import {
 
 import {
   type WorkflowActionRecord,
+  type WorkflowActionInvocation,
+  type WorkflowActionInvocationField,
   type NodeRendererKind,
   type NodeVisualState,
   type WorkflowExtensionDescriptor,
@@ -67,6 +69,22 @@ function asNumber(value: unknown): number | null {
 
 function asBoolean(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
+}
+
+function asScalarString(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return null;
 }
 
 function asStringArray(value: unknown): Array<string> {
@@ -173,6 +191,84 @@ function firstString(...values: Array<unknown>): string | null {
   }
 
   return null;
+}
+
+function normalizeInvocationOption(value: unknown) {
+  const option = asObject(value);
+  if (option) {
+    const normalizedValue = asScalarString(option.value) ?? firstString(option.id, option.key);
+    if (!normalizedValue) {
+      return null;
+    }
+
+    return {
+      value: normalizedValue,
+      label: asScalarString(option.label) ?? firstString(option.title, option.name, option.id, option.key) ?? normalizedValue,
+    };
+  }
+
+  const normalizedValue = asScalarString(value);
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return {
+    value: normalizedValue,
+    label: normalizedValue,
+  };
+}
+
+function normalizeInvocationField(fieldKey: string, value: unknown, payload: JsonRecord | null): WorkflowActionInvocationField | null {
+  const field = asObject(value);
+  if (!field) {
+    return null;
+  }
+
+  const options = firstArray(field.options, field.choices, field.enum)
+    .map((entry) => normalizeInvocationOption(entry))
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  const rows = asNumber(field.rows);
+  const widget = (firstString(field.widget, field.type, field.format) ?? '').toLowerCase();
+
+  const multiline =
+    asBoolean(field.multiline) ??
+    (rows !== null ? rows > 1 : null) ??
+    (widget ? ['textarea', 'multiline', 'long_text'].includes(widget) : null) ??
+    fieldKey === 'rationale';
+  const defaultValue = asScalarString(field.value) ?? asScalarString(field.default) ?? asScalarString(payload?.[fieldKey]);
+  const required = asBoolean(field.required) ?? (asBoolean(field.optional) === false ? true : false);
+
+  return {
+    key: fieldKey,
+    label: firstString(field.label, field.title, fieldKey) ?? fieldKey,
+    description: firstString(field.description, field.help),
+    required,
+    multiline,
+    placeholder: firstString(field.placeholder),
+    defaultValue,
+    options,
+    raw: field,
+  };
+}
+
+function extractInvocation(action: JsonRecord, payload: JsonRecord | null): WorkflowActionInvocation | null {
+  const invocation = asObject(action.invocation);
+  if (!invocation) {
+    return null;
+  }
+
+  const invocationInput = asObject(invocation.input);
+
+  const fields = asObjectEntries(invocationInput?.fields)
+    .map(([fieldKey, fieldValue]) => normalizeInvocationField(fieldKey, fieldValue, payload))
+    .filter((field): field is NonNullable<typeof field> => field !== null);
+
+  return {
+    command: asString(invocation.command),
+    prompt: firstString(invocation.prompt, payload?.prompt, payload?.default_prompt),
+    fields,
+    raw: invocation,
+  };
 }
 
 function extensionIdentity(rawExtension: ExtensionDescriptor, index: number, warnIfMissing: boolean) {
@@ -563,6 +659,7 @@ function extractProtocol(snapshot: GraphSnapshot) {
         const payload = asObject(action.payload);
         const basis = asObject(action.basis) ?? {};
         const metadata = asObject(action.metadata);
+        const invocation = extractInvocation(action, payload);
         const nodeIds = asStringArray(basis.node_ids);
         const record: WorkflowActionRecord = {
           id: asString(action.action_id) ?? actionKey,
@@ -575,6 +672,7 @@ function extractProtocol(snapshot: GraphSnapshot) {
           basis,
           payload,
           metadata,
+          invocation,
           affectedNodeIds: nodeIds,
           raw: action,
         };

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,6 +59,24 @@ const desktopEnvironment: DesktopEnvironmentState = {
   },
 };
 
+function renderSettings() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <ServerSessionProvider>{children}</ServerSessionProvider>
+    </QueryClientProvider>
+  );
+
+  render(<SettingsRoute />, { wrapper });
+}
+
 describe('SettingsRoute', () => {
   beforeEach(() => {
     useConnectionStore.setState({
@@ -73,27 +91,39 @@ describe('SettingsRoute', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
   });
 
   it('shows the app version separately from the server status', () => {
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
+    renderSettings();
+
+    expect(screen.getByText(`App ${APP_VERSION}`)).toBeInTheDocument();
+    expect(screen.getByText('Server 0.11.7-server · connected · session ready')).toBeInTheDocument();
+  });
+
+  it('shows actionable project preparation diagnostics when preflight fails', () => {
+    useConnectionStore.setState({
+      desktopEnvironment: {
+        ...desktopEnvironment,
+        preflight: {
+          ...desktopEnvironment.preflight,
+          status: 'action_required',
+          issues: [
+            {
+              code: 'project_bootstrap_failed',
+              title: 'Could not prepare the local bayesgrove project',
+              description: 'R exited with status 11 while opening or initializing the project directory. bg_open failed: existing path is not a bayesgrove project bg_init failed: directory is not empty',
+            },
+          ],
         },
       },
     });
 
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>
-        <ServerSessionProvider>{children}</ServerSessionProvider>
-      </QueryClientProvider>
-    );
+    renderSettings();
 
-    render(<SettingsRoute />, { wrapper });
-
-    expect(screen.getByText(`App ${APP_VERSION}`)).toBeInTheDocument();
-    expect(screen.getByText('Server 0.11.7-server · connected · session ready')).toBeInTheDocument();
+    expect(screen.getByText('Bayesgrove desktop checks need attention')).toBeInTheDocument();
+    expect(screen.getByText(/bg_open failed: existing path is not a bayesgrove project/i)).toBeInTheDocument();
+    expect(screen.getByText(/bg_init failed: directory is not empty/i)).toBeInTheDocument();
   });
 });

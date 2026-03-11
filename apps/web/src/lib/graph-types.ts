@@ -56,6 +56,30 @@ export interface WorkflowObligationRecord {
   readonly raw: Record<string, unknown>;
 }
 
+export interface WorkflowActionInvocationFieldOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+export interface WorkflowActionInvocationField {
+  readonly key: string;
+  readonly label: string;
+  readonly description: string | null;
+  readonly required: boolean;
+  readonly multiline: boolean;
+  readonly placeholder: string | null;
+  readonly defaultValue: string | null;
+  readonly options: ReadonlyArray<WorkflowActionInvocationFieldOption>;
+  readonly raw: Record<string, unknown>;
+}
+
+export interface WorkflowActionInvocation {
+  readonly command: string | null;
+  readonly prompt: string | null;
+  readonly fields: ReadonlyArray<WorkflowActionInvocationField>;
+  readonly raw: Record<string, unknown>;
+}
+
 export interface WorkflowActionRecord {
   readonly id: string;
   readonly kind: string;
@@ -67,6 +91,7 @@ export interface WorkflowActionRecord {
   readonly basis: Record<string, unknown>;
   readonly payload: Record<string, unknown> | null;
   readonly metadata: Record<string, unknown> | null;
+  readonly invocation: WorkflowActionInvocation | null;
   readonly affectedNodeIds: ReadonlyArray<string>;
   readonly raw: Record<string, unknown>;
 }

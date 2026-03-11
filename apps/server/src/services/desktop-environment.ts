@@ -152,17 +152,39 @@ function environmentInspectionIssue(message: string): DesktopPreflightIssue {
 
 function runProbe(rExecutablePath: string, expression: string) {
   return spawnSync(rExecutablePath, ['-e', expression], {
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: process.env,
     timeout: PROBE_TIMEOUT_MS,
+    encoding: 'utf8',
   });
 }
 
-function bootstrapProjectExpression(projectPath: string) {
-  return `project_path <- ${JSON.stringify(projectPath)}; if (!file.exists(file.path(project_path, ".glade-initialized"))) { bayesgrove::bg_init(path = project_path); file.create(file.path(project_path, ".glade-initialized")); }`;
+function probeMessages(probe: ReturnType<typeof runProbe>) {
+  return [probe.stderr, probe.stdout]
+    .flatMap((chunk) => typeof chunk === 'string' ? chunk.split(/\r?\n/u) : [])
+    .map((line) => line.trim())
+    .filter((line, index, array) => line.length > 0 && array.indexOf(line) === index);
 }
 
-function runDesktopPreflight(settings: DesktopSettings, projectPath: string): DesktopPreflightState {
+function prepareProjectExpression(projectPath: string) {
+  return [
+    `project_path <- ${JSON.stringify(projectPath)}`,
+    'dir.create(project_path, recursive = TRUE, showWarnings = FALSE)',
+    'opened <- tryCatch({ bayesgrove::bg_open(project_path); TRUE }, error = function(error) { message("bg_open failed: ", conditionMessage(error)); FALSE })',
+    'if (!isTRUE(opened)) {',
+    '  initialized <- tryCatch({ bayesgrove::bg_init(path = project_path); TRUE }, error = function(error) { message("bg_init failed: ", conditionMessage(error)); FALSE })',
+    '  if (!isTRUE(initialized)) { quit(status = 11) }',
+    '}',
+    'quit(status = 0)',
+  ].join('; ');
+}
+
+function describeProbeFailure(probe: ReturnType<typeof runProbe>, fallback: string) {
+  const snippet = probeMessages(probe).join(' ');
+  return snippet ? `${fallback} ${snippet}` : fallback;
+}
+
+export function runDesktopPreflight(settings: DesktopSettings, projectPath: string): DesktopPreflightState {
   const issues: DesktopPreflightIssue[] = [];
 
   const rProbe = spawnSync(settings.rExecutablePath, ['--version'], {
@@ -199,15 +221,21 @@ function runDesktopPreflight(settings: DesktopSettings, projectPath: string): De
   if (bayesgroveProbe.error) {
     issues.push(environmentInspectionIssue(`Failed to inspect the R environment: ${bayesgroveProbe.error.message}`));
   } else if (bayesgroveProbe.status !== 0) {
-    issues.push(environmentInspectionIssue(`R exited with status ${bayesgroveProbe.status} while checking bayesgrove.`));
+    issues.push(environmentInspectionIssue(describeProbeFailure(
+      bayesgroveProbe,
+      `R exited with status ${bayesgroveProbe.status} while checking bayesgrove.`,
+    )));
   } else {
     mkdirSync(projectPath, { recursive: true });
-    const bootstrap = runProbe(settings.rExecutablePath, bootstrapProjectExpression(projectPath));
+    const bootstrap = runProbe(settings.rExecutablePath, prepareProjectExpression(projectPath));
 
     if (bootstrap.error) {
-      issues.push(projectBootstrapIssue(`Failed to initialize the project directory: ${bootstrap.error.message}`));
+      issues.push(projectBootstrapIssue(`Failed to inspect or initialize the project directory: ${bootstrap.error.message}`));
     } else if (bootstrap.status !== 0) {
-      issues.push(projectBootstrapIssue(`R exited with status ${bootstrap.status} while preparing the project directory.`));
+      issues.push(projectBootstrapIssue(describeProbeFailure(
+        bootstrap,
+        `R exited with status ${bootstrap.status} while opening or initializing the project directory.`,
+      )));
     }
   }
 

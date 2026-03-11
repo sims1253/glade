@@ -51,6 +51,7 @@ export function IndexRoute() {
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const [previewAction, setPreviewAction] = useState<WorkflowActionRecord | null>(null);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
+  const [actionSubmitError, setActionSubmitError] = useState<string | null>(null);
   const [awaitingGuidance, setAwaitingGuidance] = useState<{
     readonly snapshotAt: string | null;
     readonly actionSignature: string;
@@ -84,6 +85,7 @@ export function IndexRoute() {
   });
 
   const handleRunAction = useCallback((action: WorkflowActionRecord) => {
+    setActionSubmitError(null);
     setPreviewAction(action);
   }, []);
 
@@ -92,22 +94,30 @@ export function IndexRoute() {
     setSelectedNodeId(obligation.affectedNodeIds[0] ?? null);
   }, [setHighlightedNodeIds, setSelectedNodeId]);
 
-  const handleConfirmAction = useCallback(async () => {
+  const handleConfirmAction = useCallback(async (payload: Record<string, unknown> | null) => {
     if (!previewAction || !graph) {
       return;
     }
 
+    setActionSubmitError(null);
     const snapshotAt = graph.emittedAt;
     const previousActionSignature = actionSignature;
-    const result = await executeActionMutation.mutateAsync(previewAction);
-    setPreviewAction(null);
+    const result = await executeActionMutation.mutateAsync({
+      ...previewAction,
+      payload: payload ?? previewAction.payload,
+    });
 
     if (result.success) {
+      setActionSubmitError(null);
+      setPreviewAction(null);
       setAwaitingGuidance({
         snapshotAt,
         actionSignature: previousActionSignature,
       });
+      return;
     }
+
+    setActionSubmitError(result.error.message);
   }, [actionSignature, executeActionMutation, graph, previewAction]);
 
   const handleRunNode = useCallback((node: WorkflowNodeData) => {
@@ -239,8 +249,12 @@ export function IndexRoute() {
         action={previewAction}
         graph={graph}
         pending={runningActionId === previewAction?.id}
-        onCancel={() => setPreviewAction(null)}
-        onConfirm={() => void handleConfirmAction()}
+        submitError={actionSubmitError}
+        onCancel={() => {
+          setActionSubmitError(null);
+          setPreviewAction(null);
+        }}
+        onConfirm={(payload) => void handleConfirmAction(payload)}
       />
 
       {isHealthDialogOpen ? (

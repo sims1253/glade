@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.2 - 2026-03-11
+
+- Fixed guided Bayesgrove actions that require user input by preserving structured `invocation` metadata in `@glade/contracts`, rendering prompt/field inputs in `@glade/web`, validating required fields in the action preview, and submitting the collected values through the existing `workflow.executeAction` path.
+- Fixed misleading local setup errors for existing Bayesgrove projects by having desktop preflight try `bg_open()` before `bg_init()`, while surfacing actionable `bg_open`/`bg_init` failure details in Settings when project preparation really fails.
+- Extended contract, web, and server test coverage around invocation metadata decoding, inputful action execution, workflow-state updates after action completion, and desktop preflight success/failure reporting.
+
 ## 0.12.1 - 2026-03-11
 
 - Fixed the browser smoke test for the desktop-first home screen so CI now asserts the current setup-required banner instead of stale onboarding copy.

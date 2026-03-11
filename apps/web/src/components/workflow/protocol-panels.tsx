@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowRight, Lock, Sparkles, TriangleAlert } from 'lucide-react';
 
@@ -317,26 +317,70 @@ export function WorkflowActionsPanel({
   );
 }
 
-export function WorkflowActionPreviewDialog({
+function hasFieldValue(value: string | undefined) {
+  return value?.trim().length ? true : false;
+}
+
+function initialInvocationValues(action: WorkflowActionRecord) {
+  return Object.fromEntries(
+    (action.invocation?.fields ?? []).map((field) => [field.key, field.defaultValue ?? '']),
+  );
+}
+
+function buildInvocationPayload(action: WorkflowActionRecord, values: Record<string, string>) {
+  const payload: Record<string, unknown> = {};
+
+  const prompt = action.invocation?.prompt;
+  if (prompt) {
+    payload.prompt = prompt;
+  }
+
+  for (const field of action.invocation?.fields ?? []) {
+    const value = values[field.key]?.trim() ?? '';
+    if (value) {
+      payload[field.key] = value;
+    }
+  }
+
+  return Object.keys(payload).length > 0 ? payload : null;
+}
+
+function WorkflowActionPreviewDialogContent({
   action,
   graph,
   pending,
+  submitError,
   onCancel,
   onConfirm,
 }: {
-  readonly action: WorkflowActionRecord | null;
+  readonly action: WorkflowActionRecord;
   readonly graph: WorkflowGraph | null;
   readonly pending: boolean;
+  readonly submitError: string | null;
   readonly onCancel: () => void;
-  readonly onConfirm: () => void;
+  readonly onConfirm: (payload: Record<string, unknown> | null) => void;
 }) {
-  if (!action) {
-    return null;
-  }
-
   const nodeLabels = nodeLabelsFor(graph, action.affectedNodeIds);
   const templateDescription = describeTemplate(action);
-  const payloadEntries = Object.entries(action.payload ?? {}).filter(([key]) => key !== 'template_ref');
+  const invocationFields = action.invocation?.fields ?? [];
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => initialInvocationValues(action));
+
+  useEffect(() => {
+    setFieldValues(initialInvocationValues(action));
+  }, [action]);
+
+  const hiddenPayloadKeys = new Set([
+    'template_ref',
+    'prompt',
+    'default_prompt',
+    ...invocationFields.map((field) => field.key),
+  ]);
+  const payloadEntries = Object.entries(action.payload ?? {}).filter(([key]) => !hiddenPayloadKeys.has(key));
+  const missingFields = invocationFields.filter((field) => field.required && !hasFieldValue(fieldValues[field.key]));
+  const validationMessage = missingFields.length > 0
+    ? `Complete the required fields: ${missingFields.map((field) => field.label).join(', ')}.`
+    : null;
+  const visibleError = submitError ?? validationMessage;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
@@ -378,6 +422,54 @@ export function WorkflowActionPreviewDialog({
           </div>
         </dl>
 
+        {action.invocation?.prompt ? (
+          <div className="mt-5 rounded-2xl border border-sky-500/25 bg-sky-500/10 p-4 text-sm text-sky-50">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">Prompt</p>
+            <p className="mt-2">{action.invocation.prompt}</p>
+          </div>
+        ) : null}
+
+        {invocationFields.length ? (
+          <div className="mt-5 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Required input</p>
+            {invocationFields.map((field) => (
+              <label key={field.key} className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
+                  {field.label}{field.required ? ' *' : ''}
+                </span>
+                {field.description ? <span className="mt-1 block text-xs text-slate-500">{field.description}</span> : null}
+                {field.options.length > 0 ? (
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
+                    value={fieldValues[field.key] ?? ''}
+                    onChange={(event) => setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                  >
+                    <option value="">Select an option</option>
+                    {field.options.map((option) => (
+                      <option key={`${field.key}:${option.value}`} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                ) : field.multiline ? (
+                  <textarea
+                    className="mt-2 min-h-28 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
+                    placeholder={field.placeholder ?? undefined}
+                    value={fieldValues[field.key] ?? ''}
+                    onChange={(event) => setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                  />
+                ) : (
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
+                    placeholder={field.placeholder ?? undefined}
+                    type="text"
+                    value={fieldValues[field.key] ?? ''}
+                    onChange={(event) => setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Parameters</p>
           {payloadEntries.length ? (
@@ -391,19 +483,54 @@ export function WorkflowActionPreviewDialog({
             </div>
           ) : (
             <p className="mt-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-400">
-              No action-specific parameters were exposed in this snapshot.
+              No additional action parameters were exposed in this snapshot.
             </p>
           )}
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-4 min-h-5 text-sm">
+          {visibleError ? <p role="alert" className="text-rose-200">{visibleError}</p> : null}
+        </div>
+
+        <div className="mt-2 flex justify-end gap-3">
           <Button variant="ghost" onClick={onCancel} disabled={pending}>Cancel</Button>
-          <Button onClick={onConfirm} disabled={pending}>
+          <Button onClick={() => onConfirm(buildInvocationPayload(action, fieldValues))} disabled={pending || missingFields.length > 0}>
             {pending ? 'Running…' : 'Confirm and run'}
           </Button>
         </div>
       </div>
     </div>
+  );
+}
+
+export function WorkflowActionPreviewDialog({
+  action,
+  graph,
+  pending,
+  submitError,
+  onCancel,
+  onConfirm,
+}: {
+  readonly action: WorkflowActionRecord | null;
+  readonly graph: WorkflowGraph | null;
+  readonly pending: boolean;
+  readonly submitError: string | null;
+  readonly onCancel: () => void;
+  readonly onConfirm: (payload: Record<string, unknown> | null) => void;
+}) {
+  if (!action) {
+    return null;
+  }
+
+  return (
+    <WorkflowActionPreviewDialogContent
+      action={action}
+      graph={graph}
+      pending={pending}
+      submitError={submitError}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    />
   );
 }
 
