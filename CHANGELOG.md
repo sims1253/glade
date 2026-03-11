@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.4 - 2026-03-11
+
+- Hardened websocket reliability across the web and server runtimes by queueing outbound RPC requests through reconnect windows, sending `server.bootstrap` before registering broadcast subscribers, replaying the latest stateful pushes for late subscribers, and improving shared schema-based decode error reporting.
+- Persisted valuable workspace UI preferences in the web app, including explorer group expansion plus inspector visibility and active-tab state, using the existing lightweight localStorage-backed pattern.
+- Added focused unit coverage for the new shared schema helpers, websocket reconnect behavior, and workspace persistence, plus an integration assertion that reconnecting clients receive bootstrap state before replayed workflow snapshots.
+
 ## 0.12.3 - 2026-03-11
 
 - Removed the vouch-based pull request trust flow, deleting the dedicated workflow and letting integration coverage run directly in CI without label gating.

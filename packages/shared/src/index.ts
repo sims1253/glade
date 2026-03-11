@@ -4,6 +4,8 @@ export const DEFAULT_WEB_DEV_PORT = 5173;
 export const HEALTH_PATH = '/health';
 export const WS_PATH = '/ws';
 
+export * from './schema-json';
+
 export type DesktopUpdateStatus =
   | 'idle'
   | 'checking'

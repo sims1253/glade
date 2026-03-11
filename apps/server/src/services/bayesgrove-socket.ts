@@ -6,27 +6,28 @@ import * as Queue from 'effect/Queue';
 import * as Ref from 'effect/Ref';
 import * as Runtime from 'effect/Runtime';
 import * as Schedule from 'effect/Schedule';
-import * as Schema from 'effect/Schema';
 import * as Stream from 'effect/Stream';
+import { Either, Schema } from 'effect';
 
 import {
-  decodeBayesgroveCommandResult,
-  decodeGraphSnapshot,
-  decodeProtocolEvent,
   type BayesgroveCommand,
-  type BayesgroveCommandResult,
-  type GraphSnapshot,
-  type ProtocolEvent,
+  type BayesgroveCommandResult as BayesgroveCommandResultMessage,
+  BayesgroveCommandResult as BayesgroveCommandResultSchema,
+  type GraphSnapshot as GraphSnapshotMessage,
+  GraphSnapshot as GraphSnapshotSchema,
+  type ProtocolEvent as ProtocolEventMessage,
+  ProtocolEvent as ProtocolEventSchema,
   type SessionStatus,
   type WsPush,
 } from '@glade/contracts';
+import { decodeJsonResult, decodeUnknownResult, formatSchemaError } from '@glade/shared';
 
 import { ServerConfig } from '../config';
 import { ProtocolDecodeError, SessionStartupError } from '../errors';
 import { SessionStatusStore } from './session-status';
 import { WebSocketHub } from './websocket-hub';
 
-export type BayesgroveInboundMessage = GraphSnapshot | ProtocolEvent | BayesgroveCommandResult;
+export type BayesgroveInboundMessage = GraphSnapshotMessage | ProtocolEventMessage | BayesgroveCommandResultMessage;
 
 export class BayesgroveSocket extends Context.Tag('glade/BayesgroveSocket')<
   BayesgroveSocket,
@@ -43,7 +44,10 @@ function statusMessage(state: SessionStatus['state'], reason?: string): SessionS
   return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
 }
 
-const decodeJsonString = Schema.decodeUnknown(Schema.parseJson());
+const decodeJsonPayload = decodeJsonResult(Schema.Unknown);
+const decodeSnapshotResult = decodeUnknownResult(GraphSnapshotSchema);
+const decodeProtocolEventResult = decodeUnknownResult(ProtocolEventSchema);
+const decodeCommandResult = decodeUnknownResult(BayesgroveCommandResultSchema);
 
 export const BayesgroveSocketLive = Layer.scoped(
   BayesgroveSocket,
@@ -66,31 +70,37 @@ export const BayesgroveSocketLive = Layer.scoped(
 
     const parseInbound = (raw: string) =>
       Effect.gen(function* () {
-        const payload = yield* decodeJsonString(raw).pipe(
-          Effect.mapError((cause) =>
-            new ProtocolDecodeError({
-              message: 'Unable to parse bayesgrove websocket message as JSON.',
-              cause,
-            })),
-        );
-        const snapshotAttempt = yield* Effect.either(decodeGraphSnapshot(payload));
-        if (snapshotAttempt._tag === 'Right') {
+        const payload = decodeJsonPayload(raw);
+        if (Either.isLeft(payload)) {
+          return yield* new ProtocolDecodeError({
+            message: `Unable to parse bayesgrove websocket message as JSON. ${formatSchemaError(payload.left)}`,
+            cause: raw,
+          });
+        }
+
+        const snapshotAttempt = decodeSnapshotResult(payload.right);
+        if (Either.isRight(snapshotAttempt)) {
           return snapshotAttempt.right;
         }
 
-        const eventAttempt = yield* Effect.either(decodeProtocolEvent(payload));
-        if (eventAttempt._tag === 'Right') {
+        const eventAttempt = decodeProtocolEventResult(payload.right);
+        if (Either.isRight(eventAttempt)) {
           return eventAttempt.right;
         }
 
-        const resultAttempt = yield* Effect.either(decodeBayesgroveCommandResult(payload));
-        if (resultAttempt._tag === 'Right') {
+        const resultAttempt = decodeCommandResult(payload.right);
+        if (Either.isRight(resultAttempt)) {
           return resultAttempt.right;
         }
 
         return yield* new ProtocolDecodeError({
-          message: 'Unable to decode bayesgrove websocket message.',
-          cause: payload,
+          message: [
+            'Unable to decode bayesgrove websocket message.',
+            formatSchemaError(snapshotAttempt.left),
+            formatSchemaError(eventAttempt.left),
+            formatSchemaError(resultAttempt.left),
+          ].join(' '),
+          cause: payload.right,
         });
       });
 

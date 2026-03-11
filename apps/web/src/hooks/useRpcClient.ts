@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as Effect from 'effect/Effect';
-import * as Schema from 'effect/Schema';
+import { Either } from 'effect';
 
 import {
-  decodeWsMessage,
   type RpcError,
   type WebSocketRequest,
   type WebSocketResponse,
+  WsMessage,
 } from '@glade/contracts';
+import { decodeJsonResult, formatSchemaError } from '@glade/shared';
 
 import {
   describeRpcCall,
@@ -26,13 +26,17 @@ import { useGraphStore } from '../store/graph';
 import { useReplStore } from '../store/repl';
 import { useToastStore } from '../store/toast';
 
-const decodeJsonString = Schema.decodeUnknown(Schema.parseJson());
+const REQUEST_TIMEOUT_MS = 20_000;
+const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000] as const;
+const decodeWsInbound = decodeJsonResult(WsMessage);
 
 type PendingRequest = {
   readonly method: RpcMethod;
   readonly body: WebSocketRequest['body'];
   readonly resolve: (result: RpcCallResult<any>) => void;
   readonly timeout: number;
+  readonly encodedRequest: string;
+  queued: boolean;
 };
 
 function websocketUnavailableError(message: string): RpcError {
@@ -46,8 +50,11 @@ function websocketUnavailableError(message: string): RpcError {
 export function useRpcClient(): RpcClient {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const manualReconnectRef = useRef(false);
+  const unmountingRef = useRef(false);
   const pendingRequestsRef = useRef(new Map<string, PendingRequest>());
+  const outboundQueueRef = useRef<Array<string>>([]);
   const [socketGeneration, setSocketGeneration] = useState(0);
 
   const finishPending = useCallback((response: WebSocketResponse) => {
@@ -88,12 +95,47 @@ export function useRpcClient(): RpcClient {
       });
     }
     pendingRequestsRef.current.clear();
+    outboundQueueRef.current = [];
   }, []);
 
-  const scheduleReconnect = useCallback((delayMs: number) => {
-    if (reconnectTimerRef.current !== null) {
-      window.clearTimeout(reconnectTimerRef.current);
+  const flushOutboundQueue = useCallback((socket: WebSocket | null = socketRef.current) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
     }
+
+    while (outboundQueueRef.current.length > 0) {
+      const requestId = outboundQueueRef.current[0];
+      if (!requestId) {
+        outboundQueueRef.current.shift();
+        continue;
+      }
+
+      const pending = pendingRequestsRef.current.get(requestId);
+      if (!pending) {
+        outboundQueueRef.current.shift();
+        continue;
+      }
+
+      try {
+        socket.send(pending.encodedRequest);
+        pending.queued = false;
+        outboundQueueRef.current.shift();
+      } catch (error) {
+        console.warn('[websocket] failed to flush queued request', error);
+        break;
+      }
+    }
+  }, []);
+
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimerRef.current !== null) {
+      return;
+    }
+
+    const delayMs = RECONNECT_DELAYS_MS[
+      Math.min(reconnectAttemptRef.current, RECONNECT_DELAYS_MS.length - 1)
+    ] ?? RECONNECT_DELAYS_MS[0];
+    reconnectAttemptRef.current += 1;
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
@@ -115,8 +157,10 @@ export function useRpcClient(): RpcClient {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
+      reconnectAttemptRef.current = 0;
       useConnectionStore.getState().markConnecting();
       manualReconnectRef.current = false;
+      flushOutboundQueue(socket);
     };
 
     socket.onmessage = (event) => {
@@ -124,52 +168,52 @@ export function useRpcClient(): RpcClient {
         return;
       }
 
-      void Effect.runPromise(
-        Effect.gen(function* () {
-          const payload = yield* decodeJsonString(String(event.data));
-          const message = yield* decodeWsMessage(payload);
-
-          if (message._tag === 'WsPush') {
-            switch (message.channel) {
-              case 'server.bootstrap':
-                useConnectionStore.getState().applyBootstrap(message.payload);
-                useReplStore.getState().replaceLines(message.payload.replHistory);
-                if (message.payload.snapshot) {
-                  useGraphStore.getState().applySnapshot(message.payload.snapshot);
-                }
-                return;
-              case 'desktop.environment':
-                useConnectionStore.getState().setDesktopEnvironment(message.payload);
-                return;
-              case 'session.status':
-                useConnectionStore.getState().setSessionStatus(message.payload);
-                return;
-              case 'workflow.snapshot':
-                useGraphStore.getState().applySnapshot(message.payload);
-                return;
-              case 'workflow.event':
-                useGraphStore.getState().applyProtocolEvent(message.payload);
-                return;
-              case 'repl.output':
-                useReplStore.getState().appendLine(message.payload.line);
-                return;
-              case 'repl.cleared':
-                useReplStore.getState().clearLines();
-                return;
-            }
-          }
-
-          finishPending(message);
-        }),
-      ).catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error('[websocket] failed to process server message', error);
+      const decoded = decodeWsInbound(event.data);
+      if (Either.isLeft(decoded)) {
+        const message = formatSchemaError(decoded.left);
+        console.warn('[websocket] dropped inbound server message', message);
         useToastStore.getState().pushNotification({
           tone: 'error',
           title: 'Could not process server message',
           description: message,
         });
-      });
+        return;
+      }
+
+      const message = decoded.right;
+      if (message._tag === 'WsPush') {
+        switch (message.channel) {
+          case 'server.bootstrap':
+            useConnectionStore.getState().applyBootstrap(message.payload);
+            useReplStore.getState().replaceLines(message.payload.replHistory);
+            if (message.payload.snapshot) {
+              useGraphStore.getState().applySnapshot(message.payload.snapshot);
+            }
+            return;
+          case 'desktop.environment':
+            useConnectionStore.getState().setDesktopEnvironment(message.payload);
+            return;
+          case 'session.status':
+            useConnectionStore.getState().setSessionStatus(message.payload);
+            return;
+          case 'workflow.snapshot':
+            useGraphStore.getState().applySnapshot(message.payload);
+            return;
+          case 'workflow.event':
+            useGraphStore.getState().applyProtocolEvent(message.payload);
+            return;
+          case 'repl.output':
+            useReplStore.getState().appendLine(message.payload.line);
+            return;
+          case 'repl.cleared':
+            useReplStore.getState().clearLines();
+            return;
+        }
+      }
+
+      if (message._tag === 'WebSocketSuccess' || message._tag === 'WebSocketError') {
+        finishPending(message);
+      }
     };
 
     socket.onclose = () => {
@@ -178,10 +222,9 @@ export function useRpcClient(): RpcClient {
       }
 
       useConnectionStore.getState().markDisconnected('websocket_closed');
-      rejectAllPending('The websocket connection closed before the request completed.');
 
       if (!manualReconnectRef.current) {
-        scheduleReconnect(1_000);
+        scheduleReconnect();
       }
     };
 
@@ -200,14 +243,17 @@ export function useRpcClient(): RpcClient {
     return () => {
       if (socketRef.current === socket) {
         socketRef.current = null;
-        rejectAllPending('The websocket connection closed before the request completed.');
+        if (unmountingRef.current) {
+          rejectAllPending('The websocket connection closed before the request completed.');
+        }
       }
       socket.close();
     };
-  }, [finishPending, rejectAllPending, scheduleReconnect, socketGeneration]);
+  }, [finishPending, flushOutboundQueue, rejectAllPending, scheduleReconnect, socketGeneration]);
 
   useEffect(() => {
     return () => {
+      unmountingRef.current = true;
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
       }
@@ -219,16 +265,15 @@ export function useRpcClient(): RpcClient {
     body: RpcRequestBody<TMethod>,
   ): Promise<RpcCallResult<RpcResultValue<TMethod>>> => {
     const socket = socketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      return Promise.resolve({
-        success: false,
-        error: websocketUnavailableError('The websocket connection is not ready.'),
-      });
-    }
-
     const request = makeRequest(method, body);
+    const encodedRequest = JSON.stringify(request);
+
     return new Promise<RpcCallResult<RpcResultValue<TMethod>>>((resolve) => {
       const timeout = window.setTimeout(() => {
+        const pending = pendingRequestsRef.current.get(request.id);
+        if (pending?.queued) {
+          outboundQueueRef.current = outboundQueueRef.current.filter((entry) => entry !== request.id);
+        }
         pendingRequestsRef.current.delete(request.id);
         const error: RpcError = {
           _tag: 'RpcError',
@@ -241,18 +286,26 @@ export function useRpcClient(): RpcClient {
           description: error.message,
         });
         resolve({ success: false, error });
-      }, 20_000);
+      }, REQUEST_TIMEOUT_MS);
 
       pendingRequestsRef.current.set(request.id, {
         method,
         body: request.body,
         resolve: resolve as (result: RpcCallResult<any>) => void,
         timeout,
+        encodedRequest,
+        queued: true,
       });
 
-      socket.send(JSON.stringify(request));
+      outboundQueueRef.current.push(request.id);
+
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      flushOutboundQueue(socket);
     });
-  }, []);
+  }, [flushOutboundQueue]);
 
   return useMemo(() => ({
     desktop: {
@@ -284,6 +337,7 @@ export function useRpcClient(): RpcClient {
     },
     reconnect: () => {
       manualReconnectRef.current = true;
+      reconnectAttemptRef.current = 0;
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;

@@ -8,11 +8,10 @@ import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import * as Ref from 'effect/Ref';
 import * as Runtime from 'effect/Runtime';
-import * as Schema from 'effect/Schema';
+import { Either, Schema } from 'effect';
 import * as Stream from 'effect/Stream';
 
 import {
-  decodeWebSocketRequest,
   normalizeGraphSnapshotExtensions,
   type AckResult,
   type BayesgroveCommand,
@@ -25,11 +24,13 @@ import {
   type RpcError,
   type ServerBootstrap,
   type SessionStatus,
-  type WebSocketRequest,
+  type WebSocketRequest as WebSocketRequestMessage,
   type WebSocketResponse,
+  WebSocketRequest as WebSocketRequestSchema,
   type WsPush,
   WS_METHODS,
 } from '@glade/contracts';
+import { decodeJsonResult, decodeUnknownResult, formatSchemaError } from '@glade/shared';
 
 import { ServerConfig } from '../config';
 import {
@@ -53,12 +54,13 @@ export class ServerEdge extends Context.Tag('glade/ServerEdge')<
 >() {}
 
 const INTERNAL_SNAPSHOT_PREFIX = 'internal.snapshot.';
-const decodeJsonString = Schema.decodeUnknown(Schema.parseJson());
+const decodeJsonPayload = decodeJsonResult(Schema.Unknown);
+const decodeWsRequestPayload = decodeUnknownResult(WebSocketRequestSchema);
 const WS_METHOD_SET = new Set<string>(WS_METHODS);
 
 type PendingRequest = {
   readonly socket: WebSocket;
-  readonly method: WebSocketRequest['method'];
+  readonly method: WebSocketRequestMessage['method'];
 };
 
 function ackResult(): AckResult {
@@ -76,7 +78,7 @@ function rpcError(code: string, message: string, details?: unknown): RpcError {
 
 function successResponse(
   id: string,
-  method: WebSocketRequest['method'],
+  method: WebSocketRequestMessage['method'],
   result: AckResult | DesktopEnvironmentState,
 ): WebSocketResponse {
   return {
@@ -89,7 +91,7 @@ function successResponse(
 
 function errorResponse(
   id: string,
-  method: WebSocketRequest['method'],
+  method: WebSocketRequestMessage['method'],
   error: RpcError,
 ): WebSocketResponse {
   return {
@@ -151,7 +153,7 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
 
 function toBayesgroveCommand(
   id: string,
-  request: Extract<WebSocketRequest, { method: `workflow.${string}` }>,
+  request: Extract<WebSocketRequestMessage, { method: `workflow.${string}` }>,
 ): BayesgroveCommand {
   switch (request.method) {
     case 'workflow.addNode':
@@ -283,7 +285,7 @@ function commandErrorPayload(error: unknown): RpcError {
   return rpcError('command_failed', error instanceof Error ? error.message : String(error));
 }
 
-function invalidRequestMetadata(value: unknown): { id: string; method: WebSocketRequest['method'] } | null {
+function invalidRequestMetadata(value: unknown): { id: string; method: WebSocketRequestMessage['method'] } | null {
   const object = asObject(value);
   if (!object || typeof object.id !== 'string' || typeof object.method !== 'string') {
     return null;
@@ -295,7 +297,7 @@ function invalidRequestMetadata(value: unknown): { id: string; method: WebSocket
 
   return {
     id: object.id,
-    method: object.method as WebSocketRequest['method'],
+    method: object.method as WebSocketRequestMessage['method'],
   };
 }
 
@@ -361,7 +363,7 @@ export const ServerEdgeLive = Layer.scoped(
     });
 
     const prepareSnapshot = (snapshot: GraphSnapshot) => Effect.succeed(snapshot);
-    const registerPending = (id: string, method: WebSocketRequest['method'], socket: WebSocket) =>
+    const registerPending = (id: string, method: WebSocketRequestMessage['method'], socket: WebSocket) =>
       Ref.update(pendingRequests, (current) => new Map(current).set(id, { socket, method }));
 
     const handleCommandResult = (result: BayesgroveCommandResult) =>
@@ -433,7 +435,7 @@ export const ServerEdgeLive = Layer.scoped(
 
     const runImmediateRequest = (
       socket: WebSocket,
-      request: Exclude<WebSocketRequest, Extract<WebSocketRequest, { method: `workflow.${string}` }>>,
+      request: Exclude<WebSocketRequestMessage, Extract<WebSocketRequestMessage, { method: `workflow.${string}` }>>,
     ): Effect.Effect<void, unknown> =>
       Effect.gen(function* () {
         switch (request.method) {
@@ -517,7 +519,7 @@ export const ServerEdgeLive = Layer.scoped(
 
     const runWorkflowRequest = (
       socket: WebSocket,
-      request: Extract<WebSocketRequest, { method: `workflow.${string}` }>,
+      request: Extract<WebSocketRequestMessage, { method: `workflow.${string}` }>,
     ): Effect.Effect<void, unknown> =>
       Effect.gen(function* () {
         const connected = yield* bayesgroveSocket.isConnected;
@@ -547,10 +549,10 @@ export const ServerEdgeLive = Layer.scoped(
         yield* bayesgroveSocket.send(rawCommand);
       });
 
-    const handleRequest = (socket: WebSocket, request: WebSocketRequest): Effect.Effect<void> => {
+    const handleRequest = (socket: WebSocket, request: WebSocketRequestMessage): Effect.Effect<void> => {
       const effect = request.method.startsWith('workflow.')
-        ? runWorkflowRequest(socket, request as Extract<WebSocketRequest, { method: `workflow.${string}` }>)
-        : runImmediateRequest(socket, request as Exclude<WebSocketRequest, Extract<WebSocketRequest, { method: `workflow.${string}` }>>);
+        ? runWorkflowRequest(socket, request as Extract<WebSocketRequestMessage, { method: `workflow.${string}` }>)
+        : runImmediateRequest(socket, request as Exclude<WebSocketRequestMessage, Extract<WebSocketRequestMessage, { method: `workflow.${string}` }>>);
 
       return Effect.catchAll(effect, (error) =>
         hub.send(socket, errorResponse(request.id, request.method, commandErrorPayload(error))),
@@ -574,15 +576,15 @@ export const ServerEdgeLive = Layer.scoped(
 
     const handleRawMessage = (socket: WebSocket, payload: unknown) =>
       Effect.gen(function* () {
-        const parsedResult = yield* Effect.either(decodeJsonString(String(payload)));
-        if (parsedResult._tag === 'Left') {
+        const parsedResult = decodeJsonPayload(String(payload));
+        if (Either.isLeft(parsedResult)) {
           yield* Effect.sync(() => socket.close(1008, 'Invalid websocket request.'));
           return;
         }
         const parsed = parsedResult.right;
 
-        const decoded = yield* Effect.either(decodeWebSocketRequest(parsed));
-        if (decoded._tag === 'Right') {
+        const decoded = decodeWsRequestPayload(parsed);
+        if (Either.isRight(decoded)) {
           yield* handleRequest(socket, decoded.right);
           return;
         }
@@ -598,14 +600,17 @@ export const ServerEdgeLive = Layer.scoped(
           errorResponse(
             fallback.id,
             fallback.method,
-            rpcError('invalid_request', 'The websocket request payload could not be decoded.', parsed),
+            rpcError(
+              'invalid_request',
+              `The websocket request payload could not be decoded. ${formatSchemaError(decoded.left)}`,
+              parsed,
+            ),
           ),
         );
       });
 
     const attachClient = (socket: WebSocket) =>
       Effect.gen(function* () {
-        yield* hub.add(socket);
         const snapshot = yield* cache.getSnapshot;
         const currentStatus = yield* statusStore.get;
         const replHistory = yield* cache.getReplLines(config.replReplayLimit);
@@ -615,7 +620,13 @@ export const ServerEdgeLive = Layer.scoped(
           channel: 'server.bootstrap',
           payload: bootstrapFor(snapshot, replHistory, currentStatus, currentDesktopEnvironment),
         };
-        yield* hub.send(socket, bootstrapPush);
+        const bootstrapDelivered = yield* hub.send(socket, bootstrapPush);
+        if (!bootstrapDelivered) {
+          return;
+        }
+
+        yield* hub.add(socket);
+        yield* hub.replayLatest(socket);
 
         if (Option.isNone(snapshot)) {
           yield* requestSnapshotRefresh;
