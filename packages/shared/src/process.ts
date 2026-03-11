@@ -1,9 +1,9 @@
 import { spawn, spawnSync, type ChildProcess, type SpawnOptions, type SpawnSyncReturns } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { createLineBuffer } from './logging';
+import { createLineBuffer } from './logging.ts';
 
-export { createLineBuffer } from './logging';
+export { createLineBuffer } from './logging.ts';
 
 export interface SpawnProcessOptions extends SpawnOptions {
   readonly command: string;
