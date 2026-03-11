@@ -1,76 +1,46 @@
 # Glade
 
-Glade is the desktop-first GUI for bayesgrove.
+Glade is a desktop app for working with local Bayesgrove workflows.
 
-Current release: `0.12.0`
+Current release: `0.12.1`
 
-Phase status: the phase 13 desktop-first realignment pass is implemented.
-The app now includes:
+## What you get
 
-- mockup-driven three-column workspace shell with persistent explorer, center tabs, persistent inspector, and docked shared-session REPL
-- workflow canvas
-- protocol-driven inspector actions and obligations
-- node detail drawer
-- dedicated `/settings` and `/terminal` routes on a shared renderer session provider
-- schema-driven parameter forms for Bayesgrove-described nodes
-- desktop first-launch checks for R and `bayesgrove`, persisted Electron settings, and user-confirmed update flow
-- staged release artifact builds for desktop installers
+- a desktop-first workspace for local Bayesgrove projects
+- a workflow canvas with guided actions and obligations
+- a shared REPL and terminal surface inside the app
+- setup checks for local dependencies such as R and `bayesgrove`
+- in-app settings and health status for the local Glade session
 
-The current release completes the desktop-first Bayesgrove realignment: hosted mode, Glade-owned non-R execution, and the old extension-platform/runtime surfaces are removed, while the client contracts and workspace UX stay focused on the local Bayesgrove workflow.
+## Requirements
 
-## Workspace
+Before running Glade, install:
 
-- `apps/desktop` — Electron shell
-- `apps/server` — Bun/Effect orchestrator
-- `apps/web` — React/Vite frontend
-- `packages/contracts` — shared Effect Schema protocol types
-- `packages/shared` — shared constants and utilities
+- [R](https://cran.r-project.org/)
+- `bayesgrove` in your local R environment
 
-## Development
+Glade will check your local setup on first launch and show any missing prerequisites in the app.
+
+## Install and run
+
+Download the desktop build for your platform from the project releases, then launch Glade like any other desktop app.
+
+If you are running from source, install dependencies and start the desktop app with:
 
 ```bash
 bun install
-bun run dev
+bun run dev:desktop
 ```
 
-The root dev runner auto-selects free app-server and `bg_serve()` ports when the defaults are already occupied.
+## Using Glade
 
-Desktop-specific smoke coverage:
+From the main workspace you can:
 
-```bash
-bun run --cwd apps/desktop smoke-test:repl-detach
-bun run --cwd apps/desktop smoke-test:bayesgrove
-```
+- inspect your workflow graph
+- review recommended actions and blocking obligations
+- open Settings to fix local environment issues
+- open the Health dialog to inspect the local session status
 
-Desktop packaging bundle for the current platform:
+## Notes
 
-```bash
-bun run build:desktop-bundle
-```
-
-Build desktop release artifacts for the current platform:
-
-```bash
-bun run build:desktop:artifact
-```
-
-Run the release smoke path without signing or publishing:
-
-```bash
-bun run release:smoke
-```
-
-Server integration coverage with a real R/bayesgrove session:
-
-```bash
-bun run --cwd apps/server test:integration
-```
-
-## Validation
-
-```bash
-bun run lint
-bun run typecheck
-bun run build
-bun run test
-```
+Glade is focused on local Bayesgrove workflows. Hosted mode and non-local Glade-managed execution are not part of the current product surface.

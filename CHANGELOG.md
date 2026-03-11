@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1 - 2026-03-11
+
+- Fixed the browser smoke test for the desktop-first home screen so CI now asserts the current setup-required banner instead of stale onboarding copy.
+- Rewrote the README as a user-facing product overview, removing internal development-process notes and focusing it on installation, requirements, and in-app workflow guidance.
+
 ## 0.12.0 - 2026-03-11
 
 - Realigned Glade around the desktop-first Bayesgrove GUI path by removing hosted-mode flows, standalone hosted packaging, Glade-owned node execution, and the old extension-platform runtime surfaces across the server, web app, examples, and tests.

@@ -260,7 +260,7 @@ describe('IndexRoute browser smoke', () => {
     document.body.innerHTML = '';
   });
 
-  it('renders setup guidance and opens the health dialog in a real browser', async () => {
+  it('renders the setup banner and opens the health dialog in a real browser', async () => {
     const host = document.createElement('div');
     document.body.append(host);
     const queryClient = new QueryClient({
@@ -282,8 +282,8 @@ describe('IndexRoute browser smoke', () => {
     );
 
     try {
-      await waitForText('Complete local setup before running workflows');
-      await waitForText('Install R before using Glade');
+      await waitForText('Setup required:');
+      await waitForText('need attention before running workflows.');
       clickButton('View health');
       await waitForText('Live server status without navigating away from the app window.');
       expect(document.body.textContent).toContain('/health');
