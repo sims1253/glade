@@ -4,16 +4,15 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
-import WebSocket from 'ws';
 
 import {
   ensureBayesgroveIntegrationPrerequisites,
   getAvailablePort,
+  openTrackedConnection,
   terminateChildren,
   waitFor,
+  type Message,
 } from './integration-support';
-
-type Message = Record<string, unknown>;
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ChildProcess>();
@@ -40,28 +39,6 @@ async function prepareBayesgroveProject(projectPath: string) {
         return;
       }
       resolve();
-    });
-  });
-}
-
-async function collectMessages(url: string, expected: (messages: Message[]) => boolean) {
-  const messages: Message[] = [];
-  const socket = new WebSocket(url);
-  return await new Promise<{ socket: WebSocket; messages: Message[] }>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      socket.close();
-      reject(new Error(`Timed out waiting for websocket messages from ${url}`));
-    }, 20_000);
-    socket.on('message', (payload) => {
-      messages.push(JSON.parse(String(payload)) as Message);
-      if (expected(messages)) {
-        clearTimeout(timeout);
-        resolve({ socket, messages });
-      }
-    });
-    socket.on('error', (error) => {
-      clearTimeout(timeout);
-      reject(error);
     });
   });
 }
@@ -93,7 +70,7 @@ describe('phase 2 bridge', () => {
 
     await waitFor(`http://127.0.0.1:${port}/health`);
 
-    const firstConnection = await collectMessages(
+    const firstConnection = await openTrackedConnection(
       `ws://127.0.0.1:${port}/ws`,
       (messages) => messages.some((message) => message.message_type === 'GraphSnapshot'),
     );
@@ -102,9 +79,11 @@ describe('phase 2 bridge', () => {
 
     firstConnection.socket.send(
       JSON.stringify({
+        _tag: 'WebSocketRequest',
         id: 'frontend.add.1',
-        command: {
-          type: 'AddNode',
+        method: 'workflow.addNode',
+        body: {
+          _tag: 'workflow.addNode',
           kind: 'source',
           label: 'From integration test',
         },
@@ -115,9 +94,16 @@ describe('phase 2 bridge', () => {
       const messages = [...firstConnection.messages];
       const timeout = setTimeout(() => reject(new Error('Timed out waiting for command results.')), 20_000);
       firstConnection.socket.on('message', (payload) => {
-        messages.push(JSON.parse(String(payload)) as Message);
+        const message = JSON.parse(String(payload)) as Message;
+        if (message._tag === 'WsPush' && message.channel === 'workflow.snapshot' && message.payload && typeof message.payload === 'object') {
+          messages.push(message, message.payload as Message);
+        } else if (message._tag === 'WsPush' && message.channel === 'workflow.event' && message.payload && typeof message.payload === 'object') {
+          messages.push(message, message.payload as Message);
+        } else {
+          messages.push(message);
+        }
         const hasResult = messages.some(
-          (message) => message.type === 'CommandResult' && message.id === 'frontend.add.1',
+          (message) => message._tag === 'WebSocketSuccess' && message.id === 'frontend.add.1',
         );
         const hasEvent = messages.some((message) => message.message_type === 'ProtocolEvent');
         if (hasResult && hasEvent) {
@@ -128,13 +114,13 @@ describe('phase 2 bridge', () => {
     });
 
     const result = afterCommand.find(
-      (message) => message.type === 'CommandResult' && message.id === 'frontend.add.1',
+      (message) => message._tag === 'WebSocketSuccess' && message.id === 'frontend.add.1',
     );
-    expect(result).toMatchObject({ type: 'CommandResult', id: 'frontend.add.1', success: true });
+    expect(result).toMatchObject({ _tag: 'WebSocketSuccess', id: 'frontend.add.1', method: 'workflow.addNode' });
 
     firstConnection.socket.close();
 
-    const secondConnection = await collectMessages(
+    const secondConnection = await openTrackedConnection(
       `ws://127.0.0.1:${port}/ws`,
       (messages) => messages.some((message) => message.message_type === 'GraphSnapshot'),
     );

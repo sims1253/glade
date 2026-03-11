@@ -2,19 +2,17 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 
 import { afterEach, describe, expect, it } from 'vitest';
-import WebSocket from 'ws';
 
 import {
   ensureBayesgroveIntegrationPrerequisites,
   getAvailablePort,
+  openTrackedConnection,
   terminateChildren,
   waitFor,
+  waitForMessages,
 } from './integration-support';
-
-type Message = Record<string, unknown>;
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const children = new Set<ChildProcess>();
@@ -42,38 +40,6 @@ async function prepareBayesgroveProject(projectPath: string) {
       resolve();
     });
   });
-}
-
-async function openTrackedConnection(url: string, expected: (messages: Message[]) => boolean) {
-  const messages: Message[] = [];
-  const socket = new WebSocket(url);
-  return await new Promise<{ socket: WebSocket; messages: Message[] }>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      socket.close();
-      reject(new Error(`Timed out waiting for websocket messages from ${url}`));
-    }, 20_000);
-    socket.on('message', (payload) => {
-      messages.push(JSON.parse(String(payload)) as Message);
-      if (expected(messages)) {
-        clearTimeout(timeout);
-        resolve({ socket, messages });
-      }
-    });
-    socket.on('error', (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-  });
-}
-
-async function waitForMessages(messages: Message[], expected: (messages: Message[]) => boolean, attempts = 200) {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (expected(messages)) {
-      return messages;
-    }
-    await sleep(100);
-  }
-  throw new Error('Timed out waiting for websocket messages.');
 }
 
 describe('phase 7 repl terminal', () => {
@@ -109,9 +75,11 @@ describe('phase 7 repl terminal', () => {
     );
 
     connection.socket.send(JSON.stringify({
+      _tag: 'WebSocketRequest',
       id: 'cmd.repl.desktop',
-      command: {
-        type: 'ReplInput',
+      method: 'repl.write',
+      body: {
+        _tag: 'repl.write',
         data: '1 + 1\n',
       },
     }));
@@ -120,24 +88,24 @@ describe('phase 7 repl terminal', () => {
       connection.messages,
       (messages) =>
         messages.some(
-          (message) => message.type === 'CommandResult' &&
+          (message) => message._tag === 'WebSocketSuccess' &&
             message.id === 'cmd.repl.desktop' &&
-            message.success === true,
+            message.method === 'repl.write',
         ) &&
         messages.some(
-          (message) => message.type === 'ReplOutput' &&
+          (message) => message._tag === 'ReplOutput' &&
             typeof message.line === 'string' &&
             message.line.includes('[1] 2'),
         ),
     );
 
     expect(connection.messages.some(
-      (message) => message.type === 'CommandResult' &&
+      (message) => message._tag === 'WebSocketSuccess' &&
         message.id === 'cmd.repl.desktop' &&
-        message.success === true,
+        message.method === 'repl.write',
     )).toBe(true);
     expect(connection.messages.some(
-      (message) => message.type === 'ReplOutput' &&
+      (message) => message._tag === 'ReplOutput' &&
         typeof message.line === 'string' &&
         message.line.includes('[1] 2'),
     )).toBe(true);

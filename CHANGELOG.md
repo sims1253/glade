@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.3 - 2026-03-11
+
+- Removed the vouch-based pull request trust flow, deleting the dedicated workflow and letting integration coverage run directly in CI without label gating.
+- Fixed the real Bayesgrove server integration tests to match the current websocket RPC/bootstrap message shapes, so the ungated CI path validates the desktop-mode session flows again.
+- Hardened GitHub Actions by pinning `oven-sh/setup-bun` to `v2.1.3`, opting JavaScript actions into Node 24, installing the missing Linux desktop build dependencies, and adding release smoke coverage to CI.
+
 ## 0.12.2 - 2026-03-11
 
 - Fixed guided Bayesgrove actions that require user input by preserving structured `invocation` metadata in `@glade/contracts`, rendering prompt/field inputs in `@glade/web`, validating required fields in the action preview, and submitting the collected values through the existing `workflow.executeAction` path.
