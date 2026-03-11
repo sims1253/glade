@@ -12,8 +12,9 @@ const port = Number(process.env.BAYESGROVE_SERVER_PORT ?? 7943);
 const entry = path.join(cwd, 'apps/desktop/dist-electron/main.cjs');
 const scenario = process.argv[2]?.trim() || process.env.BAYESGROVE_SMOKE_SCENARIO?.trim() || '';
 const stateDir = await mkdtemp(path.join(tmpdir(), 'glade-desktop-smoke-state-'));
+const isCiHeadless = Boolean(process.env.CI || process.env.GITHUB_ACTIONS);
 const electronArgs = [
-  ...(process.env.CI || process.env.GITHUB_ACTIONS ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
+  ...(isCiHeadless ? ['--no-sandbox', '--disable-setuid-sandbox', '--headless', '--disable-gpu', '--ozone-platform=headless'] : []),
   entry,
 ];
 
