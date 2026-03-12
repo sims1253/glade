@@ -32,6 +32,47 @@ async function waitFor(url, attempts = 120) {
   throw new Error(`Timed out waiting for ${url}`);
 }
 
+function waitForChildExit(child) {
+  return new Promise((resolve, reject) => {
+    if (child.exitCode !== null) {
+      if (child.exitCode !== 0) {
+        reject(new Error(`Electron exited with code ${child.exitCode}`));
+        return;
+      }
+
+      resolve(undefined);
+      return;
+    }
+
+    child.once('exit', (code) => {
+      if (code && code !== 0) {
+        reject(new Error(`Electron exited with code ${code}`));
+        return;
+      }
+
+      resolve(undefined);
+    });
+  });
+}
+
+async function stopChild(child) {
+  if (child.exitCode !== null) {
+    return;
+  }
+
+  child.kill('SIGTERM');
+
+  const exited = await Promise.race([
+    waitForChildExit(child).then(() => true),
+    sleep(5_000).then(() => false),
+  ]);
+
+  if (!exited && child.exitCode === null) {
+    child.kill('SIGKILL');
+    await waitForChildExit(child);
+  }
+}
+
 const child = spawn(electronPath, electronArgs, {
   cwd,
   env: {
@@ -49,17 +90,14 @@ const child = spawn(electronPath, electronArgs, {
 
 try {
   await waitFor(`http://127.0.0.1:${port}/health`);
-  await new Promise((resolve, reject) => {
-    child.once('exit', (code) => {
-      if (code && code !== 0) {
-        reject(new Error(`Electron exited with code ${code}`));
-        return;
-      }
-      resolve(undefined);
-    });
-  });
-} finally {
-  if (!child.killed) {
-    child.kill('SIGTERM');
+  if (scenario) {
+    await waitForChildExit(child);
+  } else {
+    await sleep(1_000);
+    if (child.exitCode !== null && child.exitCode !== 0) {
+      throw new Error(`Electron exited with code ${child.exitCode}`);
+    }
   }
+} finally {
+  await stopChild(child);
 }
