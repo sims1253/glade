@@ -9,6 +9,9 @@ import type { WebSocketResponse, WsPush } from '@glade/contracts';
 type OutboundMessage = WebSocketResponse | WsPush;
 type ReplayableChannel = Extract<WsPush['channel'], 'desktop.environment' | 'session.status' | 'workflow.snapshot'>;
 
+const SOCKET_SEND_RETRY_ATTEMPTS = 20;
+const SOCKET_SEND_RETRY_DELAY_MS = 25;
+
 const REPLAYABLE_CHANNELS: ReadonlyArray<ReplayableChannel> = [
   'session.status',
   'desktop.environment',
@@ -47,17 +50,42 @@ export const WebSocketHubLive = Layer.effect(
     };
 
     const sendSerialized = (socket: WebSocket, payload: string) =>
-      Effect.sync(() => {
-        if (socket.readyState !== socket.OPEN) {
-          return false;
-        }
+      Effect.async<boolean>((resume) => {
+        let settled = false;
 
-        try {
-          socket.send(payload);
-          return true;
-        } catch {
-          return false;
-        }
+        const finish = (result: boolean) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resume(Effect.succeed(result));
+        };
+
+        const attempt = (remaining: number) => {
+          if (socket.readyState === socket.OPEN) {
+            try {
+              socket.send(payload);
+              finish(true);
+            } catch {
+              finish(false);
+            }
+            return;
+          }
+
+          if (socket.readyState !== socket.CONNECTING || remaining <= 0) {
+            finish(false);
+            return;
+          }
+
+          const timer = setTimeout(() => attempt(remaining - 1), SOCKET_SEND_RETRY_DELAY_MS);
+          timer.unref?.();
+        };
+
+        attempt(SOCKET_SEND_RETRY_ATTEMPTS);
+
+        return Effect.sync(() => {
+          settled = true;
+        });
       });
 
     return {

@@ -6,6 +6,7 @@ import process from 'node:process';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import electronPath from 'electron';
+import { terminateProcessTree } from '@glade/shared/process';
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
 const port = Number(process.env.BAYESGROVE_SERVER_PORT ?? 7943);
@@ -60,21 +61,14 @@ async function stopChild(child) {
     return;
   }
 
-  child.kill('SIGTERM');
-
-  const exited = await Promise.race([
-    waitForChildExit(child).then(() => true),
-    sleep(5_000).then(() => false),
-  ]);
-
-  if (!exited && child.exitCode === null) {
-    child.kill('SIGKILL');
-    await waitForChildExit(child);
-  }
+  console.log('[smoke] terminating Electron process tree');
+  await terminateProcessTree(child, { gracePeriodMs: 5_000 });
+  console.log('[smoke] Electron process tree terminated');
 }
 
 const child = spawn(electronPath, electronArgs, {
   cwd,
+  detached: process.platform !== 'win32',
   env: {
     ...process.env,
     BAYESGROVE_APP_ROOT: cwd,
@@ -90,9 +84,12 @@ const child = spawn(electronPath, electronArgs, {
 
 try {
   await waitFor(`http://127.0.0.1:${port}/health`);
+  console.log(`[smoke] health check passed on port ${port}`);
   if (scenario) {
+    console.log(`[smoke] waiting for scenario to complete: ${scenario}`);
     await waitForChildExit(child);
   } else {
+    console.log('[smoke] default smoke path reached; waiting briefly before shutdown');
     await sleep(1_000);
     if (child.exitCode !== null && child.exitCode !== 0) {
       throw new Error(`Electron exited with code ${child.exitCode}`);

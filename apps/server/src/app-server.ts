@@ -116,7 +116,10 @@ export const AppServerLive: Layer.Layer<AppServer, unknown, ServerConfig | Serve
 
     httpServer.on('upgrade', upgradeHandler);
     webSocketServer.on('connection', (socket: WebSocket) => {
-      void Runtime.runPromise(effectRuntime, router.attachClient(socket));
+      void Runtime.runPromise(effectRuntime, router.attachClient(socket)).catch((error) => {
+        console.error('[server] failed to attach websocket client', error);
+        socket.close(1011, 'Internal Server Error');
+      });
     });
 
     yield* NodeHttpServer.make(() => httpServer, {
