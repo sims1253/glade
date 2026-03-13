@@ -268,7 +268,7 @@ async function resolveEditorCommand(settings: DesktopSettings) {
 
 async function loadDesktopEnvironmentState(stateDir: string, projectPathOverride: string | null) {
   const settings = await loadDesktopSettings(stateDir);
-  const projectPath = projectPathOverride ?? defaultProjectPath(stateDir);
+  const projectPath = projectPathOverride ?? settings.projectPath ?? defaultProjectPath(stateDir);
   return {
     settings,
     preflight: runDesktopPreflight(settings, projectPath),

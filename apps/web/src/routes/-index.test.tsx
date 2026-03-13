@@ -55,10 +55,11 @@ const desktopUpdateState: DesktopUpdateState = {
   progressPercent: null,
 };
 
-vi.mock('xterm', () => ({
+vi.mock('@xterm/xterm', () => ({
   Terminal: class {
     loadAddon = vi.fn();
     open = vi.fn();
+    focus = vi.fn();
     write = vi.fn();
     writeln = vi.fn();
     clear = vi.fn();
@@ -69,6 +70,8 @@ vi.mock('xterm', () => ({
 
 vi.mock('@xterm/addon-fit', () => ({
   FitAddon: class {
+    activate = vi.fn();
+    dispose = vi.fn();
     fit = fitMock;
   },
 }));
@@ -432,7 +435,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
 
     renderRoute();
 
-    fireEvent.click(screen.getByRole('button', { name: 'View health' }));
+    fireEvent.click(screen.getByRole('button', { name: 'System health' }));
 
     expect(screen.getByText('Health')).toBeInTheDocument();
     expect(screen.getByText(/Live server status without navigating away/i)).toBeInTheDocument();

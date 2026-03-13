@@ -76,6 +76,7 @@ export const DesktopSettings = Schema.Struct({
   rExecutablePath: Schema.String,
   editorCommand: Schema.String,
   updateChannel: UpdateChannel,
+  projectPath: Schema.optional(Schema.String),
 });
 export type DesktopSettings = Schema.Schema.Type<typeof DesktopSettings>;
 

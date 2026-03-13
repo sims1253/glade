@@ -1,10 +1,10 @@
 import { playwright } from '@vitest/browser-playwright';
 import { defineConfig, mergeConfig } from 'vitest/config';
 
-import viteConfig from './vite.config';
+import vitestConfig from './vitest.config';
 
 export default mergeConfig(
-  viteConfig,
+  vitestConfig,
   defineConfig({
     optimizeDeps: {
       include: ['@tanstack/react-query', 'vitest-browser-react'],

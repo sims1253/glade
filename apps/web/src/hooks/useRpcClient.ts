@@ -228,10 +228,12 @@ export function useRpcClient(): RpcClient {
       }
     };
 
-    socket.onerror = () => {
+    socket.onerror = (event) => {
       if (socketRef.current !== socket) {
         return;
       }
+
+      console.warn('[websocket] connection error', event);
 
       useConnectionStore.getState().setSessionStatus({
         _tag: 'SessionStatus',

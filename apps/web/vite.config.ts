@@ -48,40 +48,46 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 1600,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) {
-            return;
-          }
+        codeSplitting: {
+          groups: [
+            {
+              name(id) {
+                if (!id.includes('node_modules')) {
+                  return;
+                }
 
-          if (id.includes('@xyflow')) {
-            return 'xyflow-vendor';
-          }
+                if (id.includes('@xyflow')) {
+                  return 'xyflow-vendor';
+                }
 
-          if (id.includes('d3-')) {
-            return 'd3-vendor';
-          }
+                if (id.includes('d3-')) {
+                  return 'd3-vendor';
+                }
 
-          if (id.includes('xterm')) {
-            return 'terminal-vendor';
-          }
+                if (id.includes('xterm')) {
+                  return 'terminal-vendor';
+                }
 
-          if (id.includes('@tanstack')) {
-            return 'tanstack-vendor';
-          }
+                if (id.includes('@tanstack')) {
+                  return 'tanstack-vendor';
+                }
 
-          if (id.includes('@base-ui') || id.includes('react-hook-form')) {
-            return 'ui-vendor';
-          }
+                if (id.includes('@base-ui') || id.includes('react-hook-form')) {
+                  return 'ui-vendor';
+                }
 
-          if (id.includes('/node_modules/effect/') || id.includes('/node_modules/@effect/')) {
-            return 'effect-vendor';
-          }
+                if (id.includes('/node_modules/effect/') || id.includes('/node_modules/@effect/')) {
+                  return 'effect-vendor';
+                }
 
-          if (id.includes('react') || id.includes('scheduler')) {
-            return 'react-vendor';
-          }
+                if (id.includes('react') || id.includes('scheduler')) {
+                  return 'react-vendor';
+                }
+              },
+            },
+          ],
         },
       },
     },

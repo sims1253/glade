@@ -208,6 +208,41 @@ export function SettingsRoute() {
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="space-y-5">
                 <label className="block">
+                  <span className="text-sm font-medium text-slate-900">Project directory</span>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+                      value={settingsDraft.projectPath ?? ''}
+                      placeholder="Default (~/.glade/project)"
+                      onChange={(event) => setSettingsDraft({ ...settingsDraft, projectPath: event.target.value || undefined })}
+                    />
+                    <Button
+                      className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
+                      variant="ghost"
+                      disabled={!nativeApi.bridge?.pickDirectory || desktopBusy}
+                      onClick={() => {
+                        void nativeApi.pickDirectory()
+                          .then((selectedPath) => {
+                            if (selectedPath) {
+                              setSettingsDraft((current) => current ? { ...current, projectPath: selectedPath } : current);
+                            }
+                          })
+                          .catch((error) => {
+                            pushNotification({
+                              tone: 'error',
+                              title: 'Could not browse for project',
+                              description: error instanceof Error ? error.message : String(error),
+                            });
+                          });
+                      }}
+                    >
+                      Browse
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">The directory where your Bayesgrove project is stored.</p>
+                </label>
+
+                <label className="block">
                   <span className="text-sm font-medium text-slate-900">R executable path</span>
                   <div className="mt-2 flex gap-2">
                     <input

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0 - 2026-03-13
+
+- Polished the desktop-first workspace layout by removing rounded corners on the terminal, introducing side-by-side terminal controls, and ensuring the UI fills the screen beautifully in both light and dark modes.
+- Added native project management options, letting users select standard Bayesgrove project directories directly through the frontend.
+- Added automatic welcome messaging and focus stealing to the workspace terminal so the R session is immediately ready for input on startup.
+
 ## 0.12.4 - 2026-03-11
 
 - Hardened websocket reliability across the web and server runtimes by queueing outbound RPC requests through reconnect windows, sending `server.bootstrap` before registering broadcast subscribers, replaying the latest stateful pushes for late subscribers, and improving shared schema-based decode error reporting.

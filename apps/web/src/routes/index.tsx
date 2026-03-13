@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { Activity, RefreshCw, Settings2, TerminalSquare } from 'lucide-react';
+import { Activity, RefreshCw, Settings2, TerminalSquare, FolderOpen } from 'lucide-react';
 
 import { WorkspaceShell, type CommandItem } from '../components/shell';
 import { Button } from '../components/ui/button';
@@ -194,24 +194,23 @@ export function IndexRoute() {
   ], [rpc, setActiveTab, toggleInspector]);
 
   const headerActions = (
-    <>
-      <Button className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100" variant="ghost" onClick={() => navigateTo('/settings')}>
-        <Settings2 className="size-4" />
-        Settings
+    <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-1 shadow-sm">
+      <Button className="flex-1 px-2 py-1.5 border-0 bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs" variant="ghost" title="Project settings" onClick={() => navigateTo('/settings')}>
+        <FolderOpen className="size-4" />
       </Button>
-      <Button className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100" variant="ghost" onClick={openTerminalRoute}>
+      <Button className="flex-1 px-2 py-1.5 border-0 bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs" variant="ghost" title="Terminal" onClick={openTerminalRoute}>
         <TerminalSquare className="size-4" />
-        Terminal
       </Button>
-      <Button className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100" variant="ghost" onClick={rpc.reconnect}>
+      <Button className="flex-1 px-2 py-1.5 border-0 bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs" variant="ghost" title="Settings" onClick={() => navigateTo('/settings')}>
+        <Settings2 className="size-4" />
+      </Button>
+      <Button className="flex-1 px-2 py-1.5 border-0 bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs" variant="ghost" title="Refresh connection" onClick={rpc.reconnect}>
         <RefreshCw className="size-4" />
-        Refresh
       </Button>
-      <Button onClick={() => setIsHealthDialogOpen(true)}>
+      <Button className="flex-1 px-2 py-1.5 border-0 bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs" variant="ghost" title="System health" onClick={() => setIsHealthDialogOpen(true)}>
         <Activity className="size-4" />
-        View health
       </Button>
-    </>
+    </div>
   );
 
   useEffect(() => {

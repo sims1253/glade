@@ -187,9 +187,11 @@ export function ExplorerPanel({ graph, onAddNode, actionsSlot }: ExplorerPanelPr
 
   return (
     <aside className="flex h-full flex-col bg-white">
-      <header className="border-b border-slate-200 px-4 py-4">
-        <h1 className="truncate text-sm font-semibold text-slate-900">{graph?.projectName ?? 'Glade project'}</h1>
-        {actionsSlot ? <div className="mt-2">{actionsSlot}</div> : null}
+      <header className="border-b border-slate-200 px-5 py-5">
+        <h1 className="truncate text-[15px] font-semibold tracking-tight text-slate-900">
+          {graph?.projectName && graph.projectName !== 'unknown' ? graph.projectName : 'Glade project'}
+        </h1>
+        {actionsSlot ? <div className="mt-3">{actionsSlot}</div> : null}
       </header>
 
       <nav className="relative flex-1 overflow-y-auto py-3">

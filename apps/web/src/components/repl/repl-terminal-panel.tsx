@@ -1,14 +1,15 @@
 import { useEffect, useEffectEvent, useRef } from 'react';
 import { Copy, CornerDownLeft, ExternalLink, TerminalSquare, Trash2 } from 'lucide-react';
-import { Terminal } from 'xterm';
+import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import 'xterm/css/xterm.css';
+import '@xterm/xterm/css/xterm.css';
 
 import {
   canDetachTerminal,
   readDesktopBridge,
   subscribeToDetachedTerminalState,
 } from '../../lib/runtime';
+import { terminalThemeFromApp, observeThemeChanges } from '../../lib/terminal-theme';
 import type { LegacyWorkflowDispatch } from '../../lib/legacy-commands';
 import { replRpcFromLegacyDispatch } from '../../lib/legacy-commands';
 import type { ReplRpc } from '../../lib/rpc';
@@ -96,28 +97,7 @@ function TerminalSurface({
       fontFamily: '"IBM Plex Mono", "Fira Code", monospace',
       fontSize: 13,
       scrollback: 10_000,
-      theme: {
-        background: '#050b14',
-        foreground: '#d7e5f2',
-        cursor: '#8ef0b6',
-        selectionBackground: 'rgba(86, 173, 120, 0.35)',
-        black: '#050b14',
-        red: '#ff7b72',
-        green: '#7ee787',
-        yellow: '#f2cc60',
-        blue: '#79c0ff',
-        magenta: '#d2a8ff',
-        cyan: '#76e3ea',
-        white: '#d7e5f2',
-        brightBlack: '#768390',
-        brightRed: '#ffa198',
-        brightGreen: '#56d364',
-        brightYellow: '#e3b341',
-        brightBlue: '#79c0ff',
-        brightMagenta: '#d2a8ff',
-        brightCyan: '#39c5cf',
-        brightWhite: '#f0f6fc',
-      },
+      theme: terminalThemeFromApp(),
     });
     const fitAddon = new FitAddon();
     terminalRef.current = terminal;
@@ -138,11 +118,21 @@ function TerminalSurface({
         console.warn('[repl] xterm fit disabled after initialization failure', error);
       }
     };
-    requestAnimationFrame(() => fitTerminal());
+    requestAnimationFrame(() => {
+      fitTerminal();
+      if (interactive) {
+        terminal.focus();
+      }
+    });
 
     const initialLines = useReplStore.getState().replLines;
-    for (const line of initialLines) {
-      writeLine(line);
+    if (initialLines.length === 0 && interactive) {
+      terminal.writeln('\x1b[38;5;114mBayesgrove workspace terminal active.\x1b[0m');
+      terminal.write('> ');
+    } else {
+      for (const line of initialLines) {
+        writeLine(line);
+      }
     }
     renderedLineCountRef.current = initialLines.length;
 
@@ -183,7 +173,12 @@ function TerminalSurface({
       })
       : { dispose() {} };
 
+    const unobserveTheme = observeThemeChanges((theme) => {
+      terminal.options.theme = theme;
+    });
+
     return () => {
+      unobserveTheme();
       terminalDisposable.dispose();
       resizeObserver.disconnect();
       terminal.dispose();
@@ -202,11 +197,11 @@ function TerminalSurface({
 
   if (replDetached && !detachedView) {
     return (
-      <div className="flex h-full items-center justify-center rounded-[1.5rem] border border-slate-800/80 bg-slate-950/80 px-6 text-center">
+      <div className="flex h-full items-center justify-center border border-slate-200 bg-slate-50 px-6 text-center dark:border-slate-800/80 dark:bg-slate-950/80">
         <div className="max-w-md">
-          <p className="text-sm uppercase tracking-[0.24em] text-emerald-300/80">Detached terminal</p>
-          <h3 className="mt-3 text-2xl font-semibold text-slate-100">REPL is open in a separate window.</h3>
-          <p className="mt-3 text-sm text-slate-400">
+          <p className="text-sm uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-300/80">Detached terminal</p>
+          <h3 className="mt-3 text-2xl font-semibold text-slate-900 dark:text-slate-100">REPL is open in a separate window.</h3>
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
             Close that window to return the terminal here, or focus it again from this view.
           </p>
           <div className="mt-5 flex justify-center">
@@ -221,7 +216,7 @@ function TerminalSurface({
   }
 
   return (
-    <div className="relative h-full overflow-hidden rounded-[1.5rem] border border-slate-800/80 bg-[#050b14]">
+    <div className="relative h-full overflow-hidden border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-[#050b14] shadow-inner">
       <div ref={terminalHostRef} className="h-full min-h-0 w-full px-3 py-3" />
       {sessionState === 'error' ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 bg-rose-950/80 px-4 py-2 text-xs text-rose-100">
@@ -421,80 +416,95 @@ export function ReplTerminalPanel({
     <section
       aria-label={detachedView ? 'Detached REPL terminal' : 'REPL terminal'}
       className={cn(
-        'overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-slate-950/92 shadow-2xl shadow-slate-950/30 backdrop-blur',
-        detachedView ? 'flex h-screen flex-col rounded-none border-0 shadow-none' : 'flex flex-col',
-        resolvedPresentation === 'overlay' && 'absolute inset-x-4 bottom-[var(--workflow-repl-bottom-offset)] z-20 sm:left-auto sm:w-[var(--workflow-repl-overlay-max-width)]',
+        'overflow-hidden border-t border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50 backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/92 dark:shadow-2xl dark:shadow-slate-950/30',
+        detachedView ? 'flex h-screen flex-col border-0 shadow-none' : 'flex flex-col',
+        resolvedPresentation === 'overlay' && 'absolute inset-x-4 bottom-[var(--workflow-repl-bottom-offset)] z-20 sm:left-auto sm:w-[var(--workflow-repl-overlay-max-width)] rounded-t-xl',
       )}
       style={detachedView ? undefined : { height: replDetached ? 260 : resolvedPanelHeight }}
     >
       {!detachedView ? (
-        <button
-          aria-label="Resize terminal"
-          className="h-4 cursor-row-resize bg-[linear-gradient(90deg,rgba(34,197,94,0.05),rgba(56,189,248,0.16),rgba(34,197,94,0.05))]"
-          data-repl-resize-handle="true"
-          type="button"
-        />
-      ) : null}
-      <header className="flex items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/95 px-5 py-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.26em] text-sky-300/80">Workspace terminal</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-100">Shared R session</h2>
-          <p className="mt-1 text-sm text-slate-400">Run ad hoc checks in the live Bayesgrove session without leaving the workspace.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-slate-700/80 px-3 py-1 text-xs text-slate-300">
-            interactive
-          </span>
-          <span className="rounded-full border border-slate-700/80 px-3 py-1 text-xs text-slate-300">
-            session {sessionState}
-          </span>
-          <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => void handleClear()} variant="ghost">
-            <Trash2 className="size-4" />
-            Clear output
-          </Button>
-          <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => void handleCopyLogs()} variant="ghost">
-            <Copy className="size-4" />
-            Copy output
-          </Button>
-          {detachable ? (
-            <Button
-              className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white"
-              onClick={async () => {
-                const opened = await readDesktopBridge()?.openDetachedTerminal?.();
-                if (!opened) {
-                  openDetachedTerminalFallback();
-                }
-                if (opened) {
-                  setReplDetached(true);
-                }
-              }}
-              variant="ghost"
-            >
-              <ExternalLink className="size-4" />
-              Detach
-            </Button>
-          ) : null}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/50 px-3 py-1.5 dark:border-slate-800/80 dark:bg-slate-900/50">
+          <div className="flex items-center gap-2">
+            <TerminalSquare className="size-3.5 text-slate-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Workspace Terminal</span>
+          </div>
+          <button
+            aria-label="Resize terminal"
+            className="flex-1 cursor-row-resize py-1"
+            data-repl-resize-handle="true"
+            type="button"
+          >
+            <div className="mx-auto h-1 w-12 rounded-full bg-slate-300 dark:bg-slate-700" />
+          </button>
           {!detachedView ? (
-            <Button className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => setResolvedPanelOpen(false)} variant="ghost">
+            <Button className="h-6 gap-1 border-0 bg-transparent px-2 text-xs text-slate-500 hover:bg-slate-200/50 hover:text-slate-900 dark:hover:bg-slate-800/50 dark:hover:text-white" onClick={() => setResolvedPanelOpen(false)} variant="ghost">
+              <CornerDownLeft className="size-3" />
               Hide
             </Button>
           ) : null}
         </div>
-      </header>
-      <div className={['min-h-0 flex-1 p-4', detachedView ? 'pt-6' : ''].join(' ').trim()}>
-        <TerminalSurface
-          detachedView={detachedView}
-          repl={replClient ?? replRpcFromLegacyDispatch(async () => ({
-            type: 'CommandResult',
-            id: 'missing-repl',
-            success: false,
-            error: {
-              code: 'missing_repl_client',
-              message: 'No REPL client was provided.',
-            },
-          }))}
-          interactive={interactive}
-        />
+      ) : null}
+      <div className="flex min-h-0 flex-1 flex-row">
+        <div className={['min-w-0 flex-1 p-0 border-r border-slate-200 dark:border-slate-800/80', detachedView ? 'pt-0' : ''].join(' ').trim()}>
+          <TerminalSurface
+            detachedView={detachedView}
+            repl={replClient ?? replRpcFromLegacyDispatch(async () => ({
+              type: 'CommandResult',
+              id: 'missing-repl',
+              success: false,
+              error: {
+                code: 'missing_repl_client',
+                message: 'No REPL client was provided.',
+              },
+            }))}
+            interactive={interactive}
+          />
+        </div>
+
+        <aside className="flex w-56 flex-col bg-slate-50/50 p-4 dark:bg-slate-950/50">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Shared R session</h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Run ad hoc checks in the live Bayesgrove session.</p>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:border-slate-700/80 dark:bg-slate-900 dark:text-slate-300">
+              interactive
+            </span>
+            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:border-slate-700/80 dark:bg-slate-900 dark:text-slate-300">
+              {sessionState}
+            </span>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-2">
+            <Button className="w-full justify-start gap-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white" onClick={() => void handleClear()} variant="ghost">
+              <Trash2 className="size-3.5" />
+              <span className="text-xs">Clear output</span>
+            </Button>
+            <Button className="w-full justify-start gap-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white" onClick={() => void handleCopyLogs()} variant="ghost">
+              <Copy className="size-3.5" />
+              <span className="text-xs">Copy output</span>
+            </Button>
+            {detachable ? (
+              <Button
+                className="w-full justify-start gap-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+                onClick={async () => {
+                  const opened = await readDesktopBridge()?.openDetachedTerminal?.();
+                  if (!opened) {
+                    openDetachedTerminalFallback();
+                  }
+                  if (opened) {
+                    setReplDetached(true);
+                  }
+                }}
+                variant="ghost"
+              >
+                <ExternalLink className="size-3.5" />
+                <span className="text-xs">Detach window</span>
+              </Button>
+            ) : null}
+          </div>
+        </aside>
       </div>
     </section>
   );

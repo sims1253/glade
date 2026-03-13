@@ -170,6 +170,24 @@ async function selectSingleFile() {
   }
 }
 
+async function selectDirectory() {
+  try {
+    const ownerWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    const result = ownerWindow
+      ? await dialog.showOpenDialog(ownerWindow, { properties: ['openDirectory', 'createDirectory'] })
+      : await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
+
+    if (result.canceled) {
+      return null;
+    }
+
+    return result.filePaths[0] ?? null;
+  } catch (error) {
+    appendRuntimeLog(`[desktop] folder dialog failed: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
 async function createDetachedTerminalWindow() {
   if (detachedTerminalWindow && !detachedTerminalWindow.isDestroyed()) {
     if (detachedTerminalWindow.isMinimized()) {
@@ -367,6 +385,7 @@ function installDownloadedUpdate() {
 
 function registerIpcHandlers() {
   ipcMain.handle('glade:select-file-path', selectSingleFile);
+  ipcMain.handle('glade:select-directory-path', selectDirectory);
   ipcMain.handle('glade:select-executable-path', selectSingleFile);
   ipcMain.handle('glade:open-external', (_event, url: string) => {
     if (!isAllowedExternalUrl(url)) {

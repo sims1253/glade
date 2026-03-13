@@ -200,13 +200,13 @@ export function CommandPaletteTrigger({ className }: { className?: string }) {
       type="button"
       onClick={openCommandPalette}
       className={cn(
-        'flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50',
+        'flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 shadow-sm',
         className,
       )}
     >
-      <Search className="size-4" />
-      <span>Search...</span>
-      <div className="flex items-center gap-1">
+      <Search className="size-4 shrink-0" />
+      <span className="flex-1 text-left">Search...</span>
+      <div className="flex shrink-0 items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
         <Command className="size-3" />
         <span>K</span>
       </div>

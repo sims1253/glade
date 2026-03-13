@@ -102,6 +102,7 @@ export function createNativeApi(rpc: RpcClient) {
       resetSettings: resetEnvironment,
     },
     pickFile: async () => bridge?.pickFile?.() ?? null,
+    pickDirectory: async () => bridge?.pickDirectory?.() ?? null,
     pickExecutable: async () => bridge?.pickExecutable?.() ?? null,
     openDetachedTerminal: async () => bridge?.openDetachedTerminal?.() ?? false,
     openExternal: async (url: string) => {

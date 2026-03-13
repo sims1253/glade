@@ -25,6 +25,7 @@ export interface DesktopUpdateState {
 export interface DesktopBridge {
   readonly getWsUrl?: () => string;
   readonly pickFile?: () => Promise<string | null>;
+  readonly pickDirectory?: () => Promise<string | null>;
   readonly pickExecutable?: () => Promise<string | null>;
   readonly openDetachedTerminal?: () => Promise<boolean>;
   readonly onDetachedTerminalState?: (listener: (isDetached: boolean) => void) => () => void;

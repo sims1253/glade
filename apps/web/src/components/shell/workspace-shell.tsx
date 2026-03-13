@@ -141,8 +141,8 @@ export function WorkspaceShell({
     }
 
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <CommandPaletteTrigger className="border-slate-200 bg-slate-50 text-slate-500 shadow-xs" />
+      <div className="flex flex-col gap-3">
+        <CommandPaletteTrigger className="w-full justify-start border-slate-200 bg-slate-50 text-slate-500 shadow-xs" />
         {headerActions}
       </div>
     );

@@ -123,7 +123,7 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
     message_type: 'GraphSnapshot',
     emitted_at: new Date().toISOString(),
     project_id: typeof state.project_id === 'string' ? state.project_id : 'unknown',
-    project_name: typeof state.project_name === 'string' ? state.project_name : 'unknown',
+    project_name: typeof state.project_name === 'string' && state.project_name !== 'unknown' ? state.project_name : 'Glade project',
     graph: asObject(state.graph) ?? {},
     status: (state.status ?? {
       workflow_state: 'open',

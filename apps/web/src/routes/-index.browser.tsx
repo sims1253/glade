@@ -115,10 +115,11 @@ const baseSnapshot: GraphSnapshot = {
   },
 };
 
-vi.mock('xterm', () => ({
+vi.mock('@xterm/xterm', () => ({
   Terminal: class {
     loadAddon = vi.fn();
     open = vi.fn();
+    focus = vi.fn();
     write = vi.fn();
     writeln = vi.fn();
     clear = vi.fn();
@@ -129,6 +130,8 @@ vi.mock('xterm', () => ({
 
 vi.mock('@xterm/addon-fit', () => ({
   FitAddon: class {
+    activate = vi.fn();
+    dispose = vi.fn();
     fit = fitMock;
   },
 }));

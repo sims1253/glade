@@ -5,6 +5,7 @@ import type { DesktopBridge, DesktopUpdateState } from '@glade/shared';
 const desktopBridge: DesktopBridge = {
   getWsUrl: () => `ws://127.0.0.1:${Number(process.env.BAYESGROVE_SERVER_PORT ?? 7842)}/ws`,
   pickFile: () => ipcRenderer.invoke('glade:select-file-path') as Promise<string | null>,
+  pickDirectory: () => ipcRenderer.invoke('glade:select-directory-path') as Promise<string | null>,
   pickExecutable: () => ipcRenderer.invoke('glade:select-executable-path') as Promise<string | null>,
   openDetachedTerminal: () => ipcRenderer.invoke('glade:open-detached-terminal') as Promise<boolean>,
   onDetachedTerminalState: (listener: (isDetached: boolean) => void) => {
