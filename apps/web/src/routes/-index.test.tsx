@@ -25,6 +25,7 @@ const desktopGetEnvironment = vi.fn();
 const desktopRefreshEnvironment = vi.fn();
 const desktopSaveSettings = vi.fn();
 const desktopResetSettings = vi.fn();
+const desktopBootstrapProject = vi.fn();
 const getUpdateState = vi.fn<() => Promise<DesktopUpdateState>>();
 
 const desktopEnvironment: DesktopEnvironmentState = {
@@ -83,6 +84,7 @@ vi.mock('../hooks/useRpcClient', () => ({
       refreshEnvironment: desktopRefreshEnvironment,
       saveSettings: desktopSaveSettings,
       resetSettings: desktopResetSettings,
+      bootstrapProject: desktopBootstrapProject,
     },
     workflow: {
       addNode: vi.fn(),
@@ -245,6 +247,56 @@ const updatedSnapshot: GraphSnapshot = {
   },
 };
 
+const extensionSnapshot: GraphSnapshot = {
+  ...baseSnapshot,
+  emitted_at: '2026-03-08T10:00:04.000Z',
+  graph: {
+    ...baseSnapshot.graph,
+    nodes: {},
+  },
+  status: {
+    ...baseSnapshot.status,
+    workflow_state: 'open',
+    runnable_nodes: 0,
+    blocked_nodes: 0,
+    messages: ['ready'],
+  },
+  protocol: {
+    summary: {
+      n_scopes: 1,
+      n_obligations: 0,
+      n_actions: 0,
+      n_blocking: 0,
+      scopes: ['project'],
+    },
+    project: {
+      scope: 'project',
+      scope_label: 'Project',
+      obligations: {},
+      actions: {},
+    },
+  },
+  extension_registry: [
+    {
+      package_name: 'test.extension',
+      version: '0.1.0',
+      node_types: [
+        {
+          kind: 'posterior_summary',
+          title: 'Posterior summary',
+          description: 'Summarize posterior draws.',
+        },
+      ],
+      domain_packs: [
+        {
+          id: 'reporting',
+          title: 'Reporting',
+        },
+      ],
+    },
+  ],
+};
+
 const reviewActionPayload = {
   prompt: 'What is your fit criticism assessment for these summaries?',
   choice: 'needs_revision',
@@ -267,6 +319,8 @@ describe('IndexRoute phase 5 workflow UI', () => {
     desktopSaveSettings.mockResolvedValue({ success: true, result: desktopEnvironment });
     desktopResetSettings.mockReset();
     desktopResetSettings.mockResolvedValue({ success: true, result: desktopEnvironment });
+    desktopBootstrapProject.mockReset();
+    desktopBootstrapProject.mockResolvedValue({ success: true, result: desktopEnvironment });
     getUpdateState.mockReset();
     getUpdateState.mockResolvedValue(desktopUpdateState);
     useGraphStore.getState().clear();
@@ -306,6 +360,7 @@ describe('IndexRoute phase 5 workflow UI', () => {
     });
     window.desktopBridge = {
       getWsUrl: () => 'ws://127.0.0.1:7842/ws',
+      pickDirectory: vi.fn(async () => '/tmp/glade/project'),
       getUpdateState,
       checkForUpdates: vi.fn(async () => desktopUpdateState),
       downloadUpdate: vi.fn(async () => desktopUpdateState),
@@ -452,5 +507,38 @@ describe('IndexRoute phase 5 workflow UI', () => {
     renderRoute();
 
     expect(await screen.findByText(/Setup required:/)).toBeInTheDocument();
+  });
+
+  it('surfaces an empty-workspace prompt with project setup and extension actions', async () => {
+    useGraphStore.getState().applySnapshot(extensionSnapshot);
+
+    renderRoute();
+
+    expect(await screen.findByText(/Start by choosing a project or loading a node pack/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Project setup' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Extensions' }).length).toBeGreaterThan(0);
+  });
+
+  it('shows loaded extension contents and sends a library command from the extension manager', async () => {
+    replWrite.mockResolvedValue({ success: true, result: { _tag: 'AckResult' } });
+    useGraphStore.getState().applySnapshot(extensionSnapshot);
+
+    renderRoute();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Extensions' })[0]!);
+
+    expect(await screen.findByText('Load installed node packs')).toBeInTheDocument();
+    expect(screen.getByText('test.extension')).toBeInTheDocument();
+    expect(screen.getByText('Posterior summary')).toBeInTheDocument();
+    expect(screen.getAllByText('Reporting').length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByLabelText('Package name'), {
+      target: { value: 'test.extension' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Load package' }));
+
+    await waitFor(() => {
+      expect(replWrite).toHaveBeenCalledWith('library("test.extension", character.only = TRUE)\n');
+    });
   });
 });

@@ -2,7 +2,7 @@
 
 Glade is a desktop app for working with local Bayesgrove workflows.
 
-Current release: `0.12.2`
+Current release: `0.13.1`
 
 ## What you get
 

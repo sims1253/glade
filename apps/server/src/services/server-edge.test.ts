@@ -48,7 +48,20 @@ const config: ServerConfigShape = {
   toolExecutionTimeoutMs: 30_000,
 };
 
-const desktopEnvironment = {} as DesktopEnvironmentState;
+const desktopEnvironment = {
+  settings: {
+    rExecutablePath: 'Rscript',
+    editorCommand: 'code',
+    updateChannel: 'stable',
+    projectPath: '/tmp/glade/project-from-settings',
+  },
+  preflight: {
+    checkedAt: '2026-03-13T10:00:00.000Z',
+    projectPath: '/tmp/glade/project-from-settings',
+    status: 'ok',
+    issues: [],
+  },
+} as DesktopEnvironmentState;
 const sessionStatus: SessionStatus = {
   _tag: 'SessionStatus',
   state: 'ready',
@@ -73,6 +86,7 @@ async function makeServerEdge(hub: {
       refreshState: Effect.succeed(desktopEnvironment),
       saveSettings: () => Effect.succeed(desktopEnvironment),
       resetSettings: Effect.succeed(desktopEnvironment),
+      bootstrapProject: () => Effect.succeed(desktopEnvironment),
       getSessionRuntime: Effect.succeed({
         projectPath: '/tmp/glade',
         rExecutablePath: 'Rscript',
@@ -110,6 +124,7 @@ async function makeServerEdge(hub: {
 describe('ServerEdge.attachClient', () => {
   it('sends bootstrap before registering the socket and replays latest pushes after attach', async () => {
     const calls: Array<string> = [];
+    const bootstrapPayloads: Array<WsPush> = [];
     const serverEdge = await makeServerEdge({
       add: () => Effect.sync(() => {
         calls.push('add');
@@ -118,6 +133,9 @@ describe('ServerEdge.attachClient', () => {
       send: (_socket, message) => Effect.sync(() => {
         const tag = message._tag === 'WsPush' ? (message as WsPush).channel : message._tag;
         calls.push(`send:${tag}`);
+        if (message._tag === 'WsPush') {
+          bootstrapPayloads.push(message as WsPush);
+        }
         return true;
       }),
       broadcast: () => Effect.void,
@@ -134,6 +152,12 @@ describe('ServerEdge.attachClient', () => {
       'add',
       'replayLatest',
     ]);
+    expect(bootstrapPayloads[0]).toMatchObject({
+      channel: 'server.bootstrap',
+      payload: {
+        projectPath: '/tmp/glade/project-from-settings',
+      },
+    });
     expect(socket.handlers.has('message')).toBe(true);
     expect(socket.handlers.has('close')).toBe(true);
     expect(socket.handlers.has('error')).toBe(true);

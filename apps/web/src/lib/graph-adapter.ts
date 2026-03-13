@@ -444,6 +444,20 @@ function extractExtensionRegistry(snapshot: GraphSnapshot): Array<WorkflowExtens
         version: firstString(rawExtension.version),
         nodeKinds: rawNodeTypes.map((nodeType) => nodeType.kind).filter((kind): kind is string => Boolean(kind)),
         domainPacks: rawDomainPacks.map((domainPack) => firstString(domainPack.id, domainPack.kind)).filter((kind): kind is string => Boolean(kind)),
+        nodeTypes: rawNodeTypes.map((nodeType) => ({
+          kind: nodeType.kind,
+          title: firstString(nodeType.title, nodeType.kind) ?? nodeType.kind,
+          description: firstString(nodeType.description),
+        })),
+        domainPackDetails: rawDomainPacks.map((domainPack, domainPackIndex) => {
+          const id = firstString(domainPack.id, domainPack.kind) ?? `domain-pack:${domainPackIndex}`;
+          return {
+            id,
+            kind: firstString(domainPack.kind),
+            title: firstString(domainPack.title, domainPack.kind, domainPack.id) ?? id,
+            description: firstString(domainPack.description),
+          };
+        }),
         raw: rawExtension as Record<string, unknown>,
       } satisfies WorkflowExtensionDescriptor;
     })

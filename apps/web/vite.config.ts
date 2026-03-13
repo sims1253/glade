@@ -10,6 +10,12 @@ import { DEFAULT_SERVER_PORT, DEFAULT_WEB_DEV_PORT } from '@glade/shared';
 const port = Number(process.env.PORT ?? DEFAULT_WEB_DEV_PORT);
 const serverPort = Number(process.env.BAYESGROVE_SERVER_PORT ?? DEFAULT_SERVER_PORT);
 const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
+const reactPlugin = react({
+  // @ts-expect-error plugin-react accepts Babel options at runtime, but the current type surface omits them.
+  babel: {
+    plugins: ['babel-plugin-react-compiler'],
+  },
+});
 
 export default defineConfig({
   define: {
@@ -17,11 +23,7 @@ export default defineConfig({
   },
   plugins: [
     tanstackRouter(),
-    react({
-      babel: {
-        plugins: ['babel-plugin-react-compiler'],
-      },
-    }),
+    reactPlugin,
     tailwindcss(),
   ],
   server: {

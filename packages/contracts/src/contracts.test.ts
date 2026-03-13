@@ -154,6 +154,15 @@ const requestFixtures: ReadonlyArray<Schema.Schema.Type<typeof WebSocketRequest>
   },
   {
     _tag: 'WebSocketRequest',
+    id: 'req-0e',
+    method: 'desktop.bootstrapProject',
+    body: {
+      _tag: 'desktop.bootstrapProject',
+      projectPath: '/tmp/project-2',
+    },
+  },
+  {
+    _tag: 'WebSocketRequest',
     id: 'req-1',
     method: 'workflow.addNode',
     body: {
@@ -444,6 +453,13 @@ describe('contracts', () => {
       id: 'req-1',
       method: 'workflow.addNode',
       result: { _tag: 'AckResult' },
+    });
+
+    roundTrip(WebSocketResponse, {
+      _tag: 'WebSocketSuccess',
+      id: 'req-1a',
+      method: 'desktop.bootstrapProject',
+      result: desktopEnvironment,
     });
 
     roundTrip(WebSocketResponse, {

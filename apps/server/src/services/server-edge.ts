@@ -462,6 +462,19 @@ export const ServerEdgeLive = Layer.scoped(
             yield* hub.send(socket, successResponse(request.id, request.method, result));
             return;
           }
+          case 'desktop.bootstrapProject': {
+            const result = yield* desktopEnvironment.bootstrapProject(request.body.projectPath).pipe(
+              Effect.catchAll((error) =>
+                desktopEnvironment.getState.pipe(
+                  Effect.tap((state) => publishDesktopEnvironment(state)),
+                  Effect.zipRight(Effect.fail(error)),
+                ),
+              ),
+            );
+            yield* publishDesktopEnvironment(result);
+            yield* hub.send(socket, successResponse(request.id, request.method, result));
+            return;
+          }
           case 'host.openInEditor': {
             const runtime = yield* desktopEnvironment.getSessionRuntime;
 
@@ -567,7 +580,7 @@ export const ServerEdgeLive = Layer.scoped(
     ): ServerBootstrap => ({
       _tag: 'ServerBootstrap',
       version: config.version,
-      projectPath: config.projectPath,
+      projectPath: currentDesktopEnvironment.preflight.projectPath,
       sessionStatus: currentStatus,
       desktopEnvironment: currentDesktopEnvironment,
       ...(Option.isSome(snapshot) ? { snapshot: snapshot.value } : {}),

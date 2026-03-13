@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1 - 2026-03-13
+
+- Added a GUI-first project setup flow with a dedicated `/welcome` route, a canonical `desktop.bootstrapProject` RPC, and improved desktop project-path persistence so users can open or initialize Bayesgrove projects without dropping to the REPL first.
+- Added a workspace extension manager that can load already installed extension packages into the active R session and display their registered node types and domain packs directly from Bayesgrove's `extension_registry`.
+- Improved empty-workspace onboarding, bootstrap payload accuracy, and related contracts/web/server tests so the desktop session surfaces the active project path and the new setup flows stay covered end to end.
+
 ## 0.13.0 - 2026-03-13
 
 - Polished the desktop-first workspace layout by removing rounded corners on the terminal, introducing side-by-side terminal controls, and ensuring the UI fills the screen beautifully in both light and dark modes.

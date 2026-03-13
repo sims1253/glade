@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { Activity, RefreshCw, Settings2, TerminalSquare, FolderOpen } from 'lucide-react';
+import { Activity, Boxes, FolderOpen, RefreshCw, Settings2, TerminalSquare } from 'lucide-react';
 
+import { ExtensionManager } from '../components/extensions/extension-manager';
 import { WorkspaceShell, type CommandItem } from '../components/shell';
 import { Button } from '../components/ui/button';
 import { ToastViewport } from '../components/ui/toast-viewport';
@@ -58,11 +59,13 @@ export function IndexRoute() {
   } | null>(null);
   const [guidanceActions, setGuidanceActions] = useState<ReadonlyArray<WorkflowActionRecord> | null>(null);
   const [isHealthDialogOpen, setIsHealthDialogOpen] = useState(false);
+  const [isExtensionManagerOpen, setIsExtensionManagerOpen] = useState(false);
   const closeHealthDialogButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const actionSignature = useMemo(() => graph?.actions.map((action) => action.id).join('|') ?? '', [graph]);
   const desktopIssues = useMemo(() => setupDesktopIssues(desktopEnvironment, sessionReason), [desktopEnvironment, sessionReason]);
+  const hasEmptyWorkflow = graph !== null && graph.nodes.length === 0;
   const healthPayload = useMemo(() => JSON.stringify({
     endpoint: `${window.location.origin}/health`,
     status: isConnected ? 'ok' : 'error',
@@ -81,6 +84,30 @@ export function IndexRoute() {
     },
     onSettled: () => {
       setRunningActionId(null);
+    },
+  });
+
+  const loadExtensionMutation = useMutation({
+    mutationFn: async (packageName: string) => {
+      const result = await rpc.repl.write(`library(${JSON.stringify(packageName)}, character.only = TRUE)\n`);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      return packageName;
+    },
+    onSuccess: (packageName) => {
+      pushNotification({
+        tone: 'success',
+        title: 'Load command sent',
+        description: `Asked R to load ${packageName}. The extension list updates after the next Bayesgrove snapshot.`,
+      });
+    },
+    onError: (error) => {
+      pushNotification({
+        tone: 'error',
+        title: 'Could not load extension package',
+        description: error instanceof Error ? error.message : String(error),
+      });
     },
   });
 
@@ -157,11 +184,25 @@ export function IndexRoute() {
       action: () => navigateTo('/settings'),
     },
     {
+      id: 'open-project-setup',
+      label: 'Project setup',
+      shortcut: 'G P',
+      group: 'Navigation',
+      action: () => navigateTo('/welcome'),
+    },
+    {
       id: 'open-terminal',
       label: 'Open detached terminal',
       shortcut: 'G T',
       group: 'Navigation',
       action: openTerminalRoute,
+    },
+    {
+      id: 'open-extensions',
+      label: 'Open extensions',
+      shortcut: 'G E',
+      group: 'Session',
+      action: () => setIsExtensionManagerOpen(true),
     },
     {
       id: 'refresh-connection',
@@ -195,8 +236,23 @@ export function IndexRoute() {
 
   const headerActions = (
     <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-1 shadow-sm">
-      <Button className="flex-1 px-2 py-1.5 border-0 bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs" variant="ghost" title="Project settings" onClick={() => navigateTo('/settings')}>
+      <Button
+        aria-label="Project setup"
+        className="flex-1 border-0 bg-transparent px-2 py-1.5 text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs"
+        variant="ghost"
+        title="Project setup"
+        onClick={() => navigateTo('/welcome')}
+      >
         <FolderOpen className="size-4" />
+      </Button>
+      <Button
+        aria-label="Extensions"
+        className="flex-1 border-0 bg-transparent px-2 py-1.5 text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs"
+        variant="ghost"
+        title="Extensions"
+        onClick={() => setIsExtensionManagerOpen(true)}
+      >
+        <Boxes className="size-4" />
       </Button>
       <Button className="flex-1 px-2 py-1.5 border-0 bg-transparent text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-xs" variant="ghost" title="Terminal" onClick={openTerminalRoute}>
         <TerminalSquare className="size-4" />
@@ -244,6 +300,13 @@ export function IndexRoute() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <ToastViewport />
+      <ExtensionManager
+        extensions={graph?.extensionRegistry ?? []}
+        isLoadingPackage={loadExtensionMutation.isPending}
+        open={isExtensionManagerOpen}
+        onClose={() => setIsExtensionManagerOpen(false)}
+        onLoadPackage={(packageName) => loadExtensionMutation.mutateAsync(packageName)}
+      />
       <WorkflowActionPreviewDialog
         action={previewAction}
         graph={graph}
@@ -357,6 +420,34 @@ export function IndexRoute() {
       ) : null}
 
       {guidanceActions?.length ? <PostActionGuidanceBanner actions={guidanceActions} onDismiss={() => setGuidanceActions(null)} /> : null}
+
+      {hasEmptyWorkflow ? (
+        <section className="border-b border-sky-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f8fafc_55%,#ecfeff_100%)] px-4 py-4">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 rounded-[1.75rem] border border-white/80 bg-white/80 p-5 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">Empty workspace</p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">Start by choosing a project or loading a node pack.</h2>
+              <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                Use Project setup to open or initialize a Bayesgrove directory, then load installed extension packages to register node types for this session.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button className="bg-sky-600 hover:bg-sky-500" onClick={() => navigateTo('/welcome')}>
+                <FolderOpen className="size-4" />
+                Project setup
+              </Button>
+              <Button
+                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
+                variant="ghost"
+                onClick={() => setIsExtensionManagerOpen(true)}
+              >
+                <Boxes className="size-4" />
+                Extensions
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <WorkspaceShell
         commands={commands}

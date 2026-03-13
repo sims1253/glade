@@ -14,6 +14,7 @@ export const WS_METHODS = [
   'desktop.refreshEnvironment',
   'desktop.saveSettings',
   'desktop.resetSettings',
+  'desktop.bootstrapProject',
   'workflow.addNode',
   'workflow.deleteNode',
   'workflow.connectNodes',
@@ -94,6 +95,12 @@ export const DesktopSaveSettingsResult = DesktopEnvironmentState;
 export const DesktopResetSettingsInput = Schema.TaggedStruct('desktop.resetSettings', {});
 export type DesktopResetSettingsInput = Schema.Schema.Type<typeof DesktopResetSettingsInput>;
 export const DesktopResetSettingsResult = DesktopEnvironmentState;
+
+export const DesktopBootstrapProjectInput = Schema.TaggedStruct('desktop.bootstrapProject', {
+  projectPath: Schema.String,
+});
+export type DesktopBootstrapProjectInput = Schema.Schema.Type<typeof DesktopBootstrapProjectInput>;
+export const DesktopBootstrapProjectResult = DesktopEnvironmentState;
 
 export const WorkflowAddNodeInput = Schema.TaggedStruct('workflow.addNode', {
   kind: Schema.String,
@@ -234,6 +241,7 @@ export const WebSocketRequest = Schema.Union(
   requestSchema('desktop.refreshEnvironment', DesktopRefreshEnvironmentInput),
   requestSchema('desktop.saveSettings', DesktopSaveSettingsInput),
   requestSchema('desktop.resetSettings', DesktopResetSettingsInput),
+  requestSchema('desktop.bootstrapProject', DesktopBootstrapProjectInput),
   requestSchema('workflow.addNode', WorkflowAddNodeInput),
   requestSchema('workflow.deleteNode', WorkflowDeleteNodeInput),
   requestSchema('workflow.connectNodes', WorkflowConnectNodesInput),
@@ -255,6 +263,7 @@ export const WebSocketResponse = Schema.Union(
   successResponseSchema('desktop.refreshEnvironment', DesktopRefreshEnvironmentResult),
   successResponseSchema('desktop.saveSettings', DesktopSaveSettingsResult),
   successResponseSchema('desktop.resetSettings', DesktopResetSettingsResult),
+  successResponseSchema('desktop.bootstrapProject', DesktopBootstrapProjectResult),
   successResponseSchema('workflow.addNode', WorkflowAddNodeResult),
   successResponseSchema('workflow.deleteNode', WorkflowDeleteNodeResult),
   successResponseSchema('workflow.connectNodes', WorkflowConnectNodesResult),
@@ -272,6 +281,7 @@ export const WebSocketResponse = Schema.Union(
   errorResponseSchema('desktop.refreshEnvironment'),
   errorResponseSchema('desktop.saveSettings'),
   errorResponseSchema('desktop.resetSettings'),
+  errorResponseSchema('desktop.bootstrapProject'),
   errorResponseSchema('workflow.addNode'),
   errorResponseSchema('workflow.deleteNode'),
   errorResponseSchema('workflow.connectNodes'),

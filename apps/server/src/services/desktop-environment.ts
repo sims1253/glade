@@ -17,6 +17,7 @@ import type {
 } from '@glade/contracts';
 
 import { ServerConfig } from '../config';
+import { CommandDispatchError } from '../errors';
 
 const PROBE_TIMEOUT_MS = 10_000;
 const COMMAND_EXISTS_TIMEOUT_MS = 1_500;
@@ -44,14 +45,25 @@ function normalizeExecutable(value: unknown, fallback: string) {
   return trimmed || fallback;
 }
 
+function normalizeProjectPath(value: unknown) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
 export function normalizeDesktopSettings(input: unknown): DesktopSettings {
   const source = input && typeof input === 'object' ? input as Partial<DesktopSettings> : {};
+  const projectPath = normalizeProjectPath(source.projectPath);
   return {
     rExecutablePath: normalizeExecutable(source.rExecutablePath, DEFAULT_DESKTOP_SETTINGS.rExecutablePath),
     editorCommand: normalizeExecutable(source.editorCommand, DEFAULT_DESKTOP_SETTINGS.editorCommand),
     updateChannel: isSupportedUpdateChannel(source.updateChannel)
       ? source.updateChannel
       : DEFAULT_DESKTOP_SETTINGS.updateChannel,
+    ...(projectPath ? { projectPath } : {}),
   };
 }
 
@@ -95,6 +107,14 @@ async function persistDesktopSettings(stateDir: string, settings: DesktopSetting
 async function resetDesktopSettings(stateDir: string) {
   await rm(settingsPath(stateDir), { force: true });
   return DEFAULT_DESKTOP_SETTINGS;
+}
+
+function describePreflightIssues(environment: DesktopEnvironmentState) {
+  const message = environment.preflight.issues
+    .map((issue) => issue.description.trim())
+    .filter((description) => description.length > 0)
+    .join(' ');
+  return message || 'Could not bootstrap the selected Bayesgrove project.';
 }
 
 async function commandExists(command: string) {
@@ -282,6 +302,7 @@ export class DesktopEnvironmentService extends Context.Tag('glade/DesktopEnviron
     readonly refreshState: Effect.Effect<DesktopEnvironmentState, unknown>;
     readonly saveSettings: (settings: DesktopSettings) => Effect.Effect<DesktopEnvironmentState, unknown>;
     readonly resetSettings: Effect.Effect<DesktopEnvironmentState, unknown>;
+    readonly bootstrapProject: (projectPath: string) => Effect.Effect<DesktopEnvironmentState, unknown>;
     readonly getSessionRuntime: Effect.Effect<{
       readonly projectPath: string;
       readonly rExecutablePath: string;
@@ -315,6 +336,35 @@ export const DesktopEnvironmentServiceLive = Layer.scoped(
       Effect.zipRight(refreshState),
     );
 
+    const bootstrapProject = (projectPath: string) =>
+      Effect.gen(function* () {
+        const currentState = yield* getState;
+        const normalizedProjectPath = normalizeProjectPath(projectPath);
+        if (!normalizedProjectPath) {
+          return yield* new CommandDispatchError({
+            code: 'invalid_project_path',
+            message: 'A project directory is required.',
+          });
+        }
+
+        yield* Effect.tryPromise(() =>
+          persistDesktopSettings(config.stateDir, {
+            ...currentState.settings,
+            projectPath: normalizedProjectPath,
+          }),
+        );
+
+        const nextState = yield* refreshState;
+        if (nextState.preflight.status !== 'ok') {
+          return yield* new CommandDispatchError({
+            code: nextState.preflight.issues[0]?.code ?? 'project_bootstrap_failed',
+            message: describePreflightIssues(nextState),
+          });
+        }
+
+        return nextState;
+      });
+
     const getSessionRuntime = getState.pipe(
       Effect.flatMap((state) =>
         Effect.tryPromise(async () => ({
@@ -329,6 +379,7 @@ export const DesktopEnvironmentServiceLive = Layer.scoped(
       refreshState,
       saveSettings,
       resetSettings: resetSettingsEffect,
+      bootstrapProject,
       getSessionRuntime,
     };
   }),

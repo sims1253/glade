@@ -16,3 +16,5 @@ mockups/
 __screenshots__/
 .factory/
 assets/desktop/icons/
+apps/web/screenshots/
+apps/web/take-screenshot.mjs

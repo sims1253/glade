@@ -93,6 +93,12 @@ export function createNativeApi(rpc: RpcClient) {
     return environment;
   };
 
+  const bootstrapProject = async (projectPath: string): Promise<DesktopEnvironmentState> => {
+    const environment = unwrapRpc(await rpc.desktop.bootstrapProject({ projectPath }));
+    await restartAfterEnvironmentUpdate(environment, 'Bootstrapping project');
+    return environment;
+  };
+
   return {
     bridge,
     environment: {
@@ -100,6 +106,7 @@ export function createNativeApi(rpc: RpcClient) {
       refresh: refreshEnvironment,
       saveSettings: saveEnvironment,
       resetSettings: resetEnvironment,
+      bootstrapProject,
     },
     pickFile: async () => bridge?.pickFile?.() ?? null,
     pickDirectory: async () => bridge?.pickDirectory?.() ?? null,

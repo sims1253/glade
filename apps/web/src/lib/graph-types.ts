@@ -121,6 +121,17 @@ export interface WorkflowExtensionDescriptor {
   readonly version: string | null;
   readonly nodeKinds: ReadonlyArray<string>;
   readonly domainPacks: ReadonlyArray<string>;
+  readonly nodeTypes: ReadonlyArray<{
+    readonly kind: string;
+    readonly title: string;
+    readonly description: string | null;
+  }>;
+  readonly domainPackDetails: ReadonlyArray<{
+    readonly id: string;
+    readonly kind: string | null;
+    readonly title: string;
+    readonly description: string | null;
+  }>;
   readonly raw: Record<string, unknown>;
 }
 

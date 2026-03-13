@@ -143,6 +143,7 @@ vi.mock('../hooks/useRpcClient', () => ({
       refreshEnvironment: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
       saveSettings: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
       resetSettings: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
+      bootstrapProject: vi.fn(async () => ({ success: true, result: desktopEnvironment })),
     },
     workflow: {
       addNode: vi.fn(),

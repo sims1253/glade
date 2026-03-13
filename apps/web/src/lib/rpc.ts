@@ -1,5 +1,6 @@
 import type {
   AckResult,
+  DesktopBootstrapProjectInput,
   DesktopEnvironmentState,
   DesktopGetEnvironmentInput,
   DesktopRefreshEnvironmentInput,
@@ -46,6 +47,7 @@ export interface DesktopRpc {
   readonly refreshEnvironment: (input?: WithoutTag<DesktopRefreshEnvironmentInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
   readonly saveSettings: (input: WithoutTag<DesktopSaveSettingsInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
   readonly resetSettings: (input?: WithoutTag<DesktopResetSettingsInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
+  readonly bootstrapProject: (input: WithoutTag<DesktopBootstrapProjectInput>) => Promise<RpcCallResult<DesktopEnvironmentState>>;
 }
 
 export interface SessionRpc {
@@ -97,6 +99,8 @@ export function describeRpcCall(method: WebSocketRequest['method'], body: WebSoc
       return 'Saved desktop settings';
     case 'desktop.resetSettings':
       return 'Reset desktop settings';
+    case 'desktop.bootstrapProject':
+      return 'Bootstrapped project';
     case 'workflow.addNode': {
       const request = body as WorkflowAddNodeInput;
       return `Added ${request.label?.trim() || request.kind}`;
@@ -144,6 +148,8 @@ export function failureTitle(method: WebSocketRequest['method']) {
       return 'Could not save desktop settings';
     case 'desktop.resetSettings':
       return 'Could not reset desktop settings';
+    case 'desktop.bootstrapProject':
+      return 'Could not bootstrap project';
     case 'workflow.addNode':
       return 'Could not add node';
     case 'workflow.deleteNode':

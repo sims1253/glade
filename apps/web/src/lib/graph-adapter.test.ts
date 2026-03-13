@@ -151,6 +151,13 @@ describe('adaptSnapshotToGraph', () => {
         id: 'test.extension',
         packageName: 'test.extension',
         nodeKinds: ['posterior_summary'],
+        nodeTypes: [
+          expect.objectContaining({
+            kind: 'posterior_summary',
+            title: 'Posterior summary',
+            description: 'Summarize posterior draws.',
+          }),
+        ],
       }),
     ]);
 

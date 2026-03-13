@@ -315,6 +315,7 @@ export function useRpcClient(): RpcClient {
       refreshEnvironment: () => sendRequest('desktop.refreshEnvironment', { _tag: 'desktop.refreshEnvironment' }),
       saveSettings: (input) => sendRequest('desktop.saveSettings', { _tag: 'desktop.saveSettings', ...input }),
       resetSettings: () => sendRequest('desktop.resetSettings', { _tag: 'desktop.resetSettings' }),
+      bootstrapProject: (input) => sendRequest('desktop.bootstrapProject', { _tag: 'desktop.bootstrapProject', ...input }),
     },
     workflow: {
       addNode: (input) => sendRequest('workflow.addNode', { _tag: 'workflow.addNode', ...input }),

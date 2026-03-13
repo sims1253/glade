@@ -19,6 +19,7 @@ vi.mock('../hooks/useRpcClient', () => ({
       refreshEnvironment: vi.fn(),
       saveSettings: vi.fn(),
       resetSettings: vi.fn(),
+      bootstrapProject: vi.fn(),
     },
     workflow: {
       addNode: vi.fn(),
