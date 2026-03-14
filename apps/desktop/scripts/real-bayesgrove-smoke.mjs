@@ -96,7 +96,7 @@ async function prepareBayesgroveProject(projectPath) {
     const child = spawn('Rscript', ['-e', [
       'project <- bayesgrove::bg_init(path = ', JSON.stringify(projectPath), ')',
       '; bayesgrove::bg_register_node_kind(project, "source", output_type = "data.frame")',
-      '; bayesgrove::bg_register_node_kind(project, "fit", input_contract = "data.frame", output_type = "fit")',
+      '; bayesgrove::bg_register_node_kind(project, "fit")',
     ].join('')], {
       cwd,
       env: process.env,

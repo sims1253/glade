@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.7 - 2026-03-14
+
+- Fixed CI integration test failure in `interactive-graph.integration.test.ts` by removing string-based `input_contract` arguments from `bg_register_node_kind` calls that are incompatible with the updated `dagriculture` validation.
+- Fixed workflow packs dialog backdrop accessibility by replacing `role="presentation"` with `role="button"` and adding proper keyboard support (Enter/Space/Escape).
+- Removed duplicate changelog entries from version 0.13.4.
+
 ## 0.13.6 - 2026-03-14
 
 - Fixed browser test failure by using the header health button (`title="System health"`) instead of a non-existent "View health" text button in the preflight banner.
@@ -15,9 +21,6 @@
 - Added `console.error` logging for smoke test failures in desktop main process.
 
 ## 0.13.4 - 2026-03-14
-
-- Fixed CI typecheck failures in `execute-action.test.ts` by narrowing discriminated union types before accessing `args` properties.
-- Removed unnecessary `Effect.gen` wrapper in `desktop-environment.ts` that triggered the `unnecessaryEffectGen` lint warning.
 
 - Fixed CI lint failures by removing unused imports and prefixing unused parameters across server and web packages.
 - Fixed graph selection being cleared when closing inactive node tabs by only clearing selection when the active tab is closed.

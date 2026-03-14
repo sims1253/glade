@@ -415,14 +415,17 @@ export function IndexRoute() {
 
       {isWorkflowPacksDialogOpen ? (
         <div
+          aria-label="Close workflow packs dialog"
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm"
           onClick={() => setIsWorkflowPacksDialogOpen(false)}
           onKeyDown={(event) => {
-            if (event.key === 'Escape') {
+            if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
               setIsWorkflowPacksDialogOpen(false);
             }
           }}
-          role="presentation"
+          role="button"
+          tabIndex={0}
         >
           <div
             aria-labelledby="workflow-packs-dialog-title"
