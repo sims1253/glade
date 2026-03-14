@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.6 - 2026-03-14
+
+- Fixed browser test failure by using the header health button (`title="System health"`) instead of a non-existent "View health" text button in the preflight banner.
+
 ## 0.13.5 - 2026-03-14
 
 - Fixed CI test failures in `health.test.ts` and `repl.test.ts` by gracefully handling missing `Rscript` executable in `runDesktopPreflight`.
