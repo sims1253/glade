@@ -86,7 +86,11 @@ describe('toExecuteActionCommand', () => {
     const result = toExecuteActionCommand('cmd1', command, snapshot);
 
     expect(result.command).toBe('bg_submit');
-    expect(result.args.targets).toEqual(['node1', 'node2']);
+    if ('targets' in result.args) {
+      expect(result.args.targets).toEqual(['node1', 'node2']);
+    } else {
+      throw new Error('Expected targets in args');
+    }
   });
 
   it('creates submit command with targets from basis when payload is empty', () => {
@@ -99,7 +103,11 @@ describe('toExecuteActionCommand', () => {
     const result = toExecuteActionCommand('cmd1', command, snapshot);
 
     expect(result.command).toBe('bg_submit');
-    expect(result.args.targets).toEqual(['node1']);
+    if ('targets' in result.args) {
+      expect(result.args.targets).toEqual(['node1']);
+    } else {
+      throw new Error('Expected targets in args');
+    }
   });
 
   it('creates cancel command with run_id', () => {
@@ -113,7 +121,11 @@ describe('toExecuteActionCommand', () => {
     const result = toExecuteActionCommand('cmd1', command, snapshot);
 
     expect(result.command).toBe('bg_cancel');
-    expect(result.args.run_id).toBe('run-123');
+    if ('run_id' in result.args) {
+      expect(result.args.run_id).toBe('run-123');
+    } else {
+      throw new Error('Expected run_id in args');
+    }
   });
 
   it('throws for cancel without run_id', () => {
@@ -152,9 +164,13 @@ describe('toExecuteActionCommand', () => {
     const result = toExecuteActionCommand('cmd1', command, snapshot);
 
     expect(result.command).toBe('bg_record_decision');
-    expect(result.args.prompt).toBe('Choose an option');
-    expect(result.args.choice).toBe('option-a');
-    expect(result.args.rationale).toBe('Because it is better');
+    if ('prompt' in result.args && 'choice' in result.args && 'rationale' in result.args) {
+      expect(result.args.prompt).toBe('Choose an option');
+      expect(result.args.choice).toBe('option-a');
+      expect(result.args.rationale).toBe('Because it is better');
+    } else {
+      throw new Error('Expected prompt, choice, rationale in args');
+    }
   });
 
   it('throws for record_decision without required fields', () => {

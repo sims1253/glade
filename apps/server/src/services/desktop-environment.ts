@@ -311,9 +311,7 @@ export const DesktopEnvironmentServiceLive = Layer.scoped(
     const stateRef = yield* Ref.make(initialState);
     const commandExistsCache = yield* Ref.make(new Map<string, CommandExistsEntry>());
 
-    const refreshState = Effect.gen(function* () {
-      yield* Ref.set(commandExistsCache, new Map<string, CommandExistsEntry>());
-    }).pipe(
+    const refreshState = Ref.set(commandExistsCache, new Map<string, CommandExistsEntry>()).pipe(
       Effect.zipRight(Effect.tryPromise(() => loadDesktopEnvironmentState(config.stateDir, config.projectPath))),
       Effect.tap((state) => Ref.set(stateRef, state)),
     );

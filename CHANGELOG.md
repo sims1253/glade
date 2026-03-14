@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.4 - 2026-03-14
+
+- Fixed CI typecheck failures in `execute-action.test.ts` by narrowing discriminated union types before accessing `args` properties.
+- Removed unnecessary `Effect.gen` wrapper in `desktop-environment.ts` that triggered the `unnecessaryEffectGen` lint warning.
+
 ## 0.13.3 - 2026-03-14
 
 - Fixed CI lint failures by removing unused imports and prefixing unused parameters across server and web packages.
