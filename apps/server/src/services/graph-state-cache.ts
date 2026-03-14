@@ -4,6 +4,7 @@ import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 
 import { readExtensionRegistry, type GraphSnapshot, type ProtocolEvent } from '@glade/contracts';
+import { asString, asRecord } from '@glade/shared';
 
 import { GraphStateCacheError } from '../errors';
 import { SqliteDatabase } from '../persistence/sqlite';
@@ -24,11 +25,7 @@ export class GraphStateCache extends Context.Tag('glade/GraphStateCache')<
 >() {}
 
 const asObject = (value: unknown): JsonObject | null =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as JsonObject)
-    : null;
-
-const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+  asRecord(value) as JsonObject | null;
 
 const asArray = (value: unknown): Array<unknown> => (Array.isArray(value) ? value : []);
 

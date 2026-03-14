@@ -27,6 +27,7 @@
     "dev:web": "turbo run dev --filter=@glade/web",
     "dev:server": "turbo run dev --filter=@glade/server",
     "dev:desktop": "turbo run dev --filter=@glade/desktop",
+    "dev:marketing": "turbo run dev --filter=@glade/marketing",
     "build": "turbo run build",
     "build:desktop-bundle": "node ./scripts/build-desktop-bundle.ts",
     "build:desktop:artifact": "node ./scripts/build-desktop-artifact.ts",

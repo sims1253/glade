@@ -120,8 +120,7 @@ export function useRpcClient(): RpcClient {
         socket.send(pending.encodedRequest);
         pending.queued = false;
         outboundQueueRef.current.shift();
-      } catch (error) {
-        console.warn('[websocket] failed to flush queued request', error);
+      } catch {
         break;
       }
     }
@@ -171,7 +170,6 @@ export function useRpcClient(): RpcClient {
       const decoded = decodeWsInbound(event.data);
       if (Either.isLeft(decoded)) {
         const message = formatSchemaError(decoded.left);
-        console.warn('[websocket] dropped inbound server message', message);
         useToastStore.getState().pushNotification({
           tone: 'error',
           title: 'Could not process server message',
@@ -232,12 +230,10 @@ export function useRpcClient(): RpcClient {
       }
     };
 
-    socket.onerror = (event) => {
+    socket.onerror = () => {
       if (socketRef.current !== socket) {
         return;
       }
-
-      console.warn('[websocket] connection error', event);
 
       useConnectionStore.getState().setSessionStatus({
         _tag: 'SessionStatus',

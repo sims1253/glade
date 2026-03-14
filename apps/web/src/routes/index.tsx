@@ -165,24 +165,11 @@ export function IndexRoute() {
 
   const useDefaultWorkflowMutation = useMutation({
     mutationFn: async () => {
-      console.log('[index] useDefaultWorkflow start');
       const result = await rpc.workflow.useDefaultWorkflow();
-      console.log('[index] useDefaultWorkflow rpc result', result);
       if (!result.success) {
         throw new Error(result.error.message);
       }
       return result.result;
-    },
-    onSuccess: () => {
-      const nextGraph = useGraphStore.getState().graph;
-      console.log('[index] useDefaultWorkflow success', {
-        nodeKinds: nextGraph?.nodeKinds.length ?? null,
-        nodes: nextGraph?.nodes.length ?? null,
-        emittedAt: nextGraph?.emittedAt ?? null,
-      });
-    },
-    onError: (error) => {
-      console.error('[index] useDefaultWorkflow error', error instanceof Error ? error.message : String(error));
     },
   });
 

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 
 export const UI_PREFS_STORAGE_KEY = 'glade:web-ui:v1';
-export const LEGACY_UI_PREF_KEYS: ReadonlyArray<string> = [];
 const UI_PREFS_PERSIST_DEBOUNCE_MS = 300;
 
 interface StoredUiPrefs {
@@ -28,8 +27,6 @@ const DEFAULT_UI_PREFS: StoredUiPrefs = {
   replPanelOpen: true,
   replPanelHeight: 320,
 };
-
-let legacyUiPrefsCleanedUp = false;
 
 function clampPanelHeight(value: number) {
   return Math.max(180, Math.min(640, Math.round(value)));
@@ -119,19 +116,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushPendingUiPrefsWrites);
 }
 
-export function cleanupLegacyUiPrefs(storage = readStorage()) {
-  if (!storage || legacyUiPrefsCleanedUp) {
-    return;
-  }
-
-  legacyUiPrefsCleanedUp = true;
-  for (const key of LEGACY_UI_PREF_KEYS) {
-    storage.removeItem(key);
-  }
-}
-
 export function readStoredUiPrefs(storage: StorageLike | null = uiPrefsStorage): StoredUiPrefs {
-  cleanupLegacyUiPrefs(storage);
   if (!storage) {
     return DEFAULT_UI_PREFS;
   }

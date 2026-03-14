@@ -24,7 +24,7 @@ import { decodeJsonResult, decodeUnknownResult, formatSchemaError } from '@glade
 
 import { ServerConfig } from '../config';
 import { ProtocolDecodeError, SessionStartupError } from '../errors';
-import { SessionStatusStore } from './session-status';
+import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { WebSocketHub } from './websocket-hub';
 
 export type BayesgroveInboundMessage = GraphSnapshotMessage | ProtocolEventMessage | BayesgroveCommandResultMessage;
@@ -39,10 +39,6 @@ export class BayesgroveSocket extends Context.Tag('glade/BayesgroveSocket')<
     readonly messages: Stream.Stream<BayesgroveInboundMessage>;
   }
 >() {}
-
-function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
-  return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
-}
 
 const decodeJsonPayload = decodeJsonResult(Schema.Unknown);
 const decodeProtocolEventResult = decodeUnknownResult(ProtocolEventSchema);
@@ -59,13 +55,7 @@ export const BayesgroveSocketLive = Layer.scoped(
     const closingRef = yield* Ref.make(false);
     const messageQueue = yield* Queue.unbounded<BayesgroveInboundMessage>();
 
-    const publishStatus = (state: SessionStatus['state'], reason?: string) =>
-      Effect.gen(function* () {
-        const next = statusMessage(state, reason);
-        yield* statusStore.set(next);
-        const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
-        yield* hub.broadcast(push);
-      });
+    const publishStatus = createStatusPublisher(statusStore, hub);
 
     const parseInbound = (raw: string) =>
       Effect.gen(function* () {
@@ -163,15 +153,11 @@ export const BayesgroveSocketLive = Layer.scoped(
 
         socket.on('message', (data) => {
           const raw = String(data);
-          if (raw.includes('default_workflow') || raw.includes('CommandResult') || raw.includes('workflow_packs')) {
-            console.log('[bayesgrove-socket] inbound raw', raw);
-          }
           void Runtime.runPromise(
             effectRuntime,
             parseInbound(raw).pipe(
               Effect.flatMap((message) => Queue.offer(messageQueue, message)),
               Effect.catchAll((error) => {
-                console.log('[bayesgrove-socket] decode error', error instanceof Error ? error.message : String(error));
                 return publishStatus('error', `protocol_decode_error:${error.message}`);
               }),
             ),

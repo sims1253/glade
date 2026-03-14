@@ -7,6 +7,7 @@ import type {
 
 import { isJsonValue, toJsonObject, toJsonValue } from './json';
 import type { HostRpc, ReplRpc, RpcCallResult, SessionRpc, WorkflowRpc } from './rpc';
+import { assertUnreachable } from './utils';
 import { randomUUID } from './utils';
 
 export interface LegacyCommandResult {
@@ -45,10 +46,6 @@ export type LegacyHostDispatch = (command: LegacyHostCommand) => Promise<LegacyC
 
 function toJsonValueArray(value: ReadonlyArray<unknown> | undefined): ReadonlyArray<JsonValue> | undefined {
   return value?.every(isJsonValue) ? value : undefined;
-}
-
-function assertUnreachable(value: never): never {
-  throw new Error(`Unhandled command type: ${String((value as { readonly type?: string }).type ?? value)}`);
 }
 
 function toRpcError(error: LegacyCommandResult['error'] | undefined): RpcError {

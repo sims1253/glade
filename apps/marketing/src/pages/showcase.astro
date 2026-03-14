@@ -1,0 +1,670 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Glade — App Showcase">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
+    :root {
+      --bg: #09090b;
+      --surface: #111113;
+      --surface-raised: #191a1b;
+      --border: #27272a;
+      --border-bright: #3f3f46;
+      --text: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --green: #4ade80;
+      --green-dim: #22c55e;
+      --green-glow: rgba(74, 222, 128, 0.06);
+      --blue: #60a5fa;
+      --blue-dim: #3b82f6;
+      --blue-glow: rgba(96, 165, 250, 0.04);
+      --cyan: #22d3ee;
+      --amber: #fbbf24;
+      --purple: #a78bfa;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 0 0;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      margin-bottom: 48px;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--green-dim), var(--blue-dim));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .topbar-name {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .topbar-right {
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .pill {
+      padding: 5px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill:hover {
+      background: var(--surface-raised);
+      border-color: var(--border-bright);
+      color: var(--text);
+    }
+
+    .pill svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Main app screenshot */
+    .screenshot-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 48px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 20px 60px -10px rgba(0,0,0,0.15);
+    }
+
+    .screenshot-titlebar {
+      height: 36px;
+      background: var(--surface-raised);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .titlebar-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tb-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+
+    .titlebar-title {
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .titlebar-actions {
+      display: flex;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .titlebar-action {
+      width: 28px;
+      height: 28px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+    }
+
+    .screenshot-body {
+      display: grid;
+      grid-template-columns: 200px 1fr 280px;
+      height: 420px;
+    }
+
+    /* Sidebar mock */
+    .ss-sidebar {
+      background: rgba(255,255,255,0.02);
+      border-right: 1px solid var(--border);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ss-sidebar-section {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .ss-item {
+      height: 8px;
+      border-radius: 3px;
+    }
+
+    .ss-item.highlight { background: var(--green-glow); border: 1px solid rgba(74, 222, 128, 0.15); }
+    .ss-item.info { background: var(--blue-glow); }
+    .ss-item.warn { background: var(--amber-bg); border: 1px solid rgba(251, 191, 36, 0.15); }
+    .ss-item.active { background: var(--green-glow); border: 1px solid rgba(74, 222, 128, 0.2); }
+
+    .ss-section-gap { height: 12px; }
+
+    /* Canvas mock */
+    .ss-canvas {
+      background: rgba(255,255,255,0.02);
+      margin: 8px;
+      padding: 8px;
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .canvas-node {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--text-muted);
+      min-height: 48px;
+    }
+
+    .canvas-node.active {
+      border-color: var(--green);
+      background: var(--green-glow);
+      color: var(--green);
+      box-shadow: 0 0 0 1px var(--green), 0 0 8px var(--green-glow);
+    }
+
+    .canvas-node.warn-node {
+      border-color: var(--amber);
+      background: var(--amber-bg);
+      color: var(--amber);
+    }
+
+    .canvas-edge {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 100%;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .cn-label {
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 7px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* REPL mock */
+    .ss-repl {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin: 0 8px 8px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      line-height: 1.5;
+    }
+
+    .repl-prompt { color: var(--green); }
+    .repl-output { color: var(--text-muted); }
+    .repl-result { color: var(--cyan); }
+    .repl-error { color: var(--red); }
+    .repl-success { color: var(--green); }
+
+    /* Right panel mock */
+    .ss-right {
+      background: rgba(255,255,255,0.02);
+      border-left: 1px solid var(--border);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .ss-right-section {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .right-item {
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    .right-item.warn { border-color: rgba(234, 88, 12, 0.3); background: var(--amber-bg); }
+    .right-item.ok { border-color: rgba(74, 222, 128, 0.3); background: var(--green-glow); }
+
+    .ri-title {
+      font-size: 10px;
+      font-weight: 500;
+      margin-bottom: 2px;
+      color: var(--text-secondary);
+    }
+
+    .ri-desc {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    /* Caption */
+    .screenshot-caption {
+      padding: 10px 14px;
+      background: var(--surface-raised);
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .screenshot-caption strong {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* Section */
+    .content-section {
+      padding: 0 24px 36px;
+    }
+
+    .content-section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .content-section p {
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .content-section p:last-child { margin-bottom: 0; }
+
+    .content-section p strong {
+      color: var(--text);
+    }
+
+    .content-section p code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: var(--surface);
+      padding: 1px 5px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--cyan);
+    }
+
+    /* Three-up features */
+    .features-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+
+    .feat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.2s;
+    }
+
+    .feat-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-2px);
+    }
+
+    .feat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .fi-canvas {
+      background: var(--green-glow);
+      color: var(--green);
+      border: 1px solid rgba(74, 222, 128, 0.2);
+    }
+
+    .fi-repl {
+      background: rgba(96, 165, 250, 0.08);
+      color: var(--blue);
+      border: 1px solid rgba(96, 165, 250, 0.15);
+    }
+
+    .fi-obligation {
+      background: var(--amber-bg);
+      color: var(--amber);
+      border: 1px solid rgba(251, 191, 36, 0.15);
+    }
+
+    .fi-action {
+      background: rgba(167, 139, 250, 0.08);
+      color: var(--purple);
+      border: 1px solid rgba(167, 139, 250, 0.15);
+    }
+
+    .feat-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .feat-card p {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    /* Stats strip */
+    .stats-strip {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      padding: 20px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 36px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+
+    .stat-value.green { color: var(--green); }
+    .stat-value.blue { color: var(--blue); }
+    .stat-value.purple { color: var(--purple); }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Footer */
+    .page-footer {
+      padding: 20px 0;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .page-footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+
+    .page-footer a:hover { color: var(--text); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .topbar { animation: fadeUp 0.4s ease both; }
+    .screenshot-wrapper { animation: fadeUp 0.6s ease 0.1s both; }
+    .features-row { animation: fadeUp 0.5s ease 0.2s both; }
+    .stats-strip { animation: fadeUp 0.5s ease 0.3s both; }
+  </style>
+
+  <div class="page">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">G</div>
+        <span class="topbar-name">glade</span>
+      </div>
+      <div class="topbar-right">
+        <a href="#" class="pill"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0-7.54.54l-3-3a5 5 0 0 0-7.07-1.26-.27-.27-.27-.27-.27V12m-4 0 0-1-.268l1.27-1.27h2.69l1.27 1.27-1.268 1.27-.27H12"/></svg></a>
+        <a href="#" class="pill"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3.21v17.57a2 2 0 0 1-2 4V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2-2h-1.4a2 2 0 0 0-2 1.4V5.5a2 2 0 0 1 2 2Zm0 2v14a2 2 0 0 1 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 1-2-2H8Z"/></svg></a>
+        <a href="#" class="pill"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 .18.19c-1.16.17-2.11 2.03-2.9a7.5 7.5 0 0 1 5.52-2.1 2.03 2.01h-.01a5.7 5.7 0 0 1-5.52 2.1c-.78 0-1.63-.7-1.63-1.63H4.5a2.2 2.2 0 0 1-2.2-2.2H8.37"/></svg></a>
+      </div>
+    </div>
+
+    <div class="screenshot-wrapper">
+      <div class="screenshot-titlebar">
+        <div class="titlebar-dots">
+          <span class="tb-dot"></span>
+          <span class="tb-dot"></span>
+          <span class="tb-dot"></span>
+        </div>
+        <span class="titlebar-title">clinical-trial &mdash; Glade</span>
+        <div class="titlebar-actions">
+          <span class="titlebar-action">+</span>
+          <span class="titlebar-action">&mdash;</span>
+          <span class="titlebar-action">&vellip;</span>
+        </div>
+      </div>
+      <div class="screenshot-body">
+        <!-- Sidebar -->
+        <div class="ss-sidebar">
+          <div class="ss-sidebar-section">Projects</div>
+          <div class="ss-item highlight"></div>
+          <div class="ss-item"></div>
+          <div class="ss-item highlight"></div>
+          <div class="ss-section-gap"></div>
+          <div class="ss-sidebar-section">Threads</div>
+          <div class="ss-item active"></div>
+          <div class="ss-item warn"></div>
+          <div class="ss-item"></div>
+          <div class="ss-section-gap"></div>
+          <div class="ss-sidebar-section">Obligations</div>
+          <div class="ss-item warn"></div>
+          <div class="ss-item"></div>
+          <div class="ss-section-gap"></div>
+          <div class="ss-sidebar-section">Actions</div>
+          <div class="ss-item active"></div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="ss-canvas">
+          <div class="canvas-node active">
+            <span class="cn-edge"></span>
+            <span class="cn-label">Data</span>
+          </div>
+          <div class="canvas-node">
+            <span class="cn-edge"></span>
+            <span class="cn-label">Priors</span>
+          </div>
+          <div class="canvas-node active">
+            <span class="cn-edge"></span>
+            <span class="cn-label">Model</span>
+          </div>
+          <div class="canvas-node warn-node">
+            <span class="cn-edge"></span>
+            <span class="cn-label">Diag</span>
+          </div>
+          <div class="canvas-node">
+            <span class="cn-edge"></span>
+            <span class="cn-label">Decision</span>
+          </div>
+          <div class="canvas-node"></div>
+          <div class="canvas-node"></div>
+        </div>
+
+        <!-- REPL -->
+        <div class="ss-repl">
+          <span class="repl-prompt">&gt;</span> library(bayesgrove)<br>
+          <span class="repl-output">Loaded Bayesgrove v0.8.2</span><br>
+          <span class="repl-prompt">&gt;</span> fit(model_1, prior = normal_priors)<br>
+          <span class="repl-result">Running MCMC... done.</span><br>
+          <span class="repl-success">4 chains, 2000 iter, 10s elapsed</span>
+        </div>
+
+        <!-- Right panel -->
+        <div class="ss-right">
+          <div class="ss-right-section">Obligations (2)</div>
+          <div class="right-item warn">
+            <div class="ri-title">Convergence Warning</div>
+            <div class="ri-desc">Rhat = 1.012 on chain 3</div>
+          </div>
+          <div class="right-item">
+            <div class="ri-title">Prior Predictive Check</div>
+            <div class="ri-desc">N_eff &ge; 500, ELPD &ge; 1200</div>
+          </div>
+          <div class="ss-right-section">Recommended Actions (1)</div>
+          <div class="right-item ok">
+            <div class="ri-title">Record Decision</div>
+            <div class="ri-desc">Template: record_decision</div>
+          </div>
+          <div class="ss-section-gap"></div>
+          <div class="ss-right-section">Session Info</div>
+          <div class="right-item">
+            <div class="ri-title">R PID</div>
+            <div class="ri-desc">48291</div>
+          </div>
+          <div class="right-item">
+            <div class="ri-title">Model Nodes</div>
+            <div class="ri-desc">4 active, 2 pending</div>
+          </div>
+        </div>
+      </div>
+      <div class="screenshot-caption">
+        <strong>Figure 1.</strong>
+        <span>The Glade workspace: workflow canvas (center), embedded R REPL (bottom), and protocol panels (right) during a clinical trial analysis.</span>
+      </div>
+    </div>
+
+    <section class="content-section">
+      <h2>Built for Research Workflows</h2>
+      <p>
+        Glade was designed for the specific needs of researchers conducting structured Bayesian
+        analyses. The graph canvas provides <strong>spatial awareness</strong> of your pipeline
+        that text-based workflows cannot match — you can see which steps depend on each other and
+        how a change at one stage propagates downstream.
+      </p>
+      <p>
+        The protocol integration with Bayesgrove means <strong>validation never falls through the cracks</strong>.
+        Blocking obligations (red) require explicit resolution before the analysis can proceed, while
+        advisory items (amber) serve as reminders. All of this is surfaced automatically
+        from the R session state, not from manual configuration.
+      </p>
+    </section>
+
+    <div class="features-row">
+      <div class="feat-card">
+        <div class="feat-icon fi-canvas">G</div>
+        <h3>Workflow Canvas</h3>
+        <p>Interactive node graph with ELK auto-layout, annotations, and multi-select. Zoom-to-fit keeps complex workflows readable.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon fi-repl">R&gt;</div>
+        <h3>Live R Session</h3>
+        <p>Embedded REPL with history, tab completion, and detachable window. Runs alongside the canvas without context-switching.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon fi-obligation">!</div>
+        <h3>Obligations</h3>
+        <p>Protocol-aware review tasks surfaced as interactive cards with blocking vs. advisory severity indicators.</p>
+      </div>
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat">
+        <div class="stat-value green">6</div>
+        <div class="stat-label">Interface Surfaces</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value blue">3</div>
+        <div class="stat-label">Platforms</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value purple">4.3</div>
+        <div class="stat-label">MB Disk</div>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      <span>Glade v0.13.2 &middot; MIT License</span>
+      <a href="#">View on GitHub</a>
+    </footer>
+  </div>
+</Layout>

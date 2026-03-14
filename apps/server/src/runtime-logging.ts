@@ -10,7 +10,7 @@ function formatLogLine(scope: string, message: string) {
   return `${new Date().toISOString()} ${scope} ${message}`;
 }
 
-function stringifyUnknown(value: unknown): string {
+export function stringifyUnknown(value: unknown): string {
   if (value instanceof Error) {
     return value.stack ?? value.message;
   }
@@ -32,10 +32,6 @@ async function writeStateLogLine(stateDir: string, fileName: string, scope: stri
     fileName,
     line: formatLogLine(scope, message),
   });
-}
-
-export function describeUnknown(value: unknown) {
-  return stringifyUnknown(value);
 }
 
 export async function writeServerLogLine(stateDir: string, message: string) {

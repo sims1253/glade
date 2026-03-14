@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Copy, CornerDownLeft, ExternalLink, TerminalSquare, Trash2 } from 'lucide-react';
+import { Check, Copy, CornerDownLeft, ExternalLink, TerminalSquare, Trash2 } from 'lucide-react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -21,6 +21,7 @@ import { useConnectionStore } from '../../store/connection';
 import { useReplStore } from '../../store/repl';
 import { useUiPrefsStore } from '../../store/ui-prefs';
 import { cn } from '../../lib/utils';
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import { Button } from '../ui/button';
 
 type ReplTerminalPresentation = 'docked' | 'overlay';
@@ -192,9 +193,8 @@ function TerminalSurface({
 
       try {
         fitAddon.fit();
-      } catch (error) {
+      } catch {
         fitDisabled = true;
-        console.warn('[repl] xterm fit disabled after initialization failure', error);
       }
     };
     fitTerminalRef.current = fitTerminal;
@@ -603,18 +603,11 @@ export function ReplTerminalPanel({
       }
 
       clearRawLines();
-    } catch (error) {
-      console.error('[repl] failed to clear terminal', error);
+    } catch {
     }
   };
 
-  const handleCopyLogs = async () => {
-    try {
-      await navigator.clipboard.writeText(activeLines.join('\n'));
-    } catch (error) {
-      console.error('[repl] failed to copy terminal output', error);
-    }
-  };
+  const { copyToClipboard: copyLogsToClipboard, isCopied } = useCopyToClipboard();
 
   if (!detachedView && !resolvedPanelOpen) {
     return (
@@ -758,9 +751,9 @@ export function ReplTerminalPanel({
               <Trash2 className="size-3.5" />
               <span className="text-xs">Clear output</span>
             </Button>
-            <Button className="w-full justify-start gap-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white" onClick={() => void handleCopyLogs()} variant="ghost">
-              <Copy className="size-3.5" />
-              <span className="text-xs">Copy output</span>
+            <Button className="w-full justify-start gap-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white" onClick={() => copyLogsToClipboard(activeLines.join('\n'))} variant="ghost">
+              {isCopied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+              <span className="text-xs">{isCopied ? 'Copied!' : 'Copy output'}</span>
             </Button>
             {detachable ? (
               <Button

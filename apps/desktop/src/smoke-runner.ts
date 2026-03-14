@@ -195,7 +195,7 @@ async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
     10_000,
   );
 
-  const createAttempt = await execute<{ readonly pathname: string; readonly inputValue: string; readonly createDisabled: boolean | null; readonly setupText: string }>(
+  await execute<{ readonly pathname: string; readonly inputValue: string; readonly createDisabled: boolean | null; readonly setupText: string }>(
     window,
     `
       (() => {
@@ -225,8 +225,6 @@ async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
     `,
   );
 
-  console.log('[smoke] create project interaction', createAttempt);
-
   await waitFor(
     window,
     'workspace after create project',
@@ -236,7 +234,7 @@ async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
     40_000,
   );
 
-  const defaultWorkflowAttempt = await execute<{ readonly disabled: boolean | null; readonly text: string }>(
+  await execute<{ readonly disabled: boolean | null; readonly text: string }>(
     window,
     `
       (() => {
@@ -254,8 +252,6 @@ async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
       })();
     `,
   );
-
-  console.log('[smoke] default workflow interaction', defaultWorkflowAttempt);
 
   await waitFor(
     window,

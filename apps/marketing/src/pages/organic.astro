@@ -1,0 +1,121 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Glade — Grow">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600&display=swap');
+    :root {
+      --cream: #faf7f2;
+      --sand: #f0e8d8;
+      --bark: #3d2e1e;
+      --leaf: #2d5a27;
+      --leaf-light: #5a9a3c;
+      --leaf-pale: #a8d89a;
+      --petal: #d4726a;
+      --petal-soft: #f2b8b0;
+      --sky: #89b4d4;
+      --earth: #8b7355;
+      --text: #2e2318;
+      --text-light: #6b5a48;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Outfit', sans-serif; background: var(--cream); color: var(--text); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    .blob-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3; }
+    .blob-1 { width: 600px; height: 600px; background: var(--leaf-pale); top: -200px; right: -100px; animation: float1 20s ease-in-out infinite; }
+    .blob-2 { width: 400px; height: 400px; background: var(--petal-soft); bottom: -100px; left: -100px; animation: float2 25s ease-in-out infinite; }
+    .blob-3 { width: 300px; height: 300px; background: var(--sky); top: 50%; left: 50%; animation: float3 18s ease-in-out infinite; }
+    @keyframes float1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-40px, 60px) scale(1.1); } 66% { transform: translate(30px, -30px) scale(0.95); } }
+    @keyframes float2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(60px, -40px) scale(1.15); } }
+    @keyframes float3 { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.2); } }
+    body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 9998; }
+    .page { max-width: 960px; margin: 0 auto; padding: 0 32px; }
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 28px 0; }
+    .nav-brand { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--leaf); display: flex; align-items: center; gap: 8px; }
+    .nav-leaf { display: inline-block; width: 20px; height: 20px; background: var(--leaf); border-radius: 0 50% 50% 50%; transform: rotate(-45deg); }
+    .nav-link { font-size: 14px; font-weight: 500; color: var(--earth); text-decoration: none; padding: 8px 16px; border-radius: 100px; border: 1.5px solid transparent; transition: all 0.3s ease; }
+    .nav-link:hover { border-color: var(--leaf-light); color: var(--leaf); }
+    .hero { padding: 80px 0 100px; text-align: center; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: white; border: 1px solid var(--sand); padding: 8px 20px; border-radius: 100px; font-size: 13px; font-weight: 500; color: var(--leaf); margin-bottom: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--leaf-light); }
+    .hero h1 { font-family: 'DM Serif Display', serif; font-size: clamp(44px, 7vw, 72px); line-height: 1.1; color: var(--bark); margin-bottom: 24px; }
+    .hero h1 em { font-style: italic; color: var(--leaf); position: relative; }
+    .hero h1 em::after { content: ''; position: absolute; bottom: 4px; left: 0; right: 0; height: 3px; background: var(--leaf-pale); border-radius: 2px; }
+    .hero-desc { font-size: 18px; line-height: 1.7; color: var(--text-light); max-width: 520px; margin: 0 auto 40px; }
+    .hero-actions { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
+    .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--leaf); color: white; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 500; padding: 14px 32px; border-radius: 100px; text-decoration: none; border: none; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 20px rgba(45, 90, 39, 0.25); }
+    .btn-primary:hover { background: var(--leaf-light); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(45, 90, 39, 0.3); }
+    .btn-secondary { display: inline-flex; align-items: center; gap: 8px; background: white; color: var(--bark); font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 500; padding: 14px 32px; border-radius: 100px; text-decoration: none; border: 1.5px solid var(--sand); cursor: pointer; transition: all 0.3s ease; }
+    .btn-secondary:hover { border-color: var(--earth); transform: translateY(-2px); }
+    .flow-section { padding: 40px 0 80px; }
+    .flow-track { display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; padding: 40px 0; }
+    .flow-node { padding: 16px 24px; background: white; border: 1.5px solid var(--sand); border-radius: 20px; font-size: 14px; font-weight: 500; color: var(--bark); box-shadow: 0 2px 12px rgba(0,0,0,0.04); transition: all 0.3s ease; }
+    .flow-node:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-color: var(--leaf-light); }
+    .flow-node.active { background: var(--leaf); color: white; border-color: var(--leaf); }
+    .flow-connector { width: 40px; height: 2px; background: var(--sand); position: relative; }
+    .flow-connector::after { content: ''; position: absolute; right: -3px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--sand); }
+    .flow-label { text-align: center; font-size: 13px; color: var(--text-light); margin-top: 16px; font-style: italic; }
+    .features-section { padding: 40px 0 80px; }
+    .features-section h2 { font-family: 'DM Serif Display', serif; font-size: 36px; text-align: center; margin-bottom: 48px; color: var(--bark); }
+    .features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+    .feature-organic { background: white; border: 1px solid var(--sand); border-radius: 24px; padding: 36px 28px; transition: all 0.4s ease; position: relative; overflow: hidden; }
+    .feature-organic::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: 24px 24px 0 0; }
+    .feature-organic:nth-child(1)::before { background: var(--leaf); }
+    .feature-organic:nth-child(2)::before { background: var(--petal); }
+    .feature-organic:nth-child(3)::before { background: var(--sky); }
+    .feature-organic:nth-child(4)::before { background: var(--earth); }
+    .feature-organic:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.06); }
+    .feature-icon { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 20px; }
+    .feature-organic:nth-child(1) .feature-icon { background: rgba(45, 90, 39, 0.1); }
+    .feature-organic:nth-child(2) .feature-icon { background: rgba(212, 114, 106, 0.1); }
+    .feature-organic:nth-child(3) .feature-icon { background: rgba(137, 180, 212, 0.1); }
+    .feature-organic:nth-child(4) .feature-icon { background: rgba(139, 115, 85, 0.1); }
+    .feature-organic h3 { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 8px; }
+    .feature-organic p { font-size: 14px; line-height: 1.7; color: var(--text-light); }
+    .cta-section { padding: 60px 0 80px; text-align: center; }
+    .cta-card { background: var(--bark); border-radius: 32px; padding: 64px 40px; color: var(--cream); position: relative; overflow: hidden; }
+    .cta-card::before { content: ''; position: absolute; width: 400px; height: 400px; background: var(--leaf); border-radius: 50%; filter: blur(120px); opacity: 0.15; top: -200px; right: -100px; }
+    .cta-card h2 { font-family: 'DM Serif Display', serif; font-size: 32px; margin-bottom: 12px; position: relative; }
+    .cta-card p { font-size: 16px; color: rgba(250, 247, 242, 0.7); margin-bottom: 32px; position: relative; }
+    .cta-card .btn-primary { position: relative; }
+    footer { padding: 32px 0; border-top: 1px solid var(--sand); display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--text-light); }
+    @keyframes growIn { from { opacity: 0; transform: translateY(24px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .hero-badge { animation: growIn 0.6s ease both 0.1s; }
+    .hero h1 { animation: growIn 0.8s ease both 0.2s; }
+    .hero-desc { animation: growIn 0.6s ease both 0.4s; }
+    .hero-actions { animation: growIn 0.6s ease both 0.5s; }
+    .feature-organic { opacity: 0; animation: growIn 0.6s ease both; }
+    .feature-organic:nth-child(1) { animation-delay: 0.6s; }
+    .feature-organic:nth-child(2) { animation-delay: 0.7s; }
+    .feature-organic:nth-child(3) { animation-delay: 0.8s; }
+    .feature-organic:nth-child(4) { animation-delay: 0.9s; }
+    @media (max-width: 640px) { .features-grid { grid-template-columns: 1fr; } .flow-track { gap: 8px; } .flow-connector { width: 24px; } .cta-card { padding: 40px 24px; } }
+  </style>
+
+  <div class="blob-bg"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div></div>
+  <div class="page">
+    <nav><div class="nav-brand"><span class="nav-leaf"></span>Glade</div><a href="#" class="nav-link">Get Started</a></nav>
+    <section class="hero">
+      <div class="hero-badge"><span class="badge-dot"></span>Open Source &middot; v0.13</div>
+      <h1>Grow your analysis<br><em>naturally</em></h1>
+      <p class="hero-desc">Glade turns the complexity of Bayesian modeling into an intuitive, visual workflow. Watch your analysis grow from data to decision.</p>
+      <div class="hero-actions"><a href="#" class="btn-primary">Download for free</a><a href="#" class="btn-secondary">View on GitHub</a></div>
+    </section>
+    <section class="flow-section">
+      <div class="flow-track"><div class="flow-node active">Seed Data</div><div class="flow-connector"></div><div class="flow-node">Set Priors</div><div class="flow-connector"></div><div class="flow-node">Fit Model</div><div class="flow-connector"></div><div class="flow-node">Validate</div><div class="flow-connector"></div><div class="flow-node">Decide</div></div>
+      <p class="flow-label">Your analysis, from seed to harvest</p>
+    </section>
+    <section class="features-section">
+      <h2>Built for the way you think</h2>
+      <div class="features-grid">
+        <div class="feature-organic"><div class="feature-icon">&#9670;</div><h3>Visual Workflow</h3><p>Drag and connect nodes that represent every step of your Bayesian analysis.</p></div>
+        <div class="feature-organic"><div class="feature-icon">&#9673;</div><h3>Live R Session</h3><p>A shared REPL runs alongside your canvas for ad hoc exploration.</p></div>
+        <div class="feature-organic"><div class="feature-icon">&#9733;</div><h3>Smart Obligations</h3><p>Review tasks and validation checkpoints surfaced as interactive cards.</p></div>
+        <div class="feature-organic"><div class="feature-icon">&#9654;</div><h3>Action Execution</h3><p>Preview recommended actions before committing. Every step reproducible.</p></div>
+      </div>
+    </section>
+    <section class="cta-section"><div class="cta-card"><h2>Start growing your models</h2><p>Free, open source, and built for Bayesian practitioners.</p><a href="#" class="btn-primary">Download Glade</a></div></section>
+    <footer><span>Glade</span><span>Built with Bayesgrove</span><span>{new Date().getFullYear()}</span></footer>
+  </div>
+</Layout>

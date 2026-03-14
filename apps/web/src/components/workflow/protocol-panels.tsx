@@ -318,7 +318,7 @@ export function WorkflowActionsPanel({
 }
 
 function hasFieldValue(value: string | undefined) {
-  return value?.trim().length ? true : false;
+  return Boolean(value?.trim().length);
 }
 
 function initialInvocationValues(action: WorkflowActionRecord) {
@@ -432,7 +432,7 @@ function WorkflowActionPreviewDialogContent({
         {invocationFields.length ? (
           <div className="mt-5 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Required input</p>
-            {invocationFields.map((field) => (
+            {invocationFields.map((field, index) => (
               <label key={field.key} className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
                   {field.label}{field.required ? ' *' : ''}
@@ -440,6 +440,7 @@ function WorkflowActionPreviewDialogContent({
                 {field.description ? <span className="mt-1 block text-xs text-slate-500">{field.description}</span> : null}
                 {field.options.length > 0 ? (
                   <select
+                    autoFocus={index === 0}
                     className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
                     value={fieldValues[field.key] ?? ''}
                     onChange={(event) => setFieldValues((current) => ({ ...current, [field.key]: event.target.value }))}
@@ -451,6 +452,7 @@ function WorkflowActionPreviewDialogContent({
                   </select>
                 ) : field.multiline ? (
                   <textarea
+                    autoFocus={index === 0}
                     className="mt-2 min-h-28 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
                     placeholder={field.placeholder ?? undefined}
                     value={fieldValues[field.key] ?? ''}
@@ -458,6 +460,7 @@ function WorkflowActionPreviewDialogContent({
                   />
                 ) : (
                   <input
+                    autoFocus={index === 0}
                     className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-hidden"
                     placeholder={field.placeholder ?? undefined}
                     type="text"

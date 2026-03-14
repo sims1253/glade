@@ -9,11 +9,11 @@ import { createLineBuffer } from '@glade/shared/logging';
 
 import { ServerConfig } from '../config';
 import { RProcessInputError } from '../errors';
-import { describeUnknown, writeRDiagnosticsLine } from '../runtime-logging';
+import { stringifyUnknown, writeRDiagnosticsLine } from '../runtime-logging';
 import { GraphStateCache } from './graph-state-cache';
 import { ProcessSupervisor, type SupervisedProcessHandle } from './process-supervisor';
 import { DesktopEnvironmentService } from './desktop-environment';
-import { SessionStatusStore } from './session-status';
+import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { WebSocketHub } from './websocket-hub';
 
 export const R_READY_SIGNAL = '__GLADE_READY__';
@@ -45,10 +45,6 @@ export function classifyReplLine(line: string) {
   }
 
   return 'console' as const;
-}
-
-function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
-  return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
 }
 
 function makeRExpression(projectPath: string, host: string, port: number, pollInterval: number) {
@@ -119,13 +115,7 @@ export const RProcessServiceLive = Layer.scoped(
     const stoppingRef = yield* Ref.make(false);
     const readySeenRef = yield* Ref.make(false);
 
-    const publishStatus = (state: SessionStatus['state'], reason?: string) =>
-      Effect.gen(function* () {
-        const next = statusMessage(state, reason);
-        yield* statusStore.set(next);
-        const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
-        yield* hub.broadcast(push);
-      });
+    const publishStatus = createStatusPublisher(statusStore, hub);
 
     const publishReplLine = (line: string) =>
       Effect.gen(function* () {
@@ -170,7 +160,7 @@ export const RProcessServiceLive = Layer.scoped(
         console.error('[r-process] failed to handle REPL line', error);
         void writeRDiagnosticsLine(
           config.stateDir,
-          `failed to handle ${channel} line: ${describeUnknown(error)}`,
+          `failed to handle ${channel} line: ${stringifyUnknown(error)}`,
         ).catch(() => undefined);
       });
     };
@@ -256,7 +246,7 @@ export const RProcessServiceLive = Layer.scoped(
       child.stdout.on('end', () => stdoutLines.flush());
       child.stderr.on('end', () => stderrLines.flush());
       child.once('error', (error) => {
-        void writeRDiagnosticsLine(config.stateDir, `process error: ${describeUnknown(error)}`).catch(() => undefined);
+        void writeRDiagnosticsLine(config.stateDir, `process error: ${stringifyUnknown(error)}`).catch(() => undefined);
         void Runtime.runPromise(
           effectRuntime,
           Effect.gen(function* () {

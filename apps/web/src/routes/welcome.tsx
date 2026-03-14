@@ -31,14 +31,7 @@ export function WelcomeRoute() {
 
   const bootstrapProjectMutation = useMutation({
     mutationFn: async ({ mode, projectPath }: { readonly mode: 'open' | 'create'; readonly projectPath: string }) => {
-      console.log('[welcome] bootstrapProject start', { mode, projectPath });
       const environment = await nativeApi.environment.bootstrapProject(projectPath);
-      console.log('[welcome] bootstrapProject resolved', {
-        mode,
-        projectPath,
-        nextProjectPath: environment.preflight.projectPath,
-        preflightStatus: environment.preflight.status,
-      });
       useConnectionStore.getState().setDesktopEnvironment(environment);
       return {
         mode,
@@ -46,11 +39,9 @@ export function WelcomeRoute() {
       };
     },
     onMutate: (variables) => {
-      console.log('[welcome] bootstrapProject mutate', variables);
       setSetupError(null);
     },
     onSuccess: (result) => {
-      console.log('[welcome] bootstrapProject success', result);
       if (!result) {
         return;
       }
@@ -64,7 +55,6 @@ export function WelcomeRoute() {
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[welcome] bootstrapProject error', message);
       setSetupError(message);
       pushNotification({
         tone: 'error',

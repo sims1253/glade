@@ -1,0 +1,523 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Glade — Technical Newsletter">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg: #fafaf9;
+      --surface: #ffffff;
+      --ink: #1a1a1a;
+      --secondary: #44403c;
+      --muted: #78716c;
+      --faint: #a8a29e;
+      --border: #e7e5e4;
+      --border-strong: #d6d3d1;
+      --accent: #0284c7;
+      --accent-bg: #ecfdf5;
+      --accent-border: #99f6e4;
+      --orange: #c2410c;
+      --orange-bg: #fff7ed;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    .header {
+      padding: 28px 0;
+      border-bottom: 3px solid var(--border-strong);
+      margin-bottom: 24px;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .brand-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .header-meta span {
+      color: var(--faint);
+    }
+
+    /* Date bar */
+    .date-bar {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      font-variant-numeric-figuring: tabular-nums;
+    }
+
+    .date-bar .sep {
+      margin: 0 8px;
+      color: var(--faint);
+    }
+
+    /* Edition label */
+    .edition {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: var(--accent-bg);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--accent-border);
+      margin-bottom: 20px;
+    }
+
+    /* Lead story */
+    .lead {
+      padding: 0 0 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .lead h2 {
+      font-family: 'Libre Baskerville', serif;
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .lead p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--secondary);
+      margin-bottom: 10px;
+    }
+
+    .lead p:last-child { margin-bottom: 0; }
+
+    .lead strong {
+      color: var(--ink);
+    }
+
+    .lead a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* Section */
+    .section {
+      padding: 0 0 24px;
+    }
+
+    .section h2 {
+      font-family: 'Libre Baskerville', serif;
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 10px;
+    }
+
+    .section h3 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .section p {
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--secondary);
+      margin-bottom: 10px;
+    }
+
+    .section p:last-child { margin-bottom: 0; }
+
+    .section p strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .section p code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: var(--surface);
+      padding: 1px 4px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--orange);
+    }
+
+    /* Numbered list */
+    .numbered-list {
+      list-style: none;
+      counter-reset: nl;
+      padding: 0;
+      margin-bottom: 10px;
+    }
+
+    .numbered-list li {
+      counter-increment: nl;
+      padding: 6px 0 6px 28px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--secondary);
+      position: relative;
+    }
+
+    .numbered li:last-child { border-bottom: none; }
+
+    .numbered li::before {
+      content: counter(nl);
+      position: absolute;
+      left: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    /* Pull quote */
+    .pullquote {
+      border-left: 3px solid var(--accent);
+      padding: 12px 0 12px 20px;
+      margin: 16px 0;
+    }
+
+    .pullquote p {
+      font-family: 'Libre Baskerville', serif;
+      font-size: 17px;
+      font-style: italic;
+      line-height: 1.5;
+      color: var(--ink);
+    }
+
+    .pullquote cite {
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 600;
+      color: var(--muted);
+      display: block;
+      margin-top: 8px;
+    }
+
+    /* Feature boxes */
+    .feature-boxes {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .feature-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+    }
+
+    .feature-box h3 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+
+    .feature-box p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--secondary);
+      margin-bottom: 0;
+    }
+
+    .feature-box.feat-orange {
+      border-left: 3px solid var(--orange);
+    }
+
+    .feature-box.feat-orange h3 {
+      color: var(--orange);
+    }
+
+    .feature-box.feat-green {
+      border-left: 3px solid var(--accent);
+    }
+
+    .feature-box.feat-green h3 {
+      color: var(--accent);
+    }
+
+    /* Setup section */
+    .setup {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+    }
+
+    .setup h3 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .setup p {
+      font-size: 13px;
+      color: var(--secondary);
+      line-height: 1.6;
+      margin-bottom: 0;
+    }
+
+    .setup p:last-child { margin-bottom: 0; }
+
+    .setup code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: var(--surface);
+      padding: 1px 4px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+
+    /* Install banner */
+    .install-banner {
+      background: var(--ink);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .install-banner h3 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .install-banner p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .install-banner .install-cmd {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      border-radius: 6px;
+      padding: 10px 20px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .install-banner .install-cmd:hover {
+      background: var(--accent-border);
+    }
+
+    /* Footer */
+    .newsletter-footer {
+      padding: 16px 0;
+      border-top: 3px solid var(--border-strong);
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--faint);
+    }
+
+    .newsletter-footer a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .newsletter-footer a:hover { color: var(--accent); }
+
+    .end-mark {
+      width: 8px;
+      height: 8px;
+      background: var(--border-strong);
+      transform: rotate(45deg);
+    }
+  </style>
+
+  <div class="page">
+    <div class="header">
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span class="brand-name">Glade</span>
+        </div>
+        <div class="header-meta">
+          <span>Research Brief</span>
+          <span>&middot;</span>
+          <span>Volume 1</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="date-bar">
+      {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+      <span class="sep">|</span>
+      <span>5 min read</span>
+    </div>
+
+    <div class="edition">
+      New release: Glade v0.13.2 adds configurable obligation tracking and improved action preview
+    </div>
+
+    <section class="lead">
+      <h2>A Visual Environment for Managing Bayesian Analysis Workflows</h2>
+      <p>
+        For researchers running structured Bayesian analyses, managing the pipeline from data to
+        decision has typically meant keeping track of steps manually — through scripts, notebooks,
+        or institutional knowledge. <strong>Glade</strong> takes a different approach:
+        it represents your entire analysis as a <a>visual workflow graph</a> where each operation
+        is a node and each dependency is an edge.
+      </p>
+      <p>
+        The latest release, <strong>v0.13.2</strong>, adds configurable obligation tracking
+        and an improved action preview panel that surfaces recommended operations from the
+        Bayesgrove protocol state with full parameter disclosure before execution.
+      </p>
+    </section>
+
+    <section class="section">
+      <h3>What's New</h3>
+      <div class="numbered-list">
+        <li><strong>Default thread environment mode</strong> — New users can configure whether new
+        threads start in local or worktree mode, reducing friction for common workflows.</li>
+        <li><strong>Action preview redesign</strong> — Recommended actions now display
+        invocation fields, template references, and parameter metadata before the user
+        commits to execution.</li>
+        <strong>Timestamp formatting</strong> — A new settings option lets users choose between
+        system default, 12-hour, and 24-hour timestamp formats throughout the interface.</li>
+        <li><strong>Deferred worker startup</strong> — Heavy UI components (diff panels, web workers)
+        now initialize only when actually opened, reducing initial load time.</li>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>How It Works</h2>
+      <p>
+        Glade maintains three primary interface surfaces. The <strong>workflow canvas</strong> displays
+        your analysis pipeline as an interactive graph — you create nodes for each operation (data loading,
+        prior specification, model fitting, diagnostics, decision) and connect them to encode dependencies.
+        The <strong>R REPL</strong> provides a live terminal session embedded in the workspace, so you can
+        run ad hoc R commands without switching windows.
+      </p>
+      <p>
+        The <strong>protocol panels</strong> are where Glade adds the most value for research workflows.
+        Bayesgrove defines a protocol for managing analysis state, and Glade surfaces two types
+        of protocol-driven interfaces: <em>obligation panels</em> display blocking and advisory review tasks,
+        while <em>action panels</em> present recommended operations (with parameter inspection) for user approval.
+      </p>
+    </section>
+
+    <div class="pullquote">
+      <p>
+        &ldquo;Glade surfaces protocol-aware validation checkpoints and recommended actions
+        directly from the analysis state, ensuring that reviewers and analysts never lose
+        sight of critical validation steps.&rdquo;
+      </p>
+      <cite>— The Bayesgrove Community</cite>
+    </div>
+
+    <section class="section">
+      <h2>Key Capabilities</h2>
+      <div class="feature-boxes">
+        <div class="feature-box feat-green">
+          <h3>Interactive Workflow Canvas</h3>
+          <p>Build analysis pipelines as connected node graphs. Drag, connect, annotate, and navigate with spatial intuition.</p>
+        </div>
+        <div class="feature-box feat-green">
+          <h3>Embedded R REPL</h3>
+          <p>Live Bayesgrove session with command history and a detachable window for multi-monitor workflows.</p>
+        </div>
+        <div class="feature-box feat-orange">
+          <h3>Obligation Tracking</h3>
+          <p>Protocol-aware review tasks surfaced automatically. Blocking items are visually distinct from advisory ones.</p>
+        </div>
+        <div class="feature-box feat-orange">
+          <h3>Action Preview</h3>
+          <p>Inspect recommended operations with full parameters, invocation fields, and template metadata before execution.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="setup">
+      <h3>Getting Started in Under a Minute</h3>
+      <p>
+        Install Glade, initialize a project, and the Bayesgrove R session starts automatically.
+        The workflow canvas is empty and ready for your first node. Use <code>Ctrl+\`</code> to toggle
+        the REPL.
+      </p>
+      <p>
+        Requires <code>R &ge; 4.3</code> and <code>install.packages("bayesgrove")</code>.
+      </p>
+    </div>
+
+    <div class="install-banner">
+      <h3>Try Glade Today</h3>
+      <p>Free, open source, and built specifically for the Bayesian research workflow.</p>
+      <a href="#" class="install-cmd">$ curl -fsSL https://glade.dev/install.sh | sh</a>
+    </div>
+
+    <footer class="newsletter-footer">
+      <span>
+        <a href="#">Unsubscribe</a> &middot;
+        <a href="#">Preferences</a> &middot;
+        <a href="#">Glade Docs</a>
+      </span>
+      <span>{new Date().getFullYear()}</span>
+    </footer>
+  </div>
+</Layout>

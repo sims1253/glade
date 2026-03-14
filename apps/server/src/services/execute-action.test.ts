@@ -1,125 +1,169 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphSnapshot, JsonObject, WorkflowExecuteActionInput } from '@glade/contracts';
+import type { GraphSnapshot, WorkflowExecuteActionInput } from '@glade/contracts';
 
-import { CommandDispatchError } from '../errors';
 import { toExecuteActionCommand } from './execute-action';
 
-const snapshot: GraphSnapshot = {
-  protocol_version: '0.1.0',
-  message_type: 'GraphSnapshot',
-  emitted_at: '2026-03-08T10:00:00.000Z',
-  project_id: 'proj_execute_action',
-  project_name: 'execute-action',
-  graph: {
-    version: 1,
-    nodes: {
-      fit_1: { id: 'fit_1', kind: 'fit', label: 'Baseline fit' },
+function makeSnapshot(actionId: string, actionKind: string, overrides: Record<string, unknown> = {}): GraphSnapshot {
+  return {
+    protocol_version: '0.1.0',
+    message_type: 'GraphSnapshot',
+    emitted_at: new Date().toISOString(),
+    project_id: 'test-project',
+    project_name: 'Test Project',
+    graph: {
+      nodes: {},
+      edges: {},
     },
-    edges: {},
-  },
-  status: {
-    workflow_state: 'blocked',
-    runnable_nodes: 0,
-    blocked_nodes: 1,
-    pending_gates: 0,
-    active_jobs: 0,
-    health: 'ok',
-    messages: ['review required'],
-  },
-  pending_gates: {},
-  branches: {},
-  branch_goals: {},
-  protocol: {
-    summary: {
-      n_scopes: 1,
-      n_obligations: 0,
-      n_actions: 2,
-      n_blocking: 0,
-      scopes: ['project'],
+    status: {
+      workflow_state: 'open',
+      runnable_nodes: 0,
+      blocked_nodes: 0,
+      pending_gates: 0,
+      active_jobs: 0,
+      health: 'ok',
+      messages: [],
     },
-    project: {
-      scope: 'project',
-      scope_label: 'Project',
-      obligations: {},
-      actions: {
-        act_decision: {
-          action_id: 'act_decision',
-          kind: 'record_decision',
-          scope: 'project',
-          title: 'Record review decision',
-          basis: { node_ids: ['fit_1'] },
-          payload: {
-            template_ref: 'review_decision',
-            prompt: 'Record the review outcome',
-            choice: 'accept',
-            rationale: 'The fit is acceptable.',
-            decision_type: 'fit_criticism',
-          },
-        },
-        act_compare: {
-          action_id: 'act_compare',
-          kind: 'create_node_from_template',
-          scope: 'project',
-          title: 'Compare branches',
-          basis: { node_ids: ['fit_1'] },
-          payload: {
-            template_ref: 'branch_comparison',
-            inputs: ['fit_1'],
-            node_kind: 'compare',
-            default_label: 'Compare revised fits',
+    pending_gates: {},
+    branches: {},
+    branch_goals: {},
+    protocol: {
+      summary: {
+        n_scopes: 1,
+        n_obligations: 0,
+        n_actions: 1,
+        n_blocking: 0,
+        scopes: ['project'],
+      },
+      project: {
+        scope: 'project',
+        scope_label: 'Project',
+        obligations: {},
+        actions: {
+          [actionId]: {
+            action_id: actionId,
+            kind: actionKind,
+            scope: 'project',
+            title: 'Test Action',
+            basis: { node_ids: ['node1'] },
+            payload: {},
+            ...overrides,
           },
         },
       },
     },
-  },
-};
-
-function executeAction(actionId: string, payload?: JsonObject) {
-  return toExecuteActionCommand(
-    'cmd_1',
-    { _tag: 'workflow.executeAction', actionId, payload } satisfies WorkflowExecuteActionInput,
-    snapshot,
-  );
+  } as GraphSnapshot;
 }
 
 describe('toExecuteActionCommand', () => {
-  it('maps template-backed node creation actions to bg_add_node', () => {
-    const command = executeAction('act_compare');
+  it('throws when snapshot is null', () => {
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+    };
 
-    expect(command).toMatchObject({
-      command_id: 'cmd_1',
-      command: 'bg_add_node',
-      args: {
-        kind: 'compare',
-        label: 'Compare revised fits',
-        inputs: ['fit_1'],
+    expect(() => toExecuteActionCommand('cmd1', command, null)).toThrow('ExecuteAction requires a current GraphSnapshot');
+  });
+
+  it('throws when action is not found', () => {
+    const snapshot = makeSnapshot('action1', 'submit');
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'nonexistent',
+    };
+
+    expect(() => toExecuteActionCommand('cmd1', command, snapshot)).toThrow('Action nonexistent was not present');
+  });
+
+  it('creates submit command with targets from payload', () => {
+    const snapshot = makeSnapshot('action1', 'submit');
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+      payload: { targets: ['node1', 'node2'] },
+    };
+
+    const result = toExecuteActionCommand('cmd1', command, snapshot);
+
+    expect(result.command).toBe('bg_submit');
+    expect(result.args.targets).toEqual(['node1', 'node2']);
+  });
+
+  it('creates submit command with targets from basis when payload is empty', () => {
+    const snapshot = makeSnapshot('action1', 'submit');
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+    };
+
+    const result = toExecuteActionCommand('cmd1', command, snapshot);
+
+    expect(result.command).toBe('bg_submit');
+    expect(result.args.targets).toEqual(['node1']);
+  });
+
+  it('creates cancel command with run_id', () => {
+    const snapshot = makeSnapshot('action1', 'cancel');
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+      payload: { run_id: 'run-123' },
+    };
+
+    const result = toExecuteActionCommand('cmd1', command, snapshot);
+
+    expect(result.command).toBe('bg_cancel');
+    expect(result.args.run_id).toBe('run-123');
+  });
+
+  it('throws for cancel without run_id', () => {
+    const snapshot = makeSnapshot('action1', 'cancel');
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+    };
+
+    expect(() => toExecuteActionCommand('cmd1', command, snapshot)).toThrow('cancel action does not include a run_id');
+  });
+
+  it('throws for unsupported action kind', () => {
+    const snapshot = makeSnapshot('action1', 'unknown_kind');
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+    };
+
+    expect(() => toExecuteActionCommand('cmd1', command, snapshot)).toThrow('not executable through the current workflow bridge');
+  });
+
+  it('creates record_decision command with required fields', () => {
+    const snapshot = makeSnapshot('action1', 'record_decision', {
+      payload: {
+        prompt: 'Choose an option',
+        choice: 'option-a',
+        rationale: 'Because it is better',
       },
     });
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+    };
+
+    const result = toExecuteActionCommand('cmd1', command, snapshot);
+
+    expect(result.command).toBe('bg_record_decision');
+    expect(result.args.prompt).toBe('Choose an option');
+    expect(result.args.choice).toBe('option-a');
+    expect(result.args.rationale).toBe('Because it is better');
   });
 
-  it('maps executable record_decision actions to bg_record_decision', () => {
-    const command = executeAction('act_decision');
+  it('throws for record_decision without required fields', () => {
+    const snapshot = makeSnapshot('action1', 'record_decision');
+    const command: WorkflowExecuteActionInput = {
+      _tag: 'workflow.executeAction',
+      actionId: 'action1',
+    };
 
-    expect(command).toMatchObject({
-      command: 'bg_record_decision',
-      args: {
-        scope: 'project',
-        prompt: 'Record the review outcome',
-        choice: 'accept',
-        rationale: 'The fit is acceptable.',
-        kind: 'fit_criticism',
-      },
-    });
-  });
-
-  it('rejects actions with empty required execution inputs', () => {
-    expect(() =>
-      executeAction('act_decision', { prompt: '', choice: 'accept', rationale: '' }),
-    ).toThrowError(CommandDispatchError);
-  });
-
-  it('rejects unknown action ids', () => {
-    expect(() => executeAction('nonexistent_action')).toThrowError(CommandDispatchError);
+    expect(() => toExecuteActionCommand('cmd1', command, snapshot)).toThrow('prompt, choice, or rationale');
   });
 });

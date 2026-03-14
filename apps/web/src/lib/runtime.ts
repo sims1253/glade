@@ -60,56 +60,29 @@ export function createNativeApi(rpc: RpcClient) {
     unwrapRpc(await rpc.session.restart());
   };
 
-  const restartAfterEnvironmentUpdate = async (
-    environment: DesktopEnvironmentState,
-    actionLabel: string,
-  ) => {
-    console.log('[runtime] restartAfterEnvironmentUpdate start', {
-      actionLabel,
-      projectPath: environment.preflight.projectPath,
-      preflightStatus: environment.preflight.status,
-    });
-    try {
-      await restartSession();
-      console.log('[runtime] restartAfterEnvironmentUpdate success', {
-        actionLabel,
-        projectPath: environment.preflight.projectPath,
-      });
-    } catch (error) {
-      console.error('[runtime] restartAfterEnvironmentUpdate error', {
-        actionLabel,
-        projectPath: environment.preflight.projectPath,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw new SessionRestartAfterEnvironmentUpdateError(
-        `${actionLabel} succeeded, but restarting the session failed.`,
-        environment,
-        error,
-      );
-    }
-  };
-
   const saveEnvironment = async (settings: DesktopSettings): Promise<DesktopEnvironmentState> => {
-    const environment = unwrapRpc(await rpc.desktop.saveSettings({ settings }));
-    await restartAfterEnvironmentUpdate(environment, 'Saving desktop settings');
-    return environment;
+    return unwrapRpc(await rpc.desktop.saveSettings({ settings }));
   };
 
   const resetEnvironment = async (): Promise<DesktopEnvironmentState> => {
-    const environment = unwrapRpc(await rpc.desktop.resetSettings());
-    await restartAfterEnvironmentUpdate(environment, 'Resetting desktop settings');
-    return environment;
+    return unwrapRpc(await rpc.desktop.resetSettings());
   };
 
   const refreshEnvironment = async (): Promise<DesktopEnvironmentState> => {
-    const environment = unwrapRpc(await rpc.desktop.refreshEnvironment());
-    await restartAfterEnvironmentUpdate(environment, 'Refreshing desktop environment');
-    return environment;
+    return unwrapRpc(await rpc.desktop.refreshEnvironment());
   };
 
   const bootstrapProject = async (projectPath: string): Promise<DesktopEnvironmentState> => {
     const environment = unwrapRpc(await rpc.desktop.bootstrapProject({ projectPath }));
-    await restartAfterEnvironmentUpdate(environment, 'Bootstrapping project');
+    try {
+      await restartSession();
+    } catch (error) {
+      throw new SessionRestartAfterEnvironmentUpdateError(
+        'Bootstrapping project succeeded, but restarting the session failed.',
+        environment,
+        error,
+      );
+    }
     return environment;
   };
 

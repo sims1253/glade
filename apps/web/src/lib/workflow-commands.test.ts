@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createWorkflowCommandEnvelope } from './workflow-commands';
+import { createWorkflowCommandEnvelope } from './legacy-commands';
 
 describe('createWorkflowCommandEnvelope', () => {
   it('wraps phase 4 graph commands without mutating their shape', () => {

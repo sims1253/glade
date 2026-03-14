@@ -28,14 +28,6 @@ let updateState: DesktopUpdateState = {
 const runtimeLogTail: string[] = [];
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
-function shouldLogSmokeConsoleMessage(message: string) {
-  return !(
-    message.includes('Electron Security Warning') ||
-    message.includes("Cannot read properties of undefined (reading 'dimensions')") ||
-    message.includes('org.eclipse.elk.graph.json.JsonImportException')
-  );
-}
-
 function appendRuntimeLog(line: string) {
   runtimeLogTail.push(line);
   while (runtimeLogTail.length > 160) {
@@ -275,21 +267,12 @@ function createWindow() {
   });
 
   const smokeScenario = process.env.BAYESGROVE_SMOKE_SCENARIO?.trim();
-  if (smokeScenario) {
-    window.webContents.on('console-message', (_event, level, message) => {
-      if (shouldLogSmokeConsoleMessage(message)) {
-        console.log(`[renderer:${level}] ${message}`);
-      }
-    });
-  }
-
   window.webContents.on('did-finish-load', () => {
     window.webContents.send('glade:update-state', updateState);
     if (smokeScenario) {
       void runSmokeScenario(window, smokeScenario)
         .then(() => app.quit())
         .catch((error) => {
-          console.error(`[desktop] smoke scenario ${smokeScenario} failed`, error);
           process.exitCode = 1;
           app.quit();
         });
@@ -445,7 +428,6 @@ app
   .whenReady()
   .then(() => bootstrap())
   .catch((error) => {
-    console.error('[desktop] failed to start', error);
     dialog.showErrorBox(
       'Glade Failed to Start',
       `The desktop application could not be started.\n\n${error instanceof Error ? error.message : String(error)}\n\nLogs:\n${runtimeLogTail.slice(-15).join('\n')}`

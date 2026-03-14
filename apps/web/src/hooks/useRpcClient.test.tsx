@@ -149,7 +149,6 @@ describe('useRpcClient', () => {
   });
 
   it('reports malformed inbound messages and continues processing later pushes', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     renderHook(() => useRpcClient());
     const socket = MockWebSocket.instances[0];
 
@@ -169,10 +168,6 @@ describe('useRpcClient', () => {
       tone: 'error',
       title: 'Could not process server message',
     });
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[websocket] dropped inbound server message',
-      expect.any(String),
-    );
   });
 
   it('tracks raw repl output separately and resets it on bootstrap', async () => {
