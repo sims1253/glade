@@ -194,7 +194,7 @@ describe('ServerEdge.attachClient', () => {
   // Skipped: This test has a timing issue with Stream.async callback not being invoked
   // before the test tries to emit a message. The functionality works in integration tests.
   // TODO: Fix timing issue - Stream.async callback is not called until the stream is
-  // consumed in a forked fiber. Track at https://github.com/sims1253/glade/issues
+  // consumed in a forked fiber.
   it.skip('acknowledges workflow.useDefaultWorkflow after a matching command result arrives', async () => {
     // Test implementation needs to be fixed - Stream.async callback is not called
     // until the stream is consumed, which happens in a forked fiber that may not

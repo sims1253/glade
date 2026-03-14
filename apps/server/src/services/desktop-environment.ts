@@ -201,13 +201,24 @@ function describeProbeFailure(probe: Awaited<ReturnType<typeof runProbe>>, fallb
 export async function runDesktopPreflight(settings: DesktopSettings, projectPath: string): Promise<DesktopPreflightState> {
   const issues: DesktopPreflightIssue[] = [];
 
-  const rProbe = await runBufferedProcess(
-    {
-      command: settings.rExecutablePath,
-      args: ['--version'],
-      timeoutMs: PROBE_TIMEOUT_MS,
-    },
-  );
+  let rProbe: BufferedProcessResult;
+  try {
+    rProbe = await runBufferedProcess(
+      {
+        command: settings.rExecutablePath,
+        args: ['--version'],
+        timeoutMs: PROBE_TIMEOUT_MS,
+      },
+    );
+  } catch {
+    issues.push(missingRIssue(settings.rExecutablePath));
+    return {
+      checkedAt: new Date().toISOString(),
+      projectPath,
+      status: 'action_required',
+      issues,
+    };
+  }
 
   if (rProbe.exitCode !== 0 && rProbe.exitCode !== null) {
     issues.push(missingRIssue(settings.rExecutablePath));
@@ -219,10 +230,21 @@ export async function runDesktopPreflight(settings: DesktopSettings, projectPath
     };
   }
 
-  const bayesgroveProbe = await runProbe(
-    settings.rExecutablePath,
-    'quit(status = if (requireNamespace("bayesgrove", quietly = TRUE)) 0 else 2)',
-  );
+  let bayesgroveProbe: BufferedProcessResult;
+  try {
+    bayesgroveProbe = await runProbe(
+      settings.rExecutablePath,
+      'quit(status = if (requireNamespace("bayesgrove", quietly = TRUE)) 0 else 2)',
+    );
+  } catch {
+    issues.push(environmentInspectionIssue(`Failed to check bayesgrove package availability.`));
+    return {
+      checkedAt: new Date().toISOString(),
+      projectPath,
+      status: 'action_required',
+      issues,
+    };
+  }
 
   if (bayesgroveProbe.exitCode === 2) {
     issues.push(missingBayesgroveIssue(settings.rExecutablePath));
@@ -241,7 +263,18 @@ export async function runDesktopPreflight(settings: DesktopSettings, projectPath
     )));
   } else if (bayesgroveProbe.exitCode === 0) {
     mkdirSync(projectPath, { recursive: true });
-    const bootstrap = await runProbe(settings.rExecutablePath, prepareProjectExpression(projectPath));
+    let bootstrap: BufferedProcessResult;
+    try {
+      bootstrap = await runProbe(settings.rExecutablePath, prepareProjectExpression(projectPath));
+    } catch {
+      issues.push(projectBootstrapIssue(`Failed to run project bootstrap probe.`));
+      return {
+        checkedAt: new Date().toISOString(),
+        projectPath,
+        status: 'action_required',
+        issues,
+      };
+    }
 
     if (bootstrap.exitCode !== null && bootstrap.exitCode !== 0) {
       issues.push(projectBootstrapIssue(describeProbeFailure(

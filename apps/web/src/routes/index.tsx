@@ -417,6 +417,12 @@ export function IndexRoute() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm"
           onClick={() => setIsWorkflowPacksDialogOpen(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              setIsWorkflowPacksDialogOpen(false);
+            }
+          }}
+          role="presentation"
         >
           <div
             aria-labelledby="workflow-packs-dialog-title"

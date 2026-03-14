@@ -1,11 +1,19 @@
 # Changelog
 
+## 0.13.5 - 2026-03-14
+
+- Fixed CI test failures in `health.test.ts` and `repl.test.ts` by gracefully handling missing `Rscript` executable in `runDesktopPreflight`.
+- Fixed CI typecheck failures in `execute-action.test.ts` by narrowing discriminated union types before accessing `args` properties.
+- Removed unnecessary `Effect.gen` wrapper in `desktop-environment.ts` that triggered the `unnecessaryEffectGen` lint warning.
+- Added keyboard accessibility to the workflow packs dialog backdrop.
+- Updated marketing pages from `v0.13.2` to `v0.13.4`.
+- Fixed incomplete TODO issue URL in `server-edge.test.ts`.
+- Added `console.error` logging for smoke test failures in desktop main process.
+
 ## 0.13.4 - 2026-03-14
 
 - Fixed CI typecheck failures in `execute-action.test.ts` by narrowing discriminated union types before accessing `args` properties.
 - Removed unnecessary `Effect.gen` wrapper in `desktop-environment.ts` that triggered the `unnecessaryEffectGen` lint warning.
-
-## 0.13.3 - 2026-03-14
 
 - Fixed CI lint failures by removing unused imports and prefixing unused parameters across server and web packages.
 - Fixed graph selection being cleared when closing inactive node tabs by only clearing selection when the active tab is closed.
