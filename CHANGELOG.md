@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.13.3 - 2026-03-14
+
+- Fixed CI lint failures by removing unused imports and prefixing unused parameters across server and web packages.
+- Fixed graph selection being cleared when closing inactive node tabs by only clearing selection when the active tab is closed.
+- Fixed node notes save leaving the UI in a stuck pending state by wrapping `submitNotes` in try/catch/finally.
+- Added keyboard accessibility (Escape to close, focus trap) to the workflow packs dialog.
+- Fixed cross-test storage contamination in vitest setup by clearing localStorage/sessionStorage between tests.
+- Stopped tracking generated Astro build artifacts (`.astro/`) in version control.
+- Hardened smoke-test port validation to reject non-numeric input and out-of-range ports.
+- Added smoke failure logging before exit so failures are not silent.
+- Fixed platform-specific temp path in smoke runner by using `os.tmpdir()` instead of hardcoded `/tmp/`.
+- Added missing `rawLines` initialization in connection test setup.
+- Refactored inline snapshot publishing in server-edge to use the shared `publishWorkflowSnapshot` helper.
+- Fixed marketing pages: replaced placeholder links, corrected malformed HTML, fixed invalid CSS properties, resolved undefined CSS variables, and replaced unavailable Google Font imports.
+
 ## 0.13.2 - 2026-03-14
 
 - Fixed node tab closing not working by clearing the graph store's selected node when closing tabs, preventing immediate re-addition by the sync effect.

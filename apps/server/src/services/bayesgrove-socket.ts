@@ -17,8 +17,6 @@ import {
   type GraphSnapshot as GraphSnapshotMessage,
   type ProtocolEvent as ProtocolEventMessage,
   ProtocolEvent as ProtocolEventSchema,
-  type SessionStatus,
-  type WsPush,
 } from '@glade/contracts';
 import { decodeJsonResult, decodeUnknownResult, formatSchemaError } from '@glade/shared';
 

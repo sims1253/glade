@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -53,15 +53,23 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
   });
 }
 
+const localStorageMock = createMemoryStorage();
+const sessionStorageMock = createMemoryStorage();
+
 if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'localStorage', {
     configurable: true,
     writable: true,
-    value: createMemoryStorage(),
+    value: localStorageMock,
   });
   Object.defineProperty(window, 'sessionStorage', {
     configurable: true,
     writable: true,
-    value: createMemoryStorage(),
+    value: sessionStorageMock,
   });
 }
+
+afterEach(() => {
+  localStorageMock.clear();
+  sessionStorageMock.clear();
+});

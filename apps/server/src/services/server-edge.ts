@@ -42,7 +42,7 @@ import { BayesgroveSocket } from './bayesgrove-socket';
 import { toExecuteActionCommand } from './execute-action';
 import { GraphStateCache } from './graph-state-cache';
 import { RProcessService } from './r-process';
-import { statusMessage, SessionStatusStore, createStatusPublisher } from './session-status';
+import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { DesktopEnvironmentService } from './desktop-environment';
 import { WebSocketHub } from './websocket-hub';
 
@@ -282,13 +282,11 @@ export const ServerEdgeLive = Layer.scoped(
       );
     });
 
-    const prepareSnapshot = (snapshot: GraphSnapshot) => Effect.succeed(snapshot);
     const publishWorkflowSnapshot = (snapshot: GraphSnapshot) =>
       Effect.gen(function* () {
-        const preparedSnapshot = yield* prepareSnapshot(snapshot);
-        yield* cache.writeSnapshot(preparedSnapshot);
+        yield* cache.writeSnapshot(snapshot);
         yield* publishStatus('ready');
-        const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: preparedSnapshot };
+        const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: snapshot };
         yield* hub.broadcast(push);
       });
     const handleCommandResult = (result: BayesgroveCommandResult) =>
@@ -339,11 +337,7 @@ export const ServerEdgeLive = Layer.scoped(
       Effect.gen(function* () {
         if ('message_type' in message && message.message_type === 'GraphSnapshot') {
           yield* Ref.set(refreshInFlight, false);
-          const preparedSnapshot = yield* prepareSnapshot(message);
-          yield* cache.writeSnapshot(preparedSnapshot);
-          yield* publishStatus('ready');
-          const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: preparedSnapshot };
-          yield* hub.broadcast(push);
+          yield* publishWorkflowSnapshot(message);
           return;
         }
 

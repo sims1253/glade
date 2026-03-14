@@ -15,7 +15,7 @@ import type {
   DesktopSettings,
 } from '@glade/contracts';
 import { DEFAULT_DESKTOP_SETTINGS, normalizeDesktopSettings as baseNormalizeDesktopSettings } from '@glade/shared';
-import { runBufferedProcess, spawnChildProcess, type BufferedProcessResult } from '@glade/shared/process';
+import { runBufferedProcess, type BufferedProcessResult } from '@glade/shared/process';
 
 import { ServerConfig } from '../config';
 import { CommandDispatchError } from '../errors';

@@ -21,7 +21,7 @@ import type {
   WorkflowUpdateNodeParametersInput,
 } from '@glade/contracts';
 
-import { assertUnreachable, randomUUID } from './utils';
+import { randomUUID } from './utils';
 
 type WithoutTag<T extends { readonly _tag: string }> = Omit<T, '_tag'>;
 

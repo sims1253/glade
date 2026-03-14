@@ -1,5 +1,7 @@
 import { BrowserWindow } from 'electron';
 import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 async function execute<T>(window: ElectronBrowserWindow, source: string) {
   return await window.webContents.executeJavaScript(source, true) as T;
@@ -142,7 +144,7 @@ async function runReplDetachScenario(window: ElectronBrowserWindow) {
 }
 
 async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
-  const projectPath = `/tmp/glade-smoke-project-${Date.now()}`;
+  const projectPath = path.join(tmpdir(), `glade-smoke-project-${Date.now()}`);
 
   await execute(
     window,
@@ -195,7 +197,7 @@ async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
     10_000,
   );
 
-  await execute<{ readonly pathname: string; readonly inputValue: string; readonly createDisabled: boolean | null; readonly setupText: string }>(
+  await execute(
     window,
     `
       (() => {
@@ -234,7 +236,7 @@ async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
     40_000,
   );
 
-  await execute<{ readonly disabled: boolean | null; readonly text: string }>(
+  await execute(
     window,
     `
       (() => {

@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { assertUnreachable, randomUUID } from './utils';
+import { assertUnreachable } from './utils';
 import { makeRequest } from './rpc';
 import type { RpcMethod, RpcRequestBody } from './rpc';
 

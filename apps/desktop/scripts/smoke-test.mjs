@@ -43,8 +43,8 @@ async function getAvailablePort() {
 }
 
 const requestedPortText = process.env.BAYESGROVE_SERVER_PORT?.trim();
-const requestedPort = requestedPortText ? Number.parseInt(requestedPortText, 10) : Number.NaN;
-const port = Number.isFinite(requestedPort) && requestedPort > 0
+const requestedPort = requestedPortText && /^\d+$/.test(requestedPortText) ? Number.parseInt(requestedPortText, 10) : Number.NaN;
+const port = Number.isFinite(requestedPort) && requestedPort > 0 && requestedPort <= 65535
   ? requestedPort
   : await getAvailablePort();
 

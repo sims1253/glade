@@ -143,7 +143,7 @@ beforeEach(() => {
     bootstrapped: false,
   });
   useGraphStore.getState().clear();
-  useReplStore.setState({ replLines: [], commandHistory: [], replDetached: false });
+  useReplStore.setState({ replLines: [], commandHistory: [], replDetached: false, rawLines: [] });
   useToastStore.setState({ notifications: [] });
   vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket);
 });

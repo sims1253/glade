@@ -423,7 +423,40 @@ export function IndexRoute() {
             aria-modal="true"
             className="w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.35)]"
             onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setIsWorkflowPacksDialogOpen(false);
+                return;
+              }
+
+              if (event.key === 'Tab') {
+                const focusableElements = Array.from(
+                  event.currentTarget.querySelectorAll<HTMLElement>(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+                  ),
+                ).filter((element) => !element.hasAttribute('disabled'));
+
+                if (focusableElements.length === 0) {
+                  event.preventDefault();
+                  return;
+                }
+
+                const firstElement = focusableElements[0];
+                const lastElement = focusableElements[focusableElements.length - 1];
+                const activeElement = document.activeElement;
+
+                if (!event.shiftKey && activeElement === lastElement) {
+                  event.preventDefault();
+                  firstElement?.focus();
+                } else if (event.shiftKey && activeElement === firstElement) {
+                  event.preventDefault();
+                  lastElement?.focus();
+                }
+              }
+            }}
             role="dialog"
+            tabIndex={-1}
           >
             <div className="flex items-start justify-between gap-4">
               <div>

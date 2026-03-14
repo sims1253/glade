@@ -64,8 +64,8 @@ export function TabBar({ className }: TabBarProps) {
   const setGraphSelectedNodeId = useGraphStore((state) => state.setSelectedNodeId);
 
   const handleCloseTab = (tab: CenterTab) => {
-    // Clear graph store's selected node if closing a node tab
-    if (tab.nodeId) {
+    // Clear graph store's selected node only if closing the currently active node tab
+    if (tab.nodeId && tab.id === activeTabId) {
       setGraphSelectedNodeId(null);
     }
     removeTab(tab.id);

@@ -4,7 +4,7 @@ import * as Layer from 'effect/Layer';
 import * as Ref from 'effect/Ref';
 import * as Runtime from 'effect/Runtime';
 
-import type { ReplOutput, ReplRawOutput, SessionStatus, WsPush } from '@glade/contracts';
+import type { ReplOutput, ReplRawOutput, WsPush } from '@glade/contracts';
 import { createLineBuffer } from '@glade/shared/logging';
 
 import { ServerConfig } from '../config';

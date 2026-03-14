@@ -273,6 +273,7 @@ function createWindow() {
       void runSmokeScenario(window, smokeScenario)
         .then(() => app.quit())
         .catch((error) => {
+          appendRuntimeLog(`Smoke scenario failed: ${error instanceof Error ? error.message : String(error)}`);
           process.exitCode = 1;
           app.quit();
         });

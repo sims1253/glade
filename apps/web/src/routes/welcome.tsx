@@ -38,7 +38,7 @@ export function WelcomeRoute() {
         projectPath,
       };
     },
-    onMutate: (variables) => {
+    onMutate: (_variables) => {
       setSetupError(null);
     },
     onSuccess: (result) => {

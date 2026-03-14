@@ -20,3 +20,4 @@ apps/web/screenshots/
 apps/web/take-screenshot.mjs
 bayesgrove/
 .desloppify/
+apps/marketing/.astro/

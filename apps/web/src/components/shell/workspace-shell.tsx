@@ -345,11 +345,16 @@ function NodeWorkbenchPanel({ host, node, workflow }: { host: HostRpc; node: Wor
     }
 
     setNotesPending(true);
-    await workflow.updateNodeNotes({
-      nodeId: node.id,
-      notes: notesDraft,
-    });
-    setNotesPending(false);
+    try {
+      await workflow.updateNodeNotes({
+        nodeId: node.id,
+        notes: notesDraft,
+      });
+    } catch {
+      // Silently swallow - notes will retry on next blur
+    } finally {
+      setNotesPending(false);
+    }
   }
 
   if (!node) {

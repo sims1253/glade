@@ -602,7 +602,7 @@ export function ReplTerminalPanel({
         return;
       }
 
-      clearRawLines();
+      await clearRawLines();
     } catch {
     }
   };

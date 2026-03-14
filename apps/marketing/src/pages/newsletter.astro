@@ -83,7 +83,7 @@ import Layout from '../layouts/Layout.astro';
       font-size: 12px;
       color: var(--muted);
       margin-bottom: 24px;
-      font-variant-numeric-figuring: tabular-nums;
+      font-variant-numeric: tabular-nums;
     }
 
     .date-bar .sep {
@@ -206,9 +206,9 @@ import Layout from '../layouts/Layout.astro';
       position: relative;
     }
 
-    .numbered li:last-child { border-bottom: none; }
+    .numbered-list li:last-child { border-bottom: none; }
 
-    .numbered li::before {
+    .numbered-list li::before {
       content: counter(nl);
       position: absolute;
       left: 0;
@@ -342,7 +342,7 @@ import Layout from '../layouts/Layout.astro';
 
     .install-banner p {
       font-size: 13px;
-      color: var(--text-secondary);
+      color: var(--secondary);
       margin-bottom: 12px;
     }
 
@@ -438,7 +438,7 @@ import Layout from '../layouts/Layout.astro';
         <li><strong>Action preview redesign</strong> — Recommended actions now display
         invocation fields, template references, and parameter metadata before the user
         commits to execution.</li>
-        <strong>Timestamp formatting</strong> — A new settings option lets users choose between
+        <li><strong>Timestamp formatting</strong> — A new settings option lets users choose between
         system default, 12-hour, and 24-hour timestamp formats throughout the interface.</li>
         <li><strong>Deferred worker startup</strong> — Heavy UI components (diff panels, web workers)
         now initialize only when actually opened, reducing initial load time.</li>
