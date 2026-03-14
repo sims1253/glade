@@ -23,11 +23,17 @@ async function waitFor(window: ElectronBrowserWindow, description: string, sourc
           }
 
           if (Date.now() >= deadline) {
+            const text = document.body?.textContent?.replace(/\\s+/g, ' ').slice(0, 1200) ?? '<empty>';
+            const sessionError = /Session error[^.]*./.exec(text)?.[0] ?? '<none>';
             reject(
               new Error(
                 ${JSON.stringify(`Timed out waiting for ${description}`)}
+                + '\\nPath: '
+                + window.location.pathname
+                + '\\nSession: '
+                + sessionError
                 + '\\nDOM: '
-                + (document.body?.textContent?.replace(/\\s+/g, ' ').slice(0, 1200) ?? '<empty>')
+                + text
               ),
             );
             return;
@@ -135,6 +141,137 @@ async function runReplDetachScenario(window: ElectronBrowserWindow) {
   );
 }
 
+async function runProjectPlaygroundScenario(window: ElectronBrowserWindow) {
+  const projectPath = `/tmp/glade-smoke-project-${Date.now()}`;
+
+  await execute(
+    window,
+    `
+      (() => {
+        window.history.pushState({}, '', '/welcome');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      })();
+    `,
+  );
+
+  await waitFor(
+    window,
+    'project setup screen',
+    `
+      return document.body.textContent?.includes('Open an existing project or initialize a new one');
+    `,
+    30_000,
+  );
+
+  await execute(
+    window,
+    `
+      (() => {
+        const input = document.querySelector('#project-path-input');
+        if (!(input instanceof HTMLInputElement)) {
+          throw new Error('Could not find project path input.');
+        }
+
+        const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        if (!valueSetter) {
+          throw new Error('Could not find HTMLInputElement value setter.');
+        }
+
+        input.focus();
+        valueSetter.call(input, ${JSON.stringify(projectPath)});
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })();
+    `,
+  );
+
+  await waitFor(
+    window,
+    'create project button enabled',
+    `
+      const createButton = [...document.querySelectorAll('button')]
+        .find((candidate) => candidate.textContent?.trim() === 'Create project');
+      return createButton instanceof HTMLButtonElement && !createButton.disabled;
+    `,
+    10_000,
+  );
+
+  const createAttempt = await execute<{ readonly pathname: string; readonly inputValue: string; readonly createDisabled: boolean | null; readonly setupText: string }>(
+    window,
+    `
+      (() => {
+        const input = document.querySelector('#project-path-input');
+        const createButton = [...document.querySelectorAll('button')]
+          .find((candidate) => candidate.textContent?.trim() === 'Create project');
+        if (!(input instanceof HTMLInputElement)) {
+          throw new Error('Could not find project path input.');
+        }
+        if (!(createButton instanceof HTMLButtonElement)) {
+          throw new Error('Could not find Create project button.');
+        }
+
+        createButton.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0 }));
+        createButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+        createButton.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0 }));
+        createButton.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0 }));
+        createButton.click();
+
+        return {
+          pathname: window.location.pathname,
+          inputValue: input.value,
+          createDisabled: createButton.disabled,
+          setupText: document.body.textContent?.replace(/[ \t\n\r]+/g, ' ').slice(0, 400) ?? '',
+        };
+      })();
+    `,
+  );
+
+  console.log('[smoke] create project interaction', createAttempt);
+
+  await waitFor(
+    window,
+    'workspace after create project',
+    `
+      return document.body.textContent?.includes('Empty Bayesgrove project');
+    `,
+    40_000,
+  );
+
+  const defaultWorkflowAttempt = await execute<{ readonly disabled: boolean | null; readonly text: string }>(
+    window,
+    `
+      (() => {
+        const button = [...document.querySelectorAll('button')]
+          .find((candidate) => candidate.textContent?.trim() === 'Use default workflow');
+        if (!(button instanceof HTMLButtonElement)) {
+          throw new Error('Could not find Use default workflow button.');
+        }
+
+        button.click();
+        return {
+          disabled: button.disabled,
+          text: document.body.textContent?.replace(/[ \t\n\r]+/g, ' ').slice(0, 500) ?? '',
+        };
+      })();
+    `,
+  );
+
+  console.log('[smoke] default workflow interaction', defaultWorkflowAttempt);
+
+  await waitFor(
+    window,
+    'default workflow activation',
+    `
+      const text = document.body.textContent ?? '';
+      const headings = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')]
+        .map((heading) => heading.textContent?.trim() ?? '');
+      return !text.includes('This project has no node kinds yet.')
+        && !text.includes('Choose a starter workflow or enable review packs.')
+        && (headings.length > 0 || !text.includes('Use default workflow'));
+    `,
+    40_000,
+  );
+}
+
 export async function runSmokeScenario(window: ElectronBrowserWindow, scenario: string) {
   switch (scenario) {
     case 'bayesgrove-detail-drawer':
@@ -142,6 +279,9 @@ export async function runSmokeScenario(window: ElectronBrowserWindow, scenario: 
       return;
     case 'repl-detach':
       await runReplDetachScenario(window);
+      return;
+    case 'project-playground':
+      await runProjectPlaygroundScenario(window);
       return;
     default:
       throw new Error(`Unknown smoke scenario: ${scenario}`);

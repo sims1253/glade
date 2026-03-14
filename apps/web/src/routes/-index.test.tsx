@@ -16,6 +16,8 @@ import { useWorkspaceStore } from '../store/workspace';
 import { IndexRoute } from './index';
 
 const workflowExecuteAction = vi.fn();
+const workflowUseDefaultWorkflow = vi.fn();
+const workflowUseWorkflowPacks = vi.fn();
 const hostOpenInEditor = vi.fn();
 const reconnect = vi.fn();
 const replWrite = vi.fn();
@@ -93,6 +95,8 @@ vi.mock('../hooks/useRpcClient', () => ({
       renameNode: vi.fn(),
       recordDecision: vi.fn(),
       executeAction: workflowExecuteAction,
+      useDefaultWorkflow: workflowUseDefaultWorkflow,
+      useWorkflowPacks: workflowUseWorkflowPacks,
       updateNodeNotes: vi.fn(),
       updateNodeParameters: vi.fn(),
       setNodeFile: vi.fn(),
@@ -297,6 +301,41 @@ const extensionSnapshot: GraphSnapshot = {
   ],
 };
 
+const blankProjectSnapshot: GraphSnapshot = {
+  ...baseSnapshot,
+  emitted_at: '2026-03-08T10:00:06.000Z',
+  graph: {
+    version: 1,
+    registry: {
+      kinds: {},
+    },
+    nodes: {},
+    edges: {},
+  },
+  status: {
+    ...baseSnapshot.status,
+    workflow_state: 'open',
+    runnable_nodes: 0,
+    blocked_nodes: 0,
+    messages: ['ready'],
+  },
+  protocol: {
+    summary: {
+      n_scopes: 1,
+      n_obligations: 0,
+      n_actions: 0,
+      n_blocking: 0,
+      scopes: ['project'],
+    },
+    project: {
+      scope: 'project',
+      scope_label: 'Project',
+      obligations: {},
+      actions: {},
+    },
+  },
+};
+
 const reviewActionPayload = {
   prompt: 'What is your fit criticism assessment for these summaries?',
   choice: 'needs_revision',
@@ -307,10 +346,14 @@ const reviewActionPayload = {
 describe('IndexRoute phase 5 workflow UI', () => {
   beforeEach(() => {
     workflowExecuteAction.mockReset();
+    workflowUseDefaultWorkflow.mockReset();
+    workflowUseWorkflowPacks.mockReset();
     hostOpenInEditor.mockReset();
     reconnect.mockReset();
     replWrite.mockReset();
     replClear.mockReset();
+    workflowUseDefaultWorkflow.mockResolvedValue({ success: true, result: { _tag: 'AckResult' } });
+    workflowUseWorkflowPacks.mockResolvedValue({ success: true, result: { _tag: 'AckResult' } });
     desktopGetEnvironment.mockReset();
     desktopGetEnvironment.mockResolvedValue({ success: true, result: desktopEnvironment });
     desktopRefreshEnvironment.mockReset();
@@ -509,14 +552,91 @@ describe('IndexRoute phase 5 workflow UI', () => {
     expect(await screen.findByText(/Setup required:/)).toBeInTheDocument();
   });
 
-  it('surfaces an empty-workspace prompt with project setup and extension actions', async () => {
+  it('does not show the project-setup banner for an already opened but empty project', async () => {
     useGraphStore.getState().applySnapshot(extensionSnapshot);
 
     renderRoute();
 
-    expect(await screen.findByText(/Start by choosing a project or loading a node pack/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText(/Choose a project before starting the workspace/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows workflow activation actions for an empty project with no node kinds', async () => {
+    useGraphStore.getState().applySnapshot(blankProjectSnapshot);
+
+    renderRoute();
+
+    expect(await screen.findByText(/Choose a starter workflow or enable review packs/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Use default workflow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enable workflow packs' })).toBeInTheDocument();
+  });
+
+  it('activates the default workflow from the empty-project banner', async () => {
+    useGraphStore.getState().applySnapshot(blankProjectSnapshot);
+
+    renderRoute();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Use default workflow' }));
+
+    await waitFor(() => {
+      expect(workflowUseDefaultWorkflow).toHaveBeenCalledWith();
+    });
+  });
+
+  it('opens the workflow-pack picker and submits selected packs', async () => {
+    useGraphStore.getState().applySnapshot(blankProjectSnapshot);
+
+    renderRoute();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enable workflow packs' }));
+    expect(screen.getByRole('heading', { name: 'Enable workflow packs' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate selected packs' }));
+
+    await waitFor(() => {
+      expect(workflowUseWorkflowPacks).toHaveBeenCalledWith({
+        workflowPacks: ['bayesguide.default_bayesian'],
+      });
+    });
+  });
+
+  it('shows the project-setup banner when no graph snapshot is available yet', async () => {
+    useConnectionStore.setState({
+      desktopEnvironment: {
+        ...desktopEnvironment,
+        preflight: {
+          ...desktopEnvironment.preflight,
+          status: 'action_required',
+        },
+      },
+    });
+
+    renderRoute();
+
+    expect(await screen.findByText(/Choose a project before starting the workspace/i)).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Project setup' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Extensions' }).length).toBeGreaterThan(0);
+  });
+
+  it('hides the project-setup banner when waiting for snapshot with a ready configured project', async () => {
+    useConnectionStore.setState({
+      desktopEnvironment: {
+        ...desktopEnvironment,
+        preflight: {
+          ...desktopEnvironment.preflight,
+          status: 'ok',
+          issues: [],
+        },
+      },
+    });
+
+    renderRoute();
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Choose a project before starting the workspace/i)).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(/Waiting for the first graph snapshot from bayesgrove/i)).toBeInTheDocument();
   });
 
   it('shows loaded extension contents and sends a library command from the extension manager', async () => {
@@ -528,8 +648,9 @@ describe('IndexRoute phase 5 workflow UI', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Extensions' })[0]!);
 
     expect(await screen.findByText('Load installed node packs')).toBeInTheDocument();
+    expect(screen.getByText('Available node kinds')).toBeInTheDocument();
     expect(screen.getByText('test.extension')).toBeInTheDocument();
-    expect(screen.getByText('Posterior summary')).toBeInTheDocument();
+    expect(screen.getAllByText('Posterior summary').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Reporting').length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText('Package name'), {

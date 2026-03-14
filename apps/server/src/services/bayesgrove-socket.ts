@@ -13,8 +13,8 @@ import {
   type BayesgroveCommand,
   type BayesgroveCommandResult as BayesgroveCommandResultMessage,
   BayesgroveCommandResult as BayesgroveCommandResultSchema,
+  decodeGraphSnapshot,
   type GraphSnapshot as GraphSnapshotMessage,
-  GraphSnapshot as GraphSnapshotSchema,
   type ProtocolEvent as ProtocolEventMessage,
   ProtocolEvent as ProtocolEventSchema,
   type SessionStatus,
@@ -45,7 +45,6 @@ function statusMessage(state: SessionStatus['state'], reason?: string): SessionS
 }
 
 const decodeJsonPayload = decodeJsonResult(Schema.Unknown);
-const decodeSnapshotResult = decodeUnknownResult(GraphSnapshotSchema);
 const decodeProtocolEventResult = decodeUnknownResult(ProtocolEventSchema);
 const decodeCommandResult = decodeUnknownResult(BayesgroveCommandResultSchema);
 
@@ -78,7 +77,7 @@ export const BayesgroveSocketLive = Layer.scoped(
           });
         }
 
-        const snapshotAttempt = decodeSnapshotResult(payload.right);
+        const snapshotAttempt = yield* Effect.either(decodeGraphSnapshot(payload.right));
         if (Either.isRight(snapshotAttempt)) {
           return snapshotAttempt.right;
         }
@@ -163,11 +162,18 @@ export const BayesgroveSocketLive = Layer.scoped(
         cleanupStartupListeners();
 
         socket.on('message', (data) => {
+          const raw = String(data);
+          if (raw.includes('default_workflow') || raw.includes('CommandResult') || raw.includes('workflow_packs')) {
+            console.log('[bayesgrove-socket] inbound raw', raw);
+          }
           void Runtime.runPromise(
             effectRuntime,
-            parseInbound(String(data)).pipe(
+            parseInbound(raw).pipe(
               Effect.flatMap((message) => Queue.offer(messageQueue, message)),
-              Effect.catchAll((error) => publishStatus('error', `protocol_decode_error:${error.message}`)),
+              Effect.catchAll((error) => {
+                console.log('[bayesgrove-socket] decode error', error instanceof Error ? error.message : String(error));
+                return publishStatus('error', `protocol_decode_error:${error.message}`);
+              }),
             ),
           );
         });

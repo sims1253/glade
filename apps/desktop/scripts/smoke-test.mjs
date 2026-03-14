@@ -9,7 +9,6 @@ import electronPath from 'electron';
 import { terminateProcessTree } from '@glade/shared/process';
 
 const cwd = path.resolve(import.meta.dirname, '../../..');
-const port = Number(process.env.BAYESGROVE_SERVER_PORT ?? 7943);
 const entry = path.join(cwd, 'apps/desktop/dist-electron/main.cjs');
 const scenario = process.argv[2]?.trim() || process.env.BAYESGROVE_SMOKE_SCENARIO?.trim() || '';
 const stateDir = await mkdtemp(path.join(tmpdir(), 'glade-desktop-smoke-state-'));
@@ -18,6 +17,36 @@ const electronArgs = [
   ...(isCiHeadless ? ['--no-sandbox', '--disable-setuid-sandbox', '--headless', '--disable-gpu', '--ozone-platform=headless'] : []),
   entry,
 ];
+
+async function getAvailablePort() {
+  const net = await import('node:net');
+  return await new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close(() => reject(new Error('Could not resolve an ephemeral port.')));
+        return;
+      }
+
+      const { port } = address;
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
+}
+
+const requestedPortText = process.env.BAYESGROVE_SERVER_PORT?.trim();
+const requestedPort = requestedPortText ? Number.parseInt(requestedPortText, 10) : Number.NaN;
+const port = Number.isFinite(requestedPort) && requestedPort > 0
+  ? requestedPort
+  : await getAvailablePort();
 
 async function waitFor(url, attempts = 120) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {

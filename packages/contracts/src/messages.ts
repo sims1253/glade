@@ -348,6 +348,13 @@ export const BayesgroveCommand = Schema.Union(
       metadata: Schema.optional(JsonObject),
     }),
   ),
+  rawCommandSchema('bg_use_default_workflow', Schema.Struct({})),
+  rawCommandSchema(
+    'bg_use_workflow_packs',
+    Schema.Struct({
+      workflow_packs: StringArray,
+    }),
+  ),
   rawCommandSchema(
     'bg_submit',
     Schema.Struct({

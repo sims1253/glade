@@ -284,10 +284,10 @@ export function WorkspaceShell({
                 className="h-full rounded-none border-0 bg-transparent shadow-none"
                 workflow={workflow}
                 host={host}
-                showNodeDetailDrawer={false}
+                showNodeDetailDrawer={true}
               />
             ) : (
-              <NodeWorkbenchPanel host={host} node={activeNode} />
+              <NodeWorkbenchPanel host={host} node={activeNode} workflow={workflow} />
             )}
 
             {selectedNode && activeTab?.type === 'canvas' && toolbarPosition ? (
@@ -330,7 +330,28 @@ export function WorkspaceShell({
 
 export type { CommandItem };
 
-function NodeWorkbenchPanel({ host, node }: { host: HostRpc; node: WorkflowNodeData | null }) {
+function NodeWorkbenchPanel({ host, node, workflow }: { host: HostRpc; node: WorkflowNodeData | null; workflow?: WorkflowRpc }) {
+  const [notesDraft, setNotesDraft] = useState(node?.notes ?? '');
+  const [notesPending, setNotesPending] = useState(false);
+
+  // Sync notes draft when node changes
+  useEffect(() => {
+    setNotesDraft(node?.notes ?? '');
+  }, [node?.id, node?.notes]);
+
+  async function submitNotes() {
+    if (!workflow || !node || notesDraft === node.notes) {
+      return;
+    }
+
+    setNotesPending(true);
+    await workflow.updateNodeNotes({
+      nodeId: node.id,
+      notes: notesDraft,
+    });
+    setNotesPending(false);
+  }
+
   if (!node) {
     return (
       <div className="flex h-full items-center justify-center px-6">
@@ -369,12 +390,20 @@ function NodeWorkbenchPanel({ host, node }: { host: HostRpc; node: WorkflowNodeD
           <MetricCell label="Decisions" value={String(node.decisions.length)} bordered />
         </div>
 
-        {node.notes ? (
-          <div className="border-b border-slate-200 px-5 py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">Notes</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{node.notes}</p>
-          </div>
-        ) : null}
+        <div className="border-b border-slate-200 px-5 py-4">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500" htmlFor="node-workbench-notes">
+            Notes
+          </label>
+          <textarea
+            id="node-workbench-notes"
+            value={notesDraft}
+            onChange={(event) => setNotesDraft(event.target.value)}
+            onBlur={() => void submitNotes()}
+            placeholder="Add working notes for this node..."
+            className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-hidden focus:border-slate-300 focus:bg-white"
+          />
+          <p className="mt-2 text-xs text-slate-400">{notesPending ? 'Saving...' : 'Notes save on blur.'}</p>
+        </div>
 
         <div className="px-5 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">Recent summaries</p>

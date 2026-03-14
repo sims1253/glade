@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 
 import { Boxes, PackagePlus, X } from 'lucide-react';
 
-import type { WorkflowExtensionDescriptor } from '../../lib/graph-types';
+import type { WorkflowExtensionDescriptor, WorkflowNodeKindSpec } from '../../lib/graph-types';
 import { formatKindLabel } from '../../lib/graph-types';
 import { Button } from '../ui/button';
 
 interface ExtensionManagerProps {
   readonly extensions: ReadonlyArray<WorkflowExtensionDescriptor>;
   readonly isLoadingPackage: boolean;
+  readonly nodeKinds: ReadonlyArray<WorkflowNodeKindSpec>;
   readonly open: boolean;
   readonly onClose: () => void;
   readonly onLoadPackage: (packageName: string) => void | Promise<unknown>;
@@ -17,6 +18,7 @@ interface ExtensionManagerProps {
 export function ExtensionManager({
   extensions,
   isLoadingPackage,
+  nodeKinds,
   open,
   onClose,
   onLoadPackage,
@@ -96,7 +98,37 @@ export function ExtensionManager({
           </section>
 
           <section className="min-w-0">
-            <div className="flex items-center gap-2 text-slate-900">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-center gap-2 text-slate-900">
+                <Boxes className="size-4" />
+                <h3 className="text-lg font-semibold">Available node kinds</h3>
+              </div>
+              <p className="mt-3 text-sm text-slate-600">
+                These are the node kinds currently exposed by the live Bayesgrove session, including core Bayesgrove modules and anything loaded from extension packages.
+              </p>
+
+              {nodeKinds.length === 0 ? (
+                <div className="mt-4 rounded-[1.25rem] border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
+                  No node kinds are exposed yet. Load a package or refresh the session once Bayesgrove has registered its modules.
+                </div>
+              ) : (
+                <ul className="mt-4 grid gap-3 md:grid-cols-2">
+                  {nodeKinds.map((nodeKind) => (
+                    <li key={nodeKind.kind} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-medium text-slate-900">{nodeKind.label}</span>
+                        <span className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                          {formatKindLabel(nodeKind.kind)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">{nodeKind.description}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="mt-6 flex items-center gap-2 text-slate-900">
               <Boxes className="size-4" />
               <h3 className="text-lg font-semibold">Loaded extensions</h3>
             </div>

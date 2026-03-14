@@ -4,7 +4,7 @@ import * as Layer from 'effect/Layer';
 import * as Ref from 'effect/Ref';
 import * as Runtime from 'effect/Runtime';
 
-import type { ReplOutput, SessionStatus, WsPush } from '@glade/contracts';
+import type { ReplOutput, ReplRawOutput, SessionStatus, WsPush } from '@glade/contracts';
 import { createLineBuffer } from '@glade/shared/logging';
 
 import { ServerConfig } from '../config';
@@ -135,11 +135,20 @@ export const RProcessServiceLive = Layer.scoped(
         yield* hub.broadcast(push);
       });
 
+    const publishRawReplLine = (line: string) =>
+      Effect.gen(function* () {
+        const payload: ReplRawOutput = { _tag: 'ReplRawOutput', line };
+        const push: WsPush = { _tag: 'WsPush', channel: 'repl.rawOutput', payload };
+        yield* hub.broadcast(push);
+      });
+
     const handleLine = (line: string) =>
       Effect.gen(function* () {
         if (yield* Ref.get(stoppingRef)) {
           return;
         }
+
+        yield* publishRawReplLine(line);
 
         switch (classifyReplLine(line)) {
           case 'ready-signal':
@@ -218,14 +227,17 @@ export const RProcessServiceLive = Layer.scoped(
       yield* Ref.set(stoppingRef, false);
       yield* Ref.set(readySeenRef, false);
       yield* publishStatus('connecting');
-      yield* Effect.tryPromise(() => writeRDiagnosticsLine(config.stateDir, 'starting R process')).pipe(
+      yield* Effect.tryPromise(() => writeRDiagnosticsLine(
+        config.stateDir,
+        `starting R process (projectPath=${runtime.projectPath}, cwd=${runtime.projectPath})`,
+      )).pipe(
         Effect.catchAll(() => Effect.void),
       );
 
       const currentProcess = yield* supervisor.spawn({
         command: runtime.rExecutablePath,
         args: ['-e', makeRExpression(runtime.projectPath, config.rHost, config.rPort, config.rPollInterval)],
-        cwd: config.rootDir,
+        cwd: runtime.projectPath,
         env: process.env,
         stdio: ['pipe', 'pipe', 'pipe'],
       });

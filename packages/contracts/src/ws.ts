@@ -21,6 +21,8 @@ export const WS_METHODS = [
   'workflow.renameNode',
   'workflow.recordDecision',
   'workflow.executeAction',
+  'workflow.useDefaultWorkflow',
+  'workflow.useWorkflowPacks',
   'workflow.updateNodeNotes',
   'workflow.updateNodeParameters',
   'workflow.setNodeFile',
@@ -38,6 +40,7 @@ export const WS_CHANNELS = [
   'workflow.snapshot',
   'workflow.event',
   'repl.output',
+  'repl.rawOutput',
   'repl.cleared',
 ] as const;
 export type WsChannel = (typeof WS_CHANNELS)[number];
@@ -74,6 +77,11 @@ export const ReplOutput = Schema.TaggedStruct('ReplOutput', {
   line: Schema.String,
 });
 export type ReplOutput = Schema.Schema.Type<typeof ReplOutput>;
+
+export const ReplRawOutput = Schema.TaggedStruct('ReplRawOutput', {
+  line: Schema.String,
+});
+export type ReplRawOutput = Schema.Schema.Type<typeof ReplRawOutput>;
 
 export const ReplCleared = Schema.TaggedStruct('ReplCleared', {});
 export type ReplCleared = Schema.Schema.Type<typeof ReplCleared>;
@@ -154,6 +162,16 @@ export const WorkflowExecuteActionInput = Schema.TaggedStruct('workflow.executeA
 });
 export type WorkflowExecuteActionInput = Schema.Schema.Type<typeof WorkflowExecuteActionInput>;
 export const WorkflowExecuteActionResult = AckResult;
+
+export const WorkflowUseDefaultWorkflowInput = Schema.TaggedStruct('workflow.useDefaultWorkflow', {});
+export type WorkflowUseDefaultWorkflowInput = Schema.Schema.Type<typeof WorkflowUseDefaultWorkflowInput>;
+export const WorkflowUseDefaultWorkflowResult = AckResult;
+
+export const WorkflowUseWorkflowPacksInput = Schema.TaggedStruct('workflow.useWorkflowPacks', {
+  workflowPacks: Schema.Array(Schema.String),
+});
+export type WorkflowUseWorkflowPacksInput = Schema.Schema.Type<typeof WorkflowUseWorkflowPacksInput>;
+export const WorkflowUseWorkflowPacksResult = AckResult;
 
 export const WorkflowUpdateNodeNotesInput = Schema.TaggedStruct('workflow.updateNodeNotes', {
   nodeId: Schema.String,
@@ -248,6 +266,8 @@ export const WebSocketRequest = Schema.Union(
   requestSchema('workflow.renameNode', WorkflowRenameNodeInput),
   requestSchema('workflow.recordDecision', WorkflowRecordDecisionInput),
   requestSchema('workflow.executeAction', WorkflowExecuteActionInput),
+  requestSchema('workflow.useDefaultWorkflow', WorkflowUseDefaultWorkflowInput),
+  requestSchema('workflow.useWorkflowPacks', WorkflowUseWorkflowPacksInput),
   requestSchema('workflow.updateNodeNotes', WorkflowUpdateNodeNotesInput),
   requestSchema('workflow.updateNodeParameters', WorkflowUpdateNodeParametersInput),
   requestSchema('workflow.setNodeFile', WorkflowSetNodeFileInput),
@@ -270,6 +290,8 @@ export const WebSocketResponse = Schema.Union(
   successResponseSchema('workflow.renameNode', WorkflowRenameNodeResult),
   successResponseSchema('workflow.recordDecision', WorkflowRecordDecisionResult),
   successResponseSchema('workflow.executeAction', WorkflowExecuteActionResult),
+  successResponseSchema('workflow.useDefaultWorkflow', WorkflowUseDefaultWorkflowResult),
+  successResponseSchema('workflow.useWorkflowPacks', WorkflowUseWorkflowPacksResult),
   successResponseSchema('workflow.updateNodeNotes', WorkflowUpdateNodeNotesResult),
   successResponseSchema('workflow.updateNodeParameters', WorkflowUpdateNodeParametersResult),
   successResponseSchema('workflow.setNodeFile', WorkflowSetNodeFileResult),
@@ -288,6 +310,8 @@ export const WebSocketResponse = Schema.Union(
   errorResponseSchema('workflow.renameNode'),
   errorResponseSchema('workflow.recordDecision'),
   errorResponseSchema('workflow.executeAction'),
+  errorResponseSchema('workflow.useDefaultWorkflow'),
+  errorResponseSchema('workflow.useWorkflowPacks'),
   errorResponseSchema('workflow.updateNodeNotes'),
   errorResponseSchema('workflow.updateNodeParameters'),
   errorResponseSchema('workflow.setNodeFile'),
@@ -305,6 +329,7 @@ export const WsPush = Schema.Union(
   pushSchema('workflow.snapshot', GraphSnapshot),
   pushSchema('workflow.event', ProtocolEvent),
   pushSchema('repl.output', ReplOutput),
+  pushSchema('repl.rawOutput', ReplRawOutput),
   pushSchema('repl.cleared', ReplCleared),
 );
 export type WsPush = Schema.Schema.Type<typeof WsPush>;

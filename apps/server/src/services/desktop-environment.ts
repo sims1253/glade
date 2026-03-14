@@ -1,6 +1,7 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -51,7 +52,19 @@ function normalizeProjectPath(value: unknown) {
   }
 
   const trimmed = value.trim();
-  return trimmed || undefined;
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed === '~') {
+    return os.homedir();
+  }
+
+  if (trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+    return path.join(os.homedir(), trimmed.slice(2));
+  }
+
+  return trimmed;
 }
 
 export function normalizeDesktopSettings(input: unknown): DesktopSettings {
