@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
+import { useGraphStore } from '../../store/graph';
 import { useWorkspaceStore, type CenterTab } from '../../store/workspace';
 
 interface TabBarProps {
@@ -60,6 +61,15 @@ export function TabBar({ className }: TabBarProps) {
   const activeTabId = useWorkspaceStore((state) => state.activeTabId);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const removeTab = useWorkspaceStore((state) => state.removeTab);
+  const setGraphSelectedNodeId = useGraphStore((state) => state.setSelectedNodeId);
+
+  const handleCloseTab = (tab: CenterTab) => {
+    // Clear graph store's selected node if closing a node tab
+    if (tab.nodeId) {
+      setGraphSelectedNodeId(null);
+    }
+    removeTab(tab.id);
+  };
 
   return (
     <div className={cn('flex items-end gap-1 bg-slate-200/70 px-2 pt-2', className)}>
@@ -69,7 +79,7 @@ export function TabBar({ className }: TabBarProps) {
           tab={tab}
           isActive={tab.id === activeTabId}
           onClick={() => setActiveTab(tab.id)}
-          onClose={tab.closable ? () => removeTab(tab.id) : undefined}
+          onClose={tab.closable ? () => handleCloseTab(tab) : undefined}
         />
       ))}
     </div>

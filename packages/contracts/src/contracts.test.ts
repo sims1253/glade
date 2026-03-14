@@ -217,6 +217,18 @@ const requestFixtures: ReadonlyArray<Schema.Schema.Type<typeof WebSocketRequest>
   },
   {
     _tag: 'WebSocketRequest',
+    id: 'req-6a',
+    method: 'workflow.useDefaultWorkflow',
+    body: { _tag: 'workflow.useDefaultWorkflow' },
+  },
+  {
+    _tag: 'WebSocketRequest',
+    id: 'req-6b',
+    method: 'workflow.useWorkflowPacks',
+    body: { _tag: 'workflow.useWorkflowPacks', workflowPacks: ['bayesguide.default_bayesian', 'bayesgrove.model_checks'] },
+  },
+  {
+    _tag: 'WebSocketRequest',
     id: 'req-7',
     method: 'workflow.updateNodeNotes',
     body: { _tag: 'workflow.updateNodeNotes', nodeId: 'node_a', notes: 'Updated notes' },
@@ -310,6 +322,11 @@ const pushFixtures: ReadonlyArray<Schema.Schema.Type<typeof WsPush>> = [
   },
   {
     _tag: 'WsPush',
+    channel: 'repl.rawOutput',
+    payload: { _tag: 'ReplRawOutput', line: '__GLADE_READY__' },
+  },
+  {
+    _tag: 'WsPush',
     channel: 'repl.cleared',
     payload: { _tag: 'ReplCleared' },
   },
@@ -332,6 +349,21 @@ describe('contracts', () => {
 
   it('round-trips graph snapshots with protocol partitions', () => {
     roundTrip(GraphSnapshot, snapshot);
+  });
+
+  it('normalizes scalar protocol summary scopes from live bayesgrove snapshots', async () => {
+    const decoded = await Effect.runPromise(decodeGraphSnapshot({
+      ...snapshot,
+      protocol: {
+        ...snapshot.protocol,
+        summary: {
+          ...snapshot.protocol.summary,
+          scopes: 'project',
+        },
+      },
+    }));
+
+    expect(decoded.protocol.summary.scopes).toEqual(['project']);
   });
 
   it('preserves structured invocation metadata for inputful actions', async () => {
@@ -460,6 +492,13 @@ describe('contracts', () => {
       id: 'req-1a',
       method: 'desktop.bootstrapProject',
       result: desktopEnvironment,
+    });
+
+    roundTrip(WebSocketResponse, {
+      _tag: 'WebSocketSuccess',
+      id: 'req-1b',
+      method: 'workflow.useDefaultWorkflow',
+      result: { _tag: 'AckResult' },
     });
 
     roundTrip(WebSocketResponse, {

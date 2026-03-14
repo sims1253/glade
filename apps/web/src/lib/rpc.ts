@@ -18,6 +18,8 @@ import type {
   WorkflowRecordDecisionInput,
   WorkflowRenameNodeInput,
   WorkflowSetNodeFileInput,
+  WorkflowUseDefaultWorkflowInput,
+  WorkflowUseWorkflowPacksInput,
   WorkflowUpdateNodeNotesInput,
   WorkflowUpdateNodeParametersInput,
 } from '@glade/contracts';
@@ -37,6 +39,8 @@ export interface WorkflowRpc {
   readonly renameNode: (input: WithoutTag<WorkflowRenameNodeInput>) => Promise<RpcCallResult<AckResult>>;
   readonly recordDecision: (input: WithoutTag<WorkflowRecordDecisionInput>) => Promise<RpcCallResult<AckResult>>;
   readonly executeAction: (input: WithoutTag<WorkflowExecuteActionInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly useDefaultWorkflow: (input?: WithoutTag<WorkflowUseDefaultWorkflowInput>) => Promise<RpcCallResult<AckResult>>;
+  readonly useWorkflowPacks: (input: WithoutTag<WorkflowUseWorkflowPacksInput>) => Promise<RpcCallResult<AckResult>>;
   readonly updateNodeNotes: (input: WithoutTag<WorkflowUpdateNodeNotesInput>) => Promise<RpcCallResult<AckResult>>;
   readonly updateNodeParameters: (input: WithoutTag<WorkflowUpdateNodeParametersInput>) => Promise<RpcCallResult<AckResult>>;
   readonly setNodeFile: (input: WithoutTag<WorkflowSetNodeFileInput>) => Promise<RpcCallResult<AckResult>>;
@@ -115,6 +119,10 @@ export function describeRpcCall(method: WebSocketRequest['method'], body: WebSoc
       return 'Recorded workflow decision';
     case 'workflow.executeAction':
       return 'Executed workflow action';
+    case 'workflow.useDefaultWorkflow':
+      return 'Activated the default workflow';
+    case 'workflow.useWorkflowPacks':
+      return 'Activated workflow packs';
     case 'workflow.updateNodeNotes':
       return 'Saved node notes';
     case 'workflow.updateNodeParameters':
@@ -162,6 +170,10 @@ export function failureTitle(method: WebSocketRequest['method']) {
       return 'Could not record workflow decision';
     case 'workflow.executeAction':
       return 'Could not execute workflow action';
+    case 'workflow.useDefaultWorkflow':
+      return 'Could not activate the default workflow';
+    case 'workflow.useWorkflowPacks':
+      return 'Could not activate workflow packs';
     case 'workflow.updateNodeNotes':
       return 'Could not save node notes';
     case 'workflow.updateNodeParameters':

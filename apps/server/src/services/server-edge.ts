@@ -118,7 +118,8 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
     return null;
   }
 
-  return normalizeGraphSnapshotExtensions({
+  try {
+    return normalizeGraphSnapshotExtensions({
     protocol_version: protocolVersion,
     message_type: 'GraphSnapshot',
     emitted_at: new Date().toISOString(),
@@ -149,6 +150,9 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
     ...(state.command_surface === undefined ? {} : { command_surface: state.command_surface as GraphSnapshot['command_surface'] }),
     ...(state.extension_registry === undefined ? {} : { extension_registry: state.extension_registry as GraphSnapshot['extension_registry'] }),
   });
+  } catch {
+    return null;
+  }
 }
 
 function toBayesgroveCommand(
@@ -215,6 +219,24 @@ function toBayesgroveCommand(
           evidence: request.body.evidence,
           kind: request.body.kind,
           metadata: request.body.metadata,
+        },
+      };
+    case 'workflow.useDefaultWorkflow':
+      return {
+        protocol_version: '0.1.0',
+        message_type: 'Command',
+        command_id: id,
+        command: 'bg_use_default_workflow',
+        args: {},
+      };
+    case 'workflow.useWorkflowPacks':
+      return {
+        protocol_version: '0.1.0',
+        message_type: 'Command',
+        command_id: id,
+        command: 'bg_use_workflow_packs',
+        args: {
+          workflow_packs: request.body.workflowPacks,
         },
       };
     case 'workflow.updateNodeNotes':
@@ -363,9 +385,14 @@ export const ServerEdgeLive = Layer.scoped(
     });
 
     const prepareSnapshot = (snapshot: GraphSnapshot) => Effect.succeed(snapshot);
-    const registerPending = (id: string, method: WebSocketRequestMessage['method'], socket: WebSocket) =>
-      Ref.update(pendingRequests, (current) => new Map(current).set(id, { socket, method }));
-
+    const publishWorkflowSnapshot = (snapshot: GraphSnapshot) =>
+      Effect.gen(function* () {
+        const preparedSnapshot = yield* prepareSnapshot(snapshot);
+        yield* cache.writeSnapshot(preparedSnapshot);
+        yield* publishStatus('ready');
+        const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: preparedSnapshot };
+        yield* hub.broadcast(push);
+      });
     const handleCommandResult = (result: BayesgroveCommandResult) =>
       Effect.gen(function* () {
         if (result.command_id.startsWith(INTERNAL_SNAPSHOT_PREFIX)) {
@@ -373,19 +400,36 @@ export const ServerEdgeLive = Layer.scoped(
           if (result.ok) {
             const snapshot = wrapSnapshotResult(result.result, result.protocol_version);
             if (snapshot) {
-              const preparedSnapshot = yield* prepareSnapshot(snapshot);
-              yield* cache.writeSnapshot(preparedSnapshot);
-              yield* publishStatus('ready');
-              const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: preparedSnapshot };
-              yield* hub.broadcast(push);
+              yield* publishWorkflowSnapshot(snapshot);
             }
           }
           return;
         }
 
+        if (result.command_id.includes('default-workflow') || result.command_id.includes('workflow-packs')) {
+          console.log('[server-edge] command result', {
+            commandId: result.command_id,
+            ok: result.ok,
+          });
+        }
+
+        if (result.ok) {
+          const snapshot = wrapSnapshotResult(result.result, result.protocol_version);
+          if (snapshot) {
+            yield* publishWorkflowSnapshot(snapshot);
+          }
+        }
+
         const requestMap = yield* Ref.get(pendingRequests);
         const nextRequests = new Map(requestMap);
         const pending = nextRequests.get(result.command_id);
+        if ((result.command_id.includes('default-workflow') || result.command_id.includes('workflow-packs'))) {
+          console.log('[server-edge] pending lookup', {
+            commandId: result.command_id,
+            found: Boolean(pending),
+            pendingIds: [...requestMap.keys()],
+          });
+        }
         if (!pending) {
           return;
         }
@@ -410,6 +454,7 @@ export const ServerEdgeLive = Layer.scoped(
     const handleBayesgroveMessage = (message: GraphSnapshot | ProtocolEvent | BayesgroveCommandResult) =>
       Effect.gen(function* () {
         if ('message_type' in message && message.message_type === 'GraphSnapshot') {
+          yield* Ref.set(refreshInFlight, false);
           const preparedSnapshot = yield* prepareSnapshot(message);
           yield* cache.writeSnapshot(preparedSnapshot);
           yield* publishStatus('ready');
@@ -472,6 +517,12 @@ export const ServerEdgeLive = Layer.scoped(
               ),
             );
             yield* publishDesktopEnvironment(result);
+            yield* cache.clear;
+            yield* Ref.set(refreshInFlight, false);
+            yield* bayesgroveSocket.disconnect;
+            yield* rProcess.restart;
+            yield* bayesgroveSocket.connect;
+            yield* requestSnapshotRefresh;
             yield* hub.send(socket, successResponse(request.id, request.method, result));
             return;
           }
@@ -497,6 +548,7 @@ export const ServerEdgeLive = Layer.scoped(
             const nextEnvironment = yield* desktopEnvironment.refreshState;
             yield* publishDesktopEnvironment(nextEnvironment);
             yield* cache.clear;
+            yield* Ref.set(refreshInFlight, false);
             yield* bayesgroveSocket.disconnect;
             yield* rProcess.restart;
             yield* bayesgroveSocket.connect;
@@ -513,6 +565,7 @@ export const ServerEdgeLive = Layer.scoped(
             }
 
             yield* rProcess.sendInput(request.body.data);
+            yield* requestSnapshotRefresh;
             yield* hub.send(socket, successResponse(request.id, request.method, ackResult()));
             return;
           }
@@ -548,7 +601,10 @@ export const ServerEdgeLive = Layer.scoped(
             try: () => toExecuteActionCommand(request.id, request.body, Option.getOrNull(snapshot)),
             catch: wrapCommandMappingError,
           });
-          yield* registerPending(request.id, request.method, socket);
+          yield* Ref.update(
+            pendingRequests,
+            (current) => new Map(current).set(request.id, { socket, method: request.method }),
+          );
           yield* bayesgroveSocket.send(rawCommand);
           return;
         }
@@ -558,7 +614,16 @@ export const ServerEdgeLive = Layer.scoped(
           catch: wrapCommandMappingError,
         });
 
-        yield* registerPending(request.id, request.method, socket);
+        yield* Ref.update(
+          pendingRequests,
+          (current) => new Map(current).set(request.id, { socket, method: request.method }),
+        );
+        if (request.method === 'workflow.useDefaultWorkflow' || request.method === 'workflow.useWorkflowPacks') {
+          console.log('[server-edge] queued workflow request', {
+            id: request.id,
+            method: request.method,
+          });
+        }
         yield* bayesgroveSocket.send(rawCommand);
       });
 

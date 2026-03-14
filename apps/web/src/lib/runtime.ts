@@ -64,9 +64,23 @@ export function createNativeApi(rpc: RpcClient) {
     environment: DesktopEnvironmentState,
     actionLabel: string,
   ) => {
+    console.log('[runtime] restartAfterEnvironmentUpdate start', {
+      actionLabel,
+      projectPath: environment.preflight.projectPath,
+      preflightStatus: environment.preflight.status,
+    });
     try {
       await restartSession();
+      console.log('[runtime] restartAfterEnvironmentUpdate success', {
+        actionLabel,
+        projectPath: environment.preflight.projectPath,
+      });
     } catch (error) {
+      console.error('[runtime] restartAfterEnvironmentUpdate error', {
+        actionLabel,
+        projectPath: environment.preflight.projectPath,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new SessionRestartAfterEnvironmentUpdateError(
         `${actionLabel} succeeded, but restarting the session failed.`,
         environment,

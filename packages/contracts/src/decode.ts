@@ -38,6 +38,15 @@ function asString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+function asStringArray(value: unknown): Array<string> {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === 'string');
+  }
+
+  const single = asString(value);
+  return single ? [single] : [];
+}
+
 function asObjectArray(value: unknown): Array<JsonRecord> {
   return Array.isArray(value)
     ? value.map((entry) => asObject(entry)).filter((entry): entry is JsonRecord => entry !== null)
@@ -192,13 +201,29 @@ function normalizeExtensionRegistryInput(value: unknown) {
 
 function normalizeGraphSnapshotInput(value: unknown) {
   const snapshot = asObject(value);
-  if (!snapshot || !('extension_registry' in snapshot)) {
+  if (!snapshot) {
     return value;
   }
 
+  const protocol = asObject(snapshot.protocol);
+  const summary = asObject(protocol?.summary);
+
   return {
     ...snapshot,
-    extension_registry: normalizeExtensionRegistryInput(snapshot.extension_registry),
+    ...(protocol && summary
+      ? {
+          protocol: {
+            ...protocol,
+            summary: {
+              ...summary,
+              scopes: asStringArray(summary.scopes),
+            },
+          },
+        }
+      : {}),
+    ...('extension_registry' in snapshot
+      ? { extension_registry: normalizeExtensionRegistryInput(snapshot.extension_registry) }
+      : {}),
   };
 }
 

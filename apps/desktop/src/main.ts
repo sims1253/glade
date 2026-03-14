@@ -13,7 +13,7 @@ import {
   type ServerProcessHandle,
   waitForServer,
 } from './server-process';
-import { loadDesktopSettings } from './settings';
+import { defaultProjectPath, loadDesktopSettings } from './settings';
 import { runSmokeScenario } from './smoke-runner';
 
 let mainWindow: BrowserWindow | null = null;
@@ -274,16 +274,18 @@ function createWindow() {
     mainWindow = null;
   });
 
+  const smokeScenario = process.env.BAYESGROVE_SMOKE_SCENARIO?.trim();
+  if (smokeScenario) {
+    window.webContents.on('console-message', (_event, level, message) => {
+      if (shouldLogSmokeConsoleMessage(message)) {
+        console.log(`[renderer:${level}] ${message}`);
+      }
+    });
+  }
+
   window.webContents.on('did-finish-load', () => {
     window.webContents.send('glade:update-state', updateState);
-    const smokeScenario = process.env.BAYESGROVE_SMOKE_SCENARIO?.trim();
     if (smokeScenario) {
-      window.webContents.on('console-message', (_event) => {
-        const { level, message } = _event;
-        if (shouldLogSmokeConsoleMessage(message)) {
-          console.log(`[renderer:${level}] ${message}`);
-        }
-      });
       void runSmokeScenario(window, smokeScenario)
         .then(() => app.quit())
         .catch((error) => {
@@ -314,10 +316,12 @@ function attachBackendLifecycle(handle: ServerProcessHandle) {
 }
 
 async function ensureServerProcess() {
+  const stateDir = app.getPath('userData');
+
   await stopServerProcess(backendProcess);
   backendProcess = await startServerProcess({
-    projectPath: process.env.BAYESGROVE_PROJECT_PATH?.trim() || null,
-    stateDir: app.getPath('userData'),
+    projectPath: defaultProjectPath(stateDir),
+    stateDir,
     onLogLine: appendRuntimeLog,
   });
   attachBackendLifecycle(backendProcess);

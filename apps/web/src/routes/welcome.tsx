@@ -24,28 +24,33 @@ export function WelcomeRoute() {
   const sessionReason = useConnectionStore((state) => state.sessionReason);
   const pushNotification = useToastStore((state) => state.pushNotification);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [projectPathDraft, setProjectPathDraft] = useState('');
 
   const desktopIssues = useMemo(() => setupDesktopIssues(desktopEnvironment, sessionReason), [desktopEnvironment, sessionReason]);
   const canPickDirectory = Boolean(nativeApi.bridge?.pickDirectory);
 
   const bootstrapProjectMutation = useMutation({
-    mutationFn: async (mode: 'open' | 'create') => {
-      const selectedPath = await nativeApi.pickDirectory();
-      if (!selectedPath) {
-        return null;
-      }
-
-      const environment = await nativeApi.environment.bootstrapProject(selectedPath);
+    mutationFn: async ({ mode, projectPath }: { readonly mode: 'open' | 'create'; readonly projectPath: string }) => {
+      console.log('[welcome] bootstrapProject start', { mode, projectPath });
+      const environment = await nativeApi.environment.bootstrapProject(projectPath);
+      console.log('[welcome] bootstrapProject resolved', {
+        mode,
+        projectPath,
+        nextProjectPath: environment.preflight.projectPath,
+        preflightStatus: environment.preflight.status,
+      });
       useConnectionStore.getState().setDesktopEnvironment(environment);
       return {
         mode,
-        projectPath: selectedPath,
+        projectPath,
       };
     },
-    onMutate: () => {
+    onMutate: (variables) => {
+      console.log('[welcome] bootstrapProject mutate', variables);
       setSetupError(null);
     },
     onSuccess: (result) => {
+      console.log('[welcome] bootstrapProject success', result);
       if (!result) {
         return;
       }
@@ -59,6 +64,7 @@ export function WelcomeRoute() {
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
+      console.error('[welcome] bootstrapProject error', message);
       setSetupError(message);
       pushNotification({
         tone: 'error',
@@ -67,6 +73,8 @@ export function WelcomeRoute() {
       });
     },
   });
+
+  const normalizedProjectPath = projectPathDraft.trim();
 
   return (
     <section className="min-h-screen bg-[linear-gradient(145deg,#eff6ff_0%,#f8fafc_35%,#ecfeff_100%)] px-6 py-6 sm:px-8">
@@ -121,11 +129,11 @@ export function WelcomeRoute() {
                 </p>
                 <Button
                   className="mt-5 w-full"
-                  disabled={!canPickDirectory || bootstrapProjectMutation.isPending}
-                  onClick={() => bootstrapProjectMutation.mutate('open')}
+                  disabled={normalizedProjectPath.length === 0 || bootstrapProjectMutation.isPending}
+                  onClick={() => bootstrapProjectMutation.mutate({ mode: 'open', projectPath: normalizedProjectPath })}
                 >
                   <FolderOpen className="size-4" />
-                  Choose existing project
+                  Open project
                 </Button>
               </article>
 
@@ -136,18 +144,58 @@ export function WelcomeRoute() {
                 </p>
                 <Button
                   className="mt-5 w-full"
-                  disabled={!canPickDirectory || bootstrapProjectMutation.isPending}
-                  onClick={() => bootstrapProjectMutation.mutate('create')}
+                  disabled={normalizedProjectPath.length === 0 || bootstrapProjectMutation.isPending}
+                  onClick={() => bootstrapProjectMutation.mutate({ mode: 'create', projectPath: normalizedProjectPath })}
                 >
                   <FolderOpen className="size-4" />
-                  Choose new project folder
+                  Create project
                 </Button>
               </article>
             </div>
 
+            <label className="mt-5 block" htmlFor="project-path-input">
+              <span className="text-sm font-medium text-slate-900">Project path</span>
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+                <input
+                  aria-label="Project path"
+                  id="project-path-input"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500"
+                  placeholder="/path/to/project"
+                  value={projectPathDraft}
+                  onChange={(event) => setProjectPathDraft(event.target.value)}
+                />
+                <Button
+                  className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
+                  disabled={!canPickDirectory || bootstrapProjectMutation.isPending}
+                  variant="ghost"
+                  onClick={() => {
+                    void nativeApi.pickDirectory()
+                      .then((selectedPath) => {
+                        if (selectedPath) {
+                          setProjectPathDraft(selectedPath);
+                        }
+                      })
+                      .catch((error) => {
+                        const message = error instanceof Error ? error.message : String(error);
+                        pushNotification({
+                          tone: 'error',
+                          title: 'Could not browse for a project folder',
+                          description: message,
+                        });
+                      });
+                  }}
+                >
+                  Browse
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Paste an existing project path to open it, or enter a new directory path and choose Create project to initialize it.
+              </p>
+            </label>
+
             {!canPickDirectory ? (
               <div className="mt-5 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-                Directory selection is only available in the desktop runtime where Glade has access to the native file picker.
+                Native directory browsing is only available in the desktop runtime, but you can still paste a project path here.
               </div>
             ) : null}
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.2 - 2026-03-14
+
+- Fixed node tab closing not working by clearing the graph store's selected node when closing tabs, preventing immediate re-addition by the sync effect.
+- Enabled `NodeDetailDrawer` in the workspace shell so clicking nodes on the canvas shows the full editing interface with notes, parameters (when schema exists), linked files, and lineage.
+- Added editable notes to the `NodeWorkbenchPanel` in node tabs, allowing users to edit node notes directly from the tab view.
+- Fixed lint warnings in desktop smoke runner related to unnecessary escape characters in regex patterns.
+- Fixed type error in desktop main process by using `defaultProjectPath` instead of accessing non-existent `projectPath` from settings.
+
 ## 0.13.1 - 2026-03-13
 
 - Added a GUI-first project setup flow with a dedicated `/welcome` route, a canonical `desktop.bootstrapProject` RPC, and improved desktop project-path persistence so users can open or initialize Bayesgrove projects without dropping to the REPL first.

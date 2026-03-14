@@ -211,7 +211,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
     const tabIndex = state.tabs.findIndex((t) => t.id === tabId);
     const newTabs = state.tabs.filter((t) => t.id !== tabId);
-    
+
     if (state.activeTabId === tabId) {
       const newActiveIndex = Math.min(tabIndex, newTabs.length - 1);
       return {
@@ -219,7 +219,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         activeTabId: newTabs[newActiveIndex]?.id ?? CANVAS_TAB_ID,
       };
     }
-    
+
     return { tabs: newTabs };
   }),
 

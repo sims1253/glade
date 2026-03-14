@@ -28,6 +28,8 @@ vi.mock('../hooks/useRpcClient', () => ({
       renameNode: vi.fn(),
       recordDecision: vi.fn(),
       executeAction: vi.fn(),
+      useDefaultWorkflow: vi.fn(),
+      useWorkflowPacks: vi.fn(),
       updateNodeNotes: vi.fn(),
       updateNodeParameters: vi.fn(),
       setNodeFile: vi.fn(),

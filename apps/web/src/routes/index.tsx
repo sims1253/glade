@@ -18,6 +18,7 @@ import { setupDesktopIssues } from '../lib/desktop-preflight';
 import { useServerSession } from '../lib/server-session-context';
 import { useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
+import { useReplStore } from '../store/repl';
 import { useToastStore } from '../store/toast';
 import { useWorkspaceStore } from '../store/workspace';
 
@@ -33,6 +34,49 @@ function navigateTo(path: string) {
 function openTerminalRoute() {
   window.open('/terminal', '_blank', 'popup,width=980,height=620');
 }
+
+const BUILTIN_WORKFLOW_PACKS = [
+  {
+    id: 'bayesguide.default_bayesian',
+    title: 'Default Bayesian workflow',
+    description: 'Computation review, fit criticism, candidate comparison, and branch disposition.',
+  },
+  {
+    id: 'bayesgrove.process_guidance',
+    title: 'Process guidance',
+    description: 'Workflow preflight, iteration planning, and out-of-sample stability review.',
+  },
+  {
+    id: 'bayesgrove.model_taxonomy',
+    title: 'Model taxonomy',
+    description: 'PAD classification and utility trade-off review.',
+  },
+  {
+    id: 'bayesgrove.prior_workflow',
+    title: 'Prior workflow',
+    description: 'Prior rationale and prior predictive review.',
+  },
+  {
+    id: 'bayesgrove.model_checks',
+    title: 'Model checks',
+    description: 'Posterior predictive checks, SBC, and calibration review.',
+  },
+  {
+    id: 'bayesgrove.model_selection',
+    title: 'Model selection',
+    description: 'Comparison evidence and stacking-weight review.',
+  },
+  {
+    id: 'bayesgrove.stan_workflow',
+    title: 'Stan workflow',
+    description: 'Stan-oriented bundle covering the default loop plus diagnostics and projection review.',
+  },
+  {
+    id: 'bayesgrove.causal_dagitty',
+    title: 'Causal DAGitty',
+    description: 'DAG-backed adjustment review and causal selection contracts.',
+  },
+] as const;
 
 function findNodeAction(graphActionList: ReadonlyArray<WorkflowActionRecord>, nodeIds: ReadonlyArray<string>) {
   return graphActionList.find((action) =>
@@ -60,12 +104,16 @@ export function IndexRoute() {
   const [guidanceActions, setGuidanceActions] = useState<ReadonlyArray<WorkflowActionRecord> | null>(null);
   const [isHealthDialogOpen, setIsHealthDialogOpen] = useState(false);
   const [isExtensionManagerOpen, setIsExtensionManagerOpen] = useState(false);
+  const [isWorkflowPacksDialogOpen, setIsWorkflowPacksDialogOpen] = useState(false);
+  const [selectedWorkflowPacks, setSelectedWorkflowPacks] = useState<ReadonlyArray<string>>(['bayesguide.default_bayesian']);
   const closeHealthDialogButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const actionSignature = useMemo(() => graph?.actions.map((action) => action.id).join('|') ?? '', [graph]);
   const desktopIssues = useMemo(() => setupDesktopIssues(desktopEnvironment, sessionReason), [desktopEnvironment, sessionReason]);
-  const hasEmptyWorkflow = graph !== null && graph.nodes.length === 0;
+  const hasBootstrappedProject = desktopEnvironment?.preflight.status === 'ok';
+  const showProjectSetupBanner = graph === null && !hasBootstrappedProject;
+  const showWorkflowSetupBanner = graph !== null && graph.nodeKinds.length === 0;
   const healthPayload = useMemo(() => JSON.stringify({
     endpoint: `${window.location.origin}/health`,
     status: isConnected ? 'ok' : 'error',
@@ -89,7 +137,11 @@ export function IndexRoute() {
 
   const loadExtensionMutation = useMutation({
     mutationFn: async (packageName: string) => {
-      const result = await rpc.repl.write(`library(${JSON.stringify(packageName)}, character.only = TRUE)\n`);
+      const command = `library(${JSON.stringify(packageName)}, character.only = TRUE)`;
+      useReplStore.getState().appendLine(`> ${command}`);
+      useReplStore.getState().appendRawLine(`> ${command}`);
+      useReplStore.getState().appendCommandHistory(command);
+      const result = await rpc.repl.write(`${command}\n`);
       if (!result.success) {
         throw new Error(result.error.message);
       }
@@ -99,7 +151,7 @@ export function IndexRoute() {
       pushNotification({
         tone: 'success',
         title: 'Load command sent',
-        description: `Asked R to load ${packageName}. The extension list updates after the next Bayesgrove snapshot.`,
+        description: `Asked R to load ${packageName}. Glade will refresh the Bayesgrove snapshot automatically.`,
       });
     },
     onError: (error) => {
@@ -108,6 +160,42 @@ export function IndexRoute() {
         title: 'Could not load extension package',
         description: error instanceof Error ? error.message : String(error),
       });
+    },
+  });
+
+  const useDefaultWorkflowMutation = useMutation({
+    mutationFn: async () => {
+      console.log('[index] useDefaultWorkflow start');
+      const result = await rpc.workflow.useDefaultWorkflow();
+      console.log('[index] useDefaultWorkflow rpc result', result);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      return result.result;
+    },
+    onSuccess: () => {
+      const nextGraph = useGraphStore.getState().graph;
+      console.log('[index] useDefaultWorkflow success', {
+        nodeKinds: nextGraph?.nodeKinds.length ?? null,
+        nodes: nextGraph?.nodes.length ?? null,
+        emittedAt: nextGraph?.emittedAt ?? null,
+      });
+    },
+    onError: (error) => {
+      console.error('[index] useDefaultWorkflow error', error instanceof Error ? error.message : String(error));
+    },
+  });
+
+  const useWorkflowPacksMutation = useMutation({
+    mutationFn: async (workflowPacks: ReadonlyArray<string>) => {
+      const result = await rpc.workflow.useWorkflowPacks({ workflowPacks: [...workflowPacks] });
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      return result.result;
+    },
+    onSuccess: () => {
+      setIsWorkflowPacksDialogOpen(false);
     },
   });
 
@@ -204,6 +292,24 @@ export function IndexRoute() {
       group: 'Session',
       action: () => setIsExtensionManagerOpen(true),
     },
+    ...(graph
+      ? [
+          {
+            id: 'use-default-workflow',
+            label: 'Use default workflow',
+            group: 'Project',
+            action: () => {
+              void useDefaultWorkflowMutation.mutateAsync();
+            },
+          },
+          {
+            id: 'enable-workflow-packs',
+            label: 'Enable workflow packs',
+            group: 'Project',
+            action: () => setIsWorkflowPacksDialogOpen(true),
+          },
+        ] satisfies ReadonlyArray<CommandItem>
+      : []),
     {
       id: 'refresh-connection',
       label: 'Refresh connection',
@@ -232,7 +338,7 @@ export function IndexRoute() {
       group: 'Session',
       action: () => setIsHealthDialogOpen(true),
     },
-  ], [rpc, setActiveTab, toggleInspector]);
+  ], [graph, rpc, setActiveTab, toggleInspector, useDefaultWorkflowMutation]);
 
   const headerActions = (
     <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-1 shadow-sm">
@@ -303,6 +409,7 @@ export function IndexRoute() {
       <ExtensionManager
         extensions={graph?.extensionRegistry ?? []}
         isLoadingPackage={loadExtensionMutation.isPending}
+        nodeKinds={graph?.nodeKinds ?? []}
         open={isExtensionManagerOpen}
         onClose={() => setIsExtensionManagerOpen(false)}
         onLoadPackage={(packageName) => loadExtensionMutation.mutateAsync(packageName)}
@@ -318,6 +425,84 @@ export function IndexRoute() {
         }}
         onConfirm={(payload) => void handleConfirmAction(payload)}
       />
+
+      {isWorkflowPacksDialogOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm"
+          onClick={() => setIsWorkflowPacksDialogOpen(false)}
+        >
+          <div
+            aria-labelledby="workflow-packs-dialog-title"
+            aria-modal="true"
+            className="w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.35)]"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900" id="workflow-packs-dialog-title">Enable workflow packs</h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Projects start empty by default. Choose the built-in Bayesgrove review packs you want to persist for this project.
+                </p>
+              </div>
+              <Button
+                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
+                variant="ghost"
+                onClick={() => setIsWorkflowPacksDialogOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {BUILTIN_WORKFLOW_PACKS.map((pack) => {
+                const checked = selectedWorkflowPacks.includes(pack.id);
+
+                return (
+                  <label key={pack.id} className="flex cursor-pointer gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <input
+                      checked={checked}
+                      className="mt-1 size-4 rounded border-slate-300 text-sky-600"
+                      type="checkbox"
+                      onChange={(event) => {
+                        setSelectedWorkflowPacks((current) => {
+                          if (event.target.checked) {
+                            return [...current, pack.id];
+                          }
+                          return current.filter((entry) => entry !== pack.id);
+                        });
+                      }}
+                    />
+                    <div>
+                      <p className="font-medium text-slate-900">{pack.title}</p>
+                      <p className="mt-1 text-sm text-slate-500">{pack.description}</p>
+                      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-400">{pack.id}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
+                variant="ghost"
+                onClick={() => setIsWorkflowPacksDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={selectedWorkflowPacks.length === 0 || useWorkflowPacksMutation.isPending}
+                onClick={() => {
+                  void useWorkflowPacksMutation.mutateAsync(selectedWorkflowPacks);
+                }}
+              >
+                Activate selected packs
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isHealthDialogOpen ? (
         <div
@@ -421,12 +606,12 @@ export function IndexRoute() {
 
       {guidanceActions?.length ? <PostActionGuidanceBanner actions={guidanceActions} onDismiss={() => setGuidanceActions(null)} /> : null}
 
-      {hasEmptyWorkflow ? (
+      {showProjectSetupBanner ? (
         <section className="border-b border-sky-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f8fafc_55%,#ecfeff_100%)] px-4 py-4">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 rounded-[1.75rem] border border-white/80 bg-white/80 p-5 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">Empty workspace</p>
-              <h2 className="mt-2 text-xl font-semibold text-slate-950">Start by choosing a project or loading a node pack.</h2>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">No project open</p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">Choose a project before starting the workspace.</h2>
               <p className="mt-2 max-w-3xl text-sm text-slate-600">
                 Use Project setup to open or initialize a Bayesgrove directory, then load installed extension packages to register node types for this session.
               </p>
@@ -443,6 +628,41 @@ export function IndexRoute() {
               >
                 <Boxes className="size-4" />
                 Extensions
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {showWorkflowSetupBanner ? (
+        <section className="border-b border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#f8fafc_60%,#eff6ff_100%)] px-4 py-4">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 rounded-[1.75rem] border border-white/80 bg-white/85 p-5 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Empty Bayesgrove project</p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">Choose a starter workflow or enable review packs.</h2>
+              <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                This project has no node kinds yet. Use the default workflow to register starter node types, or enable built-in workflow packs for your own project setup.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-500"
+                disabled={useDefaultWorkflowMutation.isPending || useWorkflowPacksMutation.isPending}
+                onClick={() => {
+                  void useDefaultWorkflowMutation.mutateAsync();
+                }}
+              >
+                <Boxes className="size-4" />
+                Use default workflow
+              </Button>
+              <Button
+                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
+                disabled={useDefaultWorkflowMutation.isPending || useWorkflowPacksMutation.isPending}
+                variant="ghost"
+                onClick={() => setIsWorkflowPacksDialogOpen(true)}
+              >
+                <Settings2 className="size-4" />
+                Enable workflow packs
               </Button>
             </div>
           </div>

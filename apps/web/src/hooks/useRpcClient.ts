@@ -185,6 +185,7 @@ export function useRpcClient(): RpcClient {
         switch (message.channel) {
           case 'server.bootstrap':
             useConnectionStore.getState().applyBootstrap(message.payload);
+            useReplStore.getState().clearRawLines();
             useReplStore.getState().replaceLines(message.payload.replHistory);
             if (message.payload.snapshot) {
               useGraphStore.getState().applySnapshot(message.payload.snapshot);
@@ -204,6 +205,9 @@ export function useRpcClient(): RpcClient {
             return;
           case 'repl.output':
             useReplStore.getState().appendLine(message.payload.line);
+            return;
+          case 'repl.rawOutput':
+            useReplStore.getState().appendRawLine(message.payload.line);
             return;
           case 'repl.cleared':
             useReplStore.getState().clearLines();
@@ -324,6 +328,8 @@ export function useRpcClient(): RpcClient {
       renameNode: (input) => sendRequest('workflow.renameNode', { _tag: 'workflow.renameNode', ...input }),
       recordDecision: (input) => sendRequest('workflow.recordDecision', { _tag: 'workflow.recordDecision', ...input }),
       executeAction: (input) => sendRequest('workflow.executeAction', { _tag: 'workflow.executeAction', ...input }),
+      useDefaultWorkflow: () => sendRequest('workflow.useDefaultWorkflow', { _tag: 'workflow.useDefaultWorkflow' }),
+      useWorkflowPacks: (input) => sendRequest('workflow.useWorkflowPacks', { _tag: 'workflow.useWorkflowPacks', ...input }),
       updateNodeNotes: (input) => sendRequest('workflow.updateNodeNotes', { _tag: 'workflow.updateNodeNotes', ...input }),
       updateNodeParameters: (input) => sendRequest('workflow.updateNodeParameters', { _tag: 'workflow.updateNodeParameters', ...input }),
       setNodeFile: (input) => sendRequest('workflow.setNodeFile', { _tag: 'workflow.setNodeFile', ...input }),
