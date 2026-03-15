@@ -340,7 +340,7 @@ function NodeWorkbenchPanel({ host, node, workflow }: { host: HostRpc; node: Wor
   }, [node?.id, node?.notes]);
 
   async function submitNotes() {
-    if (!workflow || !node || notesDraft === node.notes) {
+    if (!workflow || !node || notesDraft === node.notes || notesPending) {
       return;
     }
 

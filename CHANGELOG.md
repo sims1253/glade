@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.8 - 2026-03-15
+
+- Fixed CI integration test failure in `interactive-graph.integration.test.ts` by waiting for a snapshot with at least one node instead of assuming the latest snapshot contains new nodes immediately after `addNode`.
+- Added missing `--amber-bg` and `--red` CSS custom properties in `showcase.astro` that were referenced but undefined, causing broken warning backgrounds and error text coloring.
+- Replaced malformed placeholder SVG icons in `showcase.astro` topbar with valid Lucide icons (GitHub, Package, Terminal).
+- Added `notesPending` guard to `submitNotes` in workspace-shell to prevent concurrent note submissions.
+- Normalized `projectPath` in `loadDesktopEnvironmentState` before passing to `runDesktopPreflight` to correctly handle `~` expansion.
+
 ## 0.13.7 - 2026-03-14
 
 - Fixed CI integration test failure in `interactive-graph.integration.test.ts` by removing string-based `input_contract` arguments from `bg_register_node_kind` calls that are incompatible with the updated `dagriculture` validation.

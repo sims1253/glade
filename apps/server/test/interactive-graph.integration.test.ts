@@ -127,8 +127,16 @@ describe('phase 4 interactive graph', () => {
       method: 'workflow.addNode',
       body: { _tag: 'workflow.addNode', kind: 'source', label: 'Source data' },
     });
-    const sourceSnapshot = graphSnapshot(connection.messages);
-    const sourceId = snapshotNodeIds(sourceSnapshot)[0];
+    const sourceId = await waitForMessages(
+      connection.messages,
+      (nextMessages) => {
+        const latest = graphSnapshot(nextMessages);
+        return snapshotNodeIds(latest).length > 0;
+      },
+    ).then(() => {
+      const latest = graphSnapshot(connection.messages);
+      return snapshotNodeIds(latest)[0];
+    });
     expect(sourceId).toBeTruthy();
 
     await sendCommandAndWait(connection.socket, connection.messages, {
