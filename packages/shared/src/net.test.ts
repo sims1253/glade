@@ -2,7 +2,7 @@ import net from 'node:net';
 
 import { describe, expect, it } from 'vitest';
 
-import { getAvailablePort } from './Net';
+import { getAvailablePort } from './net';
 
 async function listenOnEphemeralPort() {
   return await new Promise<{ server: net.Server; port: number }>((resolve, reject) => {

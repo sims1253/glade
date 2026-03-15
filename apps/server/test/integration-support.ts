@@ -1,6 +1,6 @@
 import { spawnSync, type ChildProcess } from 'node:child_process';
 
-import { getAvailablePort as getSharedAvailablePort } from '@glade/shared/Net';
+import { getAvailablePort as getSharedAvailablePort } from '@glade/shared/net';
 import { terminateProcessTree, waitForHttpReady, type ManagedProcessLike } from '@glade/shared/process';
 import WebSocket from 'ws';
 

@@ -285,7 +285,12 @@ export const GraphStateCacheLive = Layer.effect(
       if (!row) {
         return Option.none<GraphSnapshot>();
       }
-      return Option.some(JSON.parse(row.snapshot_json) as GraphSnapshot);
+      try {
+        return Option.some(JSON.parse(row.snapshot_json) as GraphSnapshot);
+      } catch (error) {
+        console.warn(`[graph-state-cache] Failed to parse snapshot for row ${typeof row === 'object' && row !== null ? (row as Record<string, unknown>).id : 'unknown'}:`, error);
+        return Option.none<GraphSnapshot>();
+      }
     }).pipe(Effect.orDie);
 
     const getReplLines = (limit = 500) =>

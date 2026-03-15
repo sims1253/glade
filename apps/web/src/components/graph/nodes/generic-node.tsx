@@ -3,24 +3,18 @@ import type { NodeProps } from '@xyflow/react';
 
 import { workflowRpcFromLegacyDispatch } from '../../../lib/legacy-commands';
 import { toJsonObject } from '../../../lib/json';
+import { asRecord } from '@glade/shared';
 import { useGraphStore } from '../../../store/graph';
 import type { WorkflowFlowNode } from '../../../lib/graph-types';
 import { SchemaDrivenForm } from '../../extensions/schema-form';
 import { NodeShell } from '../node-shell';
 import { useWorkflowCanvasContext } from '../workflow-canvas-context';
 
-function asObject(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function GenericNodeAutoForm({ data }: { readonly data: WorkflowFlowNode['data'] }) {
+function GenericNodeAutoForm({ data, schema }: { readonly data: WorkflowFlowNode['data']; readonly schema: ReturnType<typeof asRecord> | null }) {
   const context = useWorkflowCanvasContext();
   const workflow = context.workflow ?? (context.dispatchCommand ? workflowRpcFromLegacyDispatch(context.dispatchCommand) : null);
   const graph = useGraphStore((state) => state.graph);
   const [pending, setPending] = useState(false);
-  const schema = useMemo(() => asObject(data.parameterSchema), [data.parameterSchema]);
   const nodeOptions = useMemo(
     () => graph?.nodes.map((node) => ({ id: node.id, label: node.label })) ?? [],
     [graph],
@@ -62,13 +56,17 @@ function GenericNodeAutoForm({ data }: { readonly data: WorkflowFlowNode['data']
   );
 }
 
+function useParameterSchema(parameterSchema: unknown) {
+  return useMemo(() => asRecord(parameterSchema), [parameterSchema]);
+}
+
 export const GenericNode = memo(function GenericNode(props: NodeProps<WorkflowFlowNode>) {
   const { data } = props;
-  const schema = asObject(data.parameterSchema);
+  const schema = useParameterSchema(data.parameterSchema);
 
   return (
     <NodeShell {...props} accentClassName="from-slate-500/18 via-slate-300/8 to-transparent">
-      {schema ? <GenericNodeAutoForm data={data} /> : null}
+      {schema ? <GenericNodeAutoForm data={data} schema={schema} /> : null}
       {!schema ? (
         <p className="text-xs text-slate-400">
           Bayesgrove did not expose editable parameters for this node kind.

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.15.0 - 2026-03-15
+
+- Removed dead exports and unused functions from `settings.ts`, `shell/index.ts`, and `ui-prefs.ts`.
+- Fixed import cycles: `migrations.ts` ↔ `sqlite.ts` (inlined type) and `rpc-ui.ts` ↔ `rpc.ts` (localized type).
+- Consolidated duplicated JSON guard functions (`asObject`/`asString`/`asNumber`/`asBoolean`/`asStringArray`) across `graph-adapter.ts`, `schema-form.tsx`, `generic-node.tsx`, `execute-action.ts`, and `server-edge.ts` to import from `@glade/shared`.
+- Fixed tautological boolean expression in `graph-adapter.ts` field required logic.
+- Fixed silent catch block in `repl-terminal-panel.tsx` to properly log errors.
+- Guarded `JSON.parse` in `graph-state-cache.ts` with try/catch for malformed input.
+- Renamed `packages/shared/src/Net.ts` to `net.ts` for lowercase filename consistency; updated package exports and all importers.
+
 ## 0.14.0 - 2026-03-15
 
 - Verified compatibility with bayesgrove 0.4.9 (protocol messages, command registry, and all API functions remain compatible).

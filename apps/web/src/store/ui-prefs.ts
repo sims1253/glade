@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export const UI_PREFS_STORAGE_KEY = 'glade:web-ui:v1';
+const UI_PREFS_STORAGE_KEY = 'glade:web-ui:v1';
 const UI_PREFS_PERSIST_DEBOUNCE_MS = 300;
 
 interface StoredUiPrefs {
@@ -108,7 +108,7 @@ const uiPrefsStorage = (() => {
   return storage ? createDebouncedStorage(storage) : fallbackUiPrefsStorage;
 })();
 
-export function flushPendingUiPrefsWrites() {
+function flushPendingUiPrefsWrites() {
   uiPrefsStorage.flush();
 }
 
@@ -116,7 +116,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushPendingUiPrefsWrites);
 }
 
-export function readStoredUiPrefs(storage: StorageLike | null = uiPrefsStorage): StoredUiPrefs {
+function readStoredUiPrefs(storage: StorageLike | null = uiPrefsStorage): StoredUiPrefs {
   if (!storage) {
     return DEFAULT_UI_PREFS;
   }
@@ -140,7 +140,7 @@ export function readStoredUiPrefs(storage: StorageLike | null = uiPrefsStorage):
   }
 }
 
-export function writeStoredUiPrefs(value: StoredUiPrefs, storage: StorageLike | null = uiPrefsStorage) {
+function writeStoredUiPrefs(value: StoredUiPrefs, storage: StorageLike | null = uiPrefsStorage) {
   if (!storage) {
     return;
   }

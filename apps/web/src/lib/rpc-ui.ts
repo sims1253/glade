@@ -7,7 +7,7 @@ import type {
 
 import { assertUnreachable } from './utils';
 
-export type RpcMethod = WebSocketRequest['method'];
+type RpcMethod = WebSocketRequest['method'];
 
 /**
  * Generates a human-readable description for an RPC call for use in toast notifications.

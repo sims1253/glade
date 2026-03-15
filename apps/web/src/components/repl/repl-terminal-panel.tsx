@@ -603,7 +603,8 @@ export function ReplTerminalPanel({
       }
 
       await clearRawLines();
-    } catch {
+    } catch (error) {
+      console.error('Failed to clear REPL output:', error);
     }
   };
 
