@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.9 - 2026-03-15
+
+- Fixed CI integration test flakiness in `interactive-graph.integration.test.ts` by decoupling command acknowledgment from snapshot arrival and explicitly waiting for expected graph state after each mutation.
+
 ## 0.13.8 - 2026-03-15
 
 - Fixed CI integration test failure in `interactive-graph.integration.test.ts` by waiting for a snapshot with at least one node instead of assuming the latest snapshot contains new nodes immediately after `addNode`.
