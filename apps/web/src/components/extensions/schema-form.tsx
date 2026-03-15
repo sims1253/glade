@@ -8,6 +8,7 @@ import {
 } from 'react-hook-form';
 
 import { cn } from '../../lib/utils';
+import { asRecord, asString } from '@glade/shared';
 import { hasNativeFilePicker, readDesktopBridge } from '../../lib/runtime';
 import { Button } from '../ui/button';
 
@@ -47,16 +48,6 @@ interface ArrayFieldProps extends FormFieldProps {
   readonly description: string | null;
 }
 
-function asObject(value: unknown): JsonRecord | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : null;
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
 function fieldLabel(name: string, schema: JsonRecord) {
   return asString(schema.title) ?? name.replace(/[_-]+/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase());
 }
@@ -68,11 +59,11 @@ function schemaDefault(schema: JsonRecord): unknown {
 
   const type = asString(schema.type);
   if (type === 'object') {
-    const properties = asObject(schema.properties) ?? {};
+    const properties = asRecord(schema.properties) ?? {};
     return Object.fromEntries(
       Object.entries(properties)
         .map(([key, value]) => {
-          const property = asObject(value);
+          const property = asRecord(value);
           return property ? [key, schemaDefault(property)] : null;
         })
         .filter((entry): entry is [string, unknown] => entry !== null),
@@ -103,7 +94,7 @@ function normalizeForSubmit(value: unknown): unknown {
     return value.map((entry) => normalizeForSubmit(entry));
   }
 
-  const object = asObject(value);
+  const object = asRecord(value);
   if (object) {
     return Object.fromEntries(
       Object.entries(object)
@@ -135,7 +126,7 @@ function ArrayField({
   nodeOptions,
   compact,
 }: ArrayFieldProps) {
-  const items = asObject(schema.items) ?? { type: 'string' };
+  const items = asRecord(schema.items) ?? { type: 'string' };
   const fieldArray = useFieldArray({
     control,
     name: name as never,
@@ -211,13 +202,13 @@ function FormField({
   const runtimeSupportsFilePicker = hasNativeFilePicker();
 
   if (type === 'object') {
-    const properties = asObject(schema.properties) ?? {};
+    const properties = asRecord(schema.properties) ?? {};
     return (
       <fieldset className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
         <legend className="px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">{label}</legend>
         <div className="mt-3 space-y-3">
           {Object.entries(properties).map(([propertyName, propertyValue]) => {
-            const propertySchema = asObject(propertyValue);
+            const propertySchema = asRecord(propertyValue);
             if (!propertySchema) {
               return null;
             }
@@ -370,7 +361,7 @@ export function SchemaDrivenForm({
   onSubmit,
 }: SchemaDrivenFormProps) {
   const initialObject = useMemo(
-    () => asObject(initializeValue(schema, initialValue)) ?? {},
+    () => asRecord(initializeValue(schema, initialValue)) ?? {},
     [initialValue, schema],
   );
   const [localSubmitError, setLocalSubmitError] = useState<string | null>(null);
@@ -391,7 +382,7 @@ export function SchemaDrivenForm({
     setLocalSubmitError(null);
   }, [initialObject, reset, resetKey]);
 
-  const properties = asObject(schema.properties) ?? {};
+  const properties = asRecord(schema.properties) ?? {};
   const visibleSubmitError = submitError ?? localSubmitError;
   const isBusy = pending || formState.isSubmitting;
 
@@ -409,7 +400,7 @@ export function SchemaDrivenForm({
       })}
     >
       {Object.entries(properties).map(([propertyName, propertyValue]) => {
-        const propertySchema = asObject(propertyValue);
+        const propertySchema = asRecord(propertyValue);
         if (!propertySchema) {
           return null;
         }

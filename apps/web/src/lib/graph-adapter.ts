@@ -6,6 +6,7 @@ import {
   type GraphSnapshot,
   type NodeTypeDescriptor,
 } from '@glade/contracts';
+import { asRecord, asString, asNumber, asBoolean, asStringArray } from '@glade/shared';
 
 import {
   type WorkflowActionRecord,
@@ -53,24 +54,6 @@ const KNOWN_STATES = new Set<NodeVisualState>([
   'blocked',
 ]);
 
-function asObject(value: unknown): JsonRecord | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : null;
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function asBoolean(value: unknown): boolean | null {
-  return typeof value === 'boolean' ? value : null;
-}
-
 function asScalarString(value: unknown): string | null {
   if (typeof value === 'string') {
     return value;
@@ -85,10 +68,6 @@ function asScalarString(value: unknown): string | null {
   }
 
   return null;
-}
-
-function asStringArray(value: unknown): Array<string> {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
 function normalizeTypeList(value: unknown): Array<string> {
@@ -112,11 +91,11 @@ function extractParameterSchema(rawKind: JsonRecord | null, rawExtensionNode: No
 }
 
 function asObjectEntries(value: unknown): Array<[string, JsonRecord]> {
-  const record = asObject(value);
+  const record = asRecord(value);
   return record
     ? Object.entries(record)
       .map(([key, entry]) => {
-        const normalized = asObject(entry);
+        const normalized = asRecord(entry);
         return normalized ? [key, normalized] as const : null;
       })
       .filter((entry): entry is [string, JsonRecord] => entry !== null)
@@ -173,7 +152,7 @@ function formatScopeLabel(scope: string) {
 
 function firstObject(...values: Array<unknown>): JsonRecord | null {
   for (const value of values) {
-    const record = asObject(value);
+    const record = asRecord(value);
     if (record) {
       return record;
     }
@@ -194,7 +173,7 @@ function firstString(...values: Array<unknown>): string | null {
 }
 
 function normalizeInvocationOption(value: unknown) {
-  const option = asObject(value);
+  const option = asRecord(value);
   if (option) {
     const normalizedValue = asScalarString(option.value) ?? firstString(option.id, option.key);
     if (!normalizedValue) {
@@ -219,7 +198,7 @@ function normalizeInvocationOption(value: unknown) {
 }
 
 function normalizeInvocationField(fieldKey: string, value: unknown, payload: JsonRecord | null): WorkflowActionInvocationField | null {
-  const field = asObject(value);
+  const field = asRecord(value);
   if (!field) {
     return null;
   }
@@ -236,7 +215,7 @@ function normalizeInvocationField(fieldKey: string, value: unknown, payload: Jso
     (widget ? ['textarea', 'multiline', 'long_text'].includes(widget) : null) ??
     fieldKey === 'rationale';
   const defaultValue = asScalarString(field.value) ?? asScalarString(field.default) ?? asScalarString(payload?.[fieldKey]);
-  const required = asBoolean(field.required) ?? (asBoolean(field.optional) === false ? true : false);
+  const required = asBoolean(field.required) ?? asBoolean(field.optional) === false;
 
   return {
     key: fieldKey,
@@ -252,12 +231,12 @@ function normalizeInvocationField(fieldKey: string, value: unknown, payload: Jso
 }
 
 function extractInvocation(action: JsonRecord, payload: JsonRecord | null): WorkflowActionInvocation | null {
-  const invocation = asObject(action.invocation);
+  const invocation = asRecord(action.invocation);
   if (!invocation) {
     return null;
   }
 
-  const invocationInput = asObject(invocation.input);
+  const invocationInput = asRecord(invocation.input);
 
   const fields = asObjectEntries(invocationInput?.fields)
     .map(([fieldKey, fieldValue]) => normalizeInvocationField(fieldKey, fieldValue, payload))
@@ -295,7 +274,7 @@ function extractDescription(value: unknown) {
     return value;
   }
 
-  const explanation = asObject(value);
+  const explanation = asRecord(value);
   return (
     asString(explanation?.why_now) ??
     asString(explanation?.why) ??
@@ -365,7 +344,7 @@ function extractSummaryEntries(rawNode: JsonRecord, metadata: JsonRecord | null)
 
   return rawSummaries
     .map((value, index) => {
-      const summary = asObject(value);
+      const summary = asRecord(value);
       if (!summary) {
         return null;
       }
@@ -414,7 +393,7 @@ function extractDecisionEntries(rawNode: JsonRecord, metadata: JsonRecord | null
 
   return rawDecisions
     .map((value, index) => {
-      const decision = asObject(value);
+      const decision = asRecord(value);
       if (!decision) {
         return null;
       }
@@ -493,17 +472,17 @@ function extensionNodeKindsByKind(snapshot: GraphSnapshot) {
 
 function candidateCommandSurfaceAddNodeSources(surface: JsonRecord) {
   return [
-    asObject(surface.add_node),
-    asObject(surface.addNode),
-    asObject(surface['workflow.add_node']),
-    asObject(surface['workflow.addNode']),
-    asObject(surface.bg_add_node),
-    asObject(asObject(surface.workflow)?.add_node),
-    asObject(asObject(surface.workflow)?.addNode),
-    asObject(asObject(surface.commands)?.add_node),
-    asObject(asObject(surface.commands)?.addNode),
-    asObject(asObject(surface.methods)?.add_node),
-    asObject(asObject(surface.methods)?.addNode),
+    asRecord(surface.add_node),
+    asRecord(surface.addNode),
+    asRecord(surface['workflow.add_node']),
+    asRecord(surface['workflow.addNode']),
+    asRecord(surface.bg_add_node),
+    asRecord(asRecord(surface.workflow)?.add_node),
+    asRecord(asRecord(surface.workflow)?.addNode),
+    asRecord(asRecord(surface.commands)?.add_node),
+    asRecord(asRecord(surface.commands)?.addNode),
+    asRecord(asRecord(surface.methods)?.add_node),
+    asRecord(asRecord(surface.methods)?.addNode),
   ].filter((entry): entry is JsonRecord => entry !== null);
 }
 
@@ -531,7 +510,7 @@ function kindsFromCommandSurfaceCollection(value: unknown) {
         return [normalizeCommandSurfaceKindEntry(entry, {})];
       }
 
-      const record = asObject(entry);
+      const record = asRecord(entry);
       const kind = firstString(record?.kind, record?.id, record?.name);
       return record && kind ? [normalizeCommandSurfaceKindEntry(kind, record)] : [];
     });
@@ -541,7 +520,7 @@ function kindsFromCommandSurfaceCollection(value: unknown) {
 }
 
 function extractCommandSurfaceNodeKinds(snapshot: GraphSnapshot) {
-  const commandSurface = asObject(snapshot.command_surface);
+  const commandSurface = asRecord(snapshot.command_surface);
   if (!commandSurface) {
     return [];
   }
@@ -572,8 +551,8 @@ function extractCommandSurfaceNodeKinds(snapshot: GraphSnapshot) {
 }
 
 function normalizeProtocolSummary(snapshot: GraphSnapshot): WorkflowProtocolSummary {
-  const protocol = asObject(snapshot.protocol);
-  const summary = asObject(protocol?.summary);
+  const protocol = asRecord(snapshot.protocol);
+  const summary = asRecord(protocol?.summary);
   return {
     scopeCount: asNumber(summary?.n_scopes) ?? 0,
     obligationCount: asNumber(summary?.n_obligations) ?? 0,
@@ -601,7 +580,7 @@ function extractProtocol(snapshot: GraphSnapshot) {
   const obligationRecords: Array<WorkflowObligationRecord> = [];
   const actionRecords: Array<WorkflowActionRecord> = [];
   const protocolScopes: Array<WorkflowProtocolScope> = [];
-  const protocol = asObject(snapshot.protocol);
+  const protocol = asRecord(snapshot.protocol);
   if (!protocol) {
     return {
       obligationsByNodeId,
@@ -624,21 +603,21 @@ function extractProtocol(snapshot: GraphSnapshot) {
     });
 
   for (const [scopeKey, partitionValue] of partitionEntries) {
-    const partition = asObject(partitionValue);
+    const partition = asRecord(partitionValue);
     const scopeLabel = asString(partition?.scope_label) ?? formatScopeLabel(scopeKey);
-    const rawObligations = asObject(partition?.obligations);
-    const rawActions = asObject(partition?.actions);
+    const rawObligations = asRecord(partition?.obligations);
+    const rawActions = asRecord(partition?.actions);
     const scopeObligations: Array<WorkflowObligationRecord> = [];
     const scopeActions: Array<WorkflowActionRecord> = [];
 
     if (rawObligations) {
       for (const [obligationKey, obligationValue] of Object.entries(rawObligations)) {
-        const obligation = asObject(obligationValue);
+        const obligation = asRecord(obligationValue);
         if (!obligation) {
           continue;
         }
 
-        const basis = asObject(obligation.basis);
+        const basis = asRecord(obligation.basis);
         const nodeIds = asStringArray(basis?.node_ids);
         const record: WorkflowObligationRecord = {
           id: asString(obligation.obligation_id) ?? obligationKey,
@@ -665,14 +644,14 @@ function extractProtocol(snapshot: GraphSnapshot) {
 
     if (rawActions) {
       for (const [actionKey, actionValue] of Object.entries(rawActions)) {
-        const action = asObject(actionValue);
+        const action = asRecord(actionValue);
         if (!action) {
           continue;
         }
 
-        const payload = asObject(action.payload);
-        const basis = asObject(action.basis) ?? {};
-        const metadata = asObject(action.metadata);
+        const payload = asRecord(action.payload);
+        const basis = asRecord(action.basis) ?? {};
+        const metadata = asRecord(action.metadata);
         const invocation = extractInvocation(action, payload);
         const nodeIds = asStringArray(basis.node_ids);
         const record: WorkflowActionRecord = {
@@ -725,10 +704,10 @@ function formatKind(kind: string) {
 }
 
 function extractNodeKinds(snapshot: GraphSnapshot): Array<WorkflowNodeKindSpec> {
-  const snapshotObject = asObject(snapshot) ?? {};
-  const graph = asObject(snapshot.graph) ?? {};
-  const registry = asObject(graph.registry) ?? {};
-  const rawKinds = asObject(registry.kinds) ?? {};
+  const snapshotObject = asRecord(snapshot) ?? {};
+  const graph = asRecord(snapshot.graph) ?? {};
+  const registry = asRecord(graph.registry) ?? {};
+  const rawKinds = asRecord(registry.kinds) ?? {};
   const extensionNodeKinds = extensionNodeKindsByKind(snapshot);
   const commandSurfaceKinds = extractCommandSurfaceNodeKinds(snapshot);
   const commandSurfaceKindsByKind = Object.fromEntries(commandSurfaceKinds.map((kind) => [kind.kind, kind]));
@@ -741,7 +720,7 @@ function extractNodeKinds(snapshot: GraphSnapshot): Array<WorkflowNodeKindSpec> 
 
   return [...availableKinds]
     .map((kind) => {
-      const rawKind = asObject(rawKinds[kind]) ?? {};
+      const rawKind = asRecord(rawKinds[kind]) ?? {};
       const extensionNode = extensionNodeKinds.get(kind) ?? null;
       const commandSurfaceKind = commandSurfaceKindsByKind[kind] ?? null;
       const inputTypes = normalizeTypeList(
@@ -774,9 +753,9 @@ function extractNodeKinds(snapshot: GraphSnapshot): Array<WorkflowNodeKindSpec> 
 }
 
 export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
-  const graph = asObject(snapshot.graph) ?? {};
-  const rawNodes = asObject(graph.nodes) ?? {};
-  const rawEdges = asObject(graph.edges) ?? {};
+  const graph = asRecord(snapshot.graph) ?? {};
+  const rawNodes = asRecord(graph.nodes) ?? {};
+  const rawEdges = asRecord(graph.edges) ?? {};
   const protocol = extractProtocol(snapshot);
   const extensionRegistry = extractExtensionRegistry(snapshot);
   const nodeKinds = extractNodeKinds(snapshot);
@@ -785,7 +764,7 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
 
   const nodes: Array<WorkflowNodeData> = Object.entries(rawNodes)
     .map(([id, value]) => {
-      const rawNode = asObject(value);
+      const rawNode = asRecord(value);
       if (!rawNode) {
         return null;
       }
@@ -827,7 +806,7 @@ export function adaptSnapshotToGraph(snapshot: GraphSnapshot): WorkflowGraph {
   const nodesById = Object.fromEntries(nodes.map((node) => [node.id, node]));
   const edges = Object.entries(rawEdges)
     .map(([id, value]) => {
-      const rawEdge = asObject(value);
+      const rawEdge = asRecord(value);
       if (!rawEdge) {
         return null;
       }

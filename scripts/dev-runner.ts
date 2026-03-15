@@ -2,7 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { getAvailablePort } from '@glade/shared/Net';
+import { getAvailablePort } from '@glade/shared/net';
 import {
   forwardProcessOutput,
   spawnChildProcess,

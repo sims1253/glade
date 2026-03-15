@@ -1,6 +1,4 @@
-import type { SqliteDatabaseService } from './sqlite';
-
-export function runCacheMigrations(database: Pick<SqliteDatabaseService, 'exec'>): void {
+export function runCacheMigrations(database: { readonly exec: (sql: string) => void }): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS snapshot_cache (
       id INTEGER PRIMARY KEY CHECK (id = 1),

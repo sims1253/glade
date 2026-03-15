@@ -20,10 +20,10 @@
       "import": "./src/logging.ts",
       "require": "./dist/logging.cjs"
     },
-    "./Net": {
-      "types": "./src/Net.ts",
-      "import": "./src/Net.ts",
-      "require": "./dist/Net.cjs"
+    "./net": {
+      "types": "./src/net.ts",
+      "import": "./src/net.ts",
+      "require": "./dist/net.cjs"
     },
     "./process": {
       "types": "./src/process.ts",
