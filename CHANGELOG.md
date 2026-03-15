@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0 - 2026-03-15
+
+- Verified compatibility with bayesgrove 0.4.9 (protocol messages, command registry, and all API functions remain compatible).
+- Addressed CodeRabbit review: added missing `--amber-bg` and `--red` CSS variables in `showcase.astro`, replaced malformed SVG icons with valid Lucide icons, added `notesPending` guard to prevent concurrent note submissions, and normalized project path before passing to `runDesktopPreflight`.
+- Refactored integration test architecture to decouple command acknowledgment from snapshot arrival, with explicit state assertions after each mutation for improved CI reliability.
+
 ## 0.13.9 - 2026-03-15
 
 - Fixed CI integration test flakiness in `interactive-graph.integration.test.ts` by decoupling command acknowledgment from snapshot arrival and explicitly waiting for expected graph state after each mutation.
