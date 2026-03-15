@@ -1,0 +1,457 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Glade — CLI Tool">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg: #0c0c0c;
+      --surface: #151515;
+      --surface-alt: #1c1c1c;
+      --border: #262626;
+      --border-bright: #333333;
+      --text: #e0e0e0;
+      --text-secondary: #a0a0a0;
+      --text-muted: #666666;
+      --green: #4ade80;
+      --green-dim: #166534;
+      --green-bg: rgba(74, 222, 128, 0.08);
+      --amber: #fbbf24;
+      --amber-dim: #92400e;
+      --amber-bg: rgba(251, 191, 36, 0.08);
+      --blue: #60a5fa;
+      --blue-dim: #1d4ed8;
+      --blue-bg: rgba(96, 165, 250, 0.06);
+      --red: #f87171;
+      --red-dim: #b91c1c;
+      --red-bg: rgba(248, 113, 113, 0.06);
+      --cyan: #22d3ee;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    .page {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 0 80px;
+    }
+
+    /* Header */
+    .header {
+      padding: 0 32px 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 20px 0 0;
+    }
+
+    .brand {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .hbadge {
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .hb-green { background: var(--green-bg); color: var(--green); }
+    .hb-amber { background: var(--amber-bg); color: var(--amber); }
+    .hb-blue { background: var(--blue-bg); color: var(--blue); }
+
+    /* Description */
+    .desc {
+      padding: 0 32px;
+      margin-bottom: 40px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .desc p { margin-bottom: 8px; }
+
+    /* Command section */
+    .cmd-section {
+      padding: 0 32px 32px;
+    }
+
+    .cmd-section h2 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* Command row */
+    .cmd-row {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12.5px;
+      transition: background 0.1s;
+      align-items: baseline;
+    }
+
+    .cmd-row:hover {
+      background: var(--surface);
+    }
+
+    .cmd-num {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .cmd-code {
+      white-space: pre;
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    .cmd-code .flag {
+      color: var(--blue);
+    }
+
+    .cmd-code .string {
+      color: var(--amber);
+    }
+
+    .cmd-code .comment {
+      color: var(--text-muted);
+    }
+
+    .cmd-desc {
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    /* Example block */
+    .example-block {
+      margin: 24px 32px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .example-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--surface-alt);
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    .example-header .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .example-body {
+      padding: 14px;
+      font-size: 12px;
+      line-height: 1.8;
+      color: var(--text-secondary);
+    }
+
+    .example-body .prompt {
+      color: var(--green);
+    }
+
+    .example-body .comment {
+      color: var(--text-muted);
+    }
+
+    .example-body .result {
+      color: var(--cyan);
+    }
+
+    .example-body .error {
+      color: var(--red);
+    }
+
+    /* Feature blocks */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      padding: 0 32px 32px;
+      background: var(--border);
+      margin-bottom: 40px;
+    }
+
+    .feature-block {
+      background: var(--bg);
+      padding: 20px;
+    }
+
+    .feature-block h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 6px;
+    }
+
+    .feature-block p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Install section */
+    .install {
+      padding: 0 32px 32px;
+      text-align: center;
+    }
+
+    .install-box {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 24px;
+      font-size: 13px;
+    }
+
+    .install-box .dollar {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .install-note {
+      margin-top: 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Footer */
+    .footer {
+      padding: 0 32px 32px;
+      border-top: 1px solid var(--border);
+      margin-top: 24px;
+      padding-top: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    @media (max-width: 640px) {
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <div class="page">
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <div class="brand">glade</div>
+          <div class="brand-sub">Bayesian workflow environment</div>
+        </div>
+        <div class="header-badges">
+          <span class="hbadge hb-green">v0.13.4</span>
+          <span class="hbadge hb-blue">stable</span>
+          <span class="hbadge hb-amber">desktop</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc">
+      <p>
+        Glade is a desktop application for building and managing Bayesian statistical analysis workflows.
+        Analysis steps are represented as nodes on an interactive graph canvas, connected by edges
+        that encode logical dependencies. The environment includes a live R REPL, protocol-aware
+        obligation tracking, and action preview.
+      </p>
+      <p>
+        Requires R &ge; 4.3 and the Bayesgrove R package. Available on macOS, Linux, and Windows.
+      </p>
+    </div>
+
+    <div class="cmd-section">
+      <h2>Usage</h2>
+      <div class="cmd-row">
+        <span class="cmd-num">1</span>
+        <pre class="cmd-code"><span class="comment"># Create a new project and start Bayesgrove</span>
+glade init <span class="flag">--path</span> ./my-analysis</pre>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">2</span>
+        <pre class="cmd-code"><span class="comment"># Open the GUI</span>
+glade open</pre>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">3</span>
+        <pre class="cmd-code"><span class="comment"># Add nodes to the workflow canvas</span>
+glade node <span class="flag">--kind</span> model <span class="flag">--label</span> <span class="string">"Linear Regression"</span></pre>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">4</span>
+        <pre class="cmd-code"><span class="comment"># Connect nodes</span>
+glade connect model_1 diagnostic_1</pre>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">5</span>
+        <pre class="cmd-code"><span class="comment"># Run diagnostics</span>
+glade diagnose <span class="flag">--all</span></pre>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">6</span>
+        <pre class="cmd-code"><span class="comment"># Check obligations</span>
+glade obligations</pre>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">7</span>
+        <pre class="cmd-code"><span class="comment"># Open the REPL (Ctrl+\` in the GUI)</span>
+glade repl <span class="flag">--detach</span></pre>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">8</span>
+        <pre class="cmd-code"><span class="comment"># Export workflow</span>
+glade export <span class="flag">--format</span> json</pre>
+      </div>
+    </div>
+
+    <div class="cmd-section">
+      <h2>Keyboard Shortcuts</h2>
+      <div class="cmd-row">
+        <span class="cmd-num">&middot;</span>
+        <span class="cmd-code">Ctrl + `</span>
+        <span class="cmd-desc">Toggle REPL panel</span>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">&middot;</span>
+        <span class="cmd-code">Ctrl + Shift + F</span>
+        <span class="cmd-desc">Zoom to fit canvas</span>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">&middot;</span>
+        <span class="cmd-code">Ctrl + G</span>
+        <span class="cmd-desc">Open node search</span>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">&middot;</span>
+        <span class="cmd-code">Ctrl + Shift + O</span>
+        <span class="cmd-desc">Open obligation panel</span>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-num">&middot;</span>
+        <span class="cmd-code">Ctrl + Shift + A</span>
+        <span class="cmd-desc">Open action panel</span>
+      </div>
+    </div>
+
+    <div class="example-block">
+      <div class="example-header">
+        <span class="dot"></span>
+        <span>Example: Initialize and fit a model</span>
+      </div>
+      <div class="example-body">
+<span class="prompt">$</span> glade init clinical-trial
+<span class="result">Created project: ./clinical-trial</span>
+<span class="result">Starting Bayesgrove R session...</span>
+<span class="result">Connected (pid 48291)</span>
+
+<span class="prompt">&gt;</span> install.packages("bayesgrove")
+<span class="comment"># In the embedded REPL</span>
+
+<span class="prompt">&gt;</span> library(bayesgrove)
+<span class="result">Loaded Bayesgrove v0.8.2</span>
+
+<span class="prompt">&gt;</span> prior_normal &lt;- c(1, 10), sd = c(2, 5)
+<span class="result">&lt;- Prior specification</span>
+
+<span class="prompt">&gt;</span> fit_result &lt;- glade_fit(model_1, prior)
+<span class="result">4 chains, 2000 iterations, 10s elapsed</span>
+<span class="result">  Rhat = 1.002, Bulk_ESS = 124.3</span>
+
+<span class="prompt">&gt;</span> diagnose(model_1)
+<span class="result">No convergence issues detected</span>
+<span class="result">All Rhat values below 1.01</span>
+      </div>
+    </div>
+
+    <div class="cmd-section">
+      <h2>Components</h2>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-block">
+        <h3>Workflow Canvas</h3>
+        <p>Interactive node graph with ELK auto-layout. Supports drag-and-drop, annotations, multi-select, and zoom-to-fit.</p>
+      </div>
+      <div class="feature-block">
+        <h3>R REPL</h3>
+        <p>Embedded xterm.js terminal with command history (up/down), tab completion, and detachable window mode. Includes a Process Log tab for raw R output.</p>
+      </div>
+      <div class="feature-block">
+        <h3>Obligations</h3>
+        <p>Protocol-aware review tasks surfaced from the Bayesgrove state. Organized by scope with blocking and advisory severity indicators.</p>
+      </div>
+      <div class="feature-block">
+        <h3>Actions</h3>
+        <p>Bayesgrove-recommended operations with invocation fields, template references, and full parameter disclosure before execution.</p>
+      </div>
+      <div class="feature-block">
+        <h3>Node Details</h3>
+        <p>Inspection drawer showing node metadata, decision records, file attachments, and execution history.</p>
+      </div>
+      <div class="feature-block">
+        <h3>Desktop Bridge</h3>
+        <p>Native file picker integration, external editor launching (auto-detects VS Code, Neovim, Cursor), and R executable configuration.</p>
+      </div>
+    </div>
+
+    <div class="install">
+      <div class="install-box">
+        <span class="dollar">$</span> curl -fsSL https://glade.dev/install.sh | sh
+      </div>
+      <p class="install-note">Requires R &ge; 4.3 and Bayesgrove &ge; 0.8</p>
+    </div>
+
+    <footer class="footer">
+      <span>MIT License &middot; github.com/sims1253/glade</span>
+      <span>v0.13.4</span>
+    </footer>
+  </div>
+</Layout>

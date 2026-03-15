@@ -30,6 +30,8 @@ vi.mock('../hooks/useRpcClient', () => ({
       renameNode: vi.fn(),
       recordDecision: vi.fn(),
       executeAction: vi.fn(),
+      useDefaultWorkflow: vi.fn(),
+      useWorkflowPacks: vi.fn(),
       updateNodeNotes: vi.fn(),
       updateNodeParameters: vi.fn(),
       setNodeFile: vi.fn(),
@@ -124,7 +126,10 @@ describe('WelcomeRoute', () => {
 
     renderRoute();
 
-    fireEvent.click(screen.getByRole('button', { name: /Choose new project folder/i }));
+    fireEvent.change(screen.getByPlaceholderText('/path/to/project'), {
+      target: { value: '/tmp/glade/new-project' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Create project/i }));
 
     await waitFor(() => {
       expect(desktopBootstrapProject).toHaveBeenCalledWith({ projectPath: '/tmp/glade/new-project' });
@@ -149,9 +154,22 @@ describe('WelcomeRoute', () => {
 
     renderRoute();
 
-    fireEvent.click(screen.getByRole('button', { name: /Choose existing project/i }));
+    fireEvent.change(screen.getByPlaceholderText('/path/to/project'), {
+      target: { value: '/tmp/glade/current-project' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Open project/i }));
 
     expect(await screen.findByText(/bg_init failed: directory is not empty/i)).toBeInTheDocument();
     expect(sessionRestart).not.toHaveBeenCalled();
+  });
+
+  it('fills the project path from the native directory picker', async () => {
+    renderRoute();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Browse' }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('/path/to/project')).toHaveValue('/tmp/glade/new-project');
+    });
   });
 });

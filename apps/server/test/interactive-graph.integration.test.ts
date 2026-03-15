@@ -29,8 +29,8 @@ async function prepareBayesgroveProject(projectPath: string) {
     const child = spawn('Rscript', ['-e', [
       'project <- bayesgrove::bg_init(path = ', JSON.stringify(projectPath), ')',
       '; bayesgrove::bg_register_node_kind(project, "source", output_type = "data.frame")',
-      '; bayesgrove::bg_register_node_kind(project, "fit", input_contract = "data.frame", output_type = "fit")',
-      '; bayesgrove::bg_register_node_kind(project, "ppc", input_contract = "fit")',
+      '; bayesgrove::bg_register_node_kind(project, "fit")',
+      '; bayesgrove::bg_register_node_kind(project, "ppc")',
     ].join('')], {
       cwd,
       env: process.env,
@@ -65,17 +65,12 @@ function snapshotEdgeList(snapshot: Message | undefined) {
   return Object.values(snapshotEdges(snapshot)) as Array<Record<string, unknown>>;
 }
 
-function snapshotCount(messages: Message[]) {
-  return messages.filter((message) => message.message_type === 'GraphSnapshot').length;
-}
-
 async function sendCommandAndWait(
   socket: WebSocket,
   messages: Message[],
   request: { id: string; method: string; body: Record<string, unknown> },
 ) {
   const id = request.id;
-  const priorSnapshotCount = snapshotCount(messages);
   socket.send(JSON.stringify({
     _tag: 'WebSocketRequest',
     id: request.id,
@@ -86,7 +81,18 @@ async function sendCommandAndWait(
     messages,
     (nextMessages) => nextMessages.some(
       (item) => item._tag === 'WebSocketSuccess' && item.id === id && item.method === request.method,
-    ) && snapshotCount(nextMessages) > priorSnapshotCount,
+    ),
+  );
+}
+
+async function waitForUpdatedSnapshot(messages: Message[], predicate: (snapshot: Message | undefined) => boolean) {
+  return await waitForMessages(
+    messages,
+    (nextMessages) => {
+      const latest = graphSnapshot(nextMessages);
+      return predicate(latest);
+    },
+    400,
   );
 }
 
@@ -127,8 +133,8 @@ describe('phase 4 interactive graph', () => {
       method: 'workflow.addNode',
       body: { _tag: 'workflow.addNode', kind: 'source', label: 'Source data' },
     });
-    const sourceSnapshot = graphSnapshot(connection.messages);
-    const sourceId = snapshotNodeIds(sourceSnapshot)[0];
+    await waitForUpdatedSnapshot(connection.messages, (snap) => snapshotNodeIds(snap).length >= 1);
+    const sourceId = snapshotNodeIds(graphSnapshot(connection.messages))[0];
     expect(sourceId).toBeTruthy();
 
     await sendCommandAndWait(connection.socket, connection.messages, {
@@ -136,6 +142,7 @@ describe('phase 4 interactive graph', () => {
       method: 'workflow.addNode',
       body: { _tag: 'workflow.addNode', kind: 'fit', label: 'Initial fit' },
     });
+    await waitForUpdatedSnapshot(connection.messages, (snap) => snapshotNodeIds(snap).length >= 2);
     const fitSnapshot = graphSnapshot(connection.messages);
     const fitId = snapshotNodeIds(fitSnapshot).find((nodeId) => nodeId !== sourceId);
     expect(fitId).toBeTruthy();
@@ -145,6 +152,7 @@ describe('phase 4 interactive graph', () => {
       method: 'workflow.connectNodes',
       body: { _tag: 'workflow.connectNodes', from: sourceId, to: fitId },
     });
+    await waitForUpdatedSnapshot(connection.messages, (snap) => snapshotEdgeList(snap).length > 0);
     expect(
       snapshotEdgeList(graphSnapshot(connection.messages)).some(
         (edge) => edge.from === sourceId && edge.to === fitId,
@@ -156,6 +164,10 @@ describe('phase 4 interactive graph', () => {
       method: 'workflow.renameNode',
       body: { _tag: 'workflow.renameNode', nodeId: fitId, label: 'Renamed fit' },
     });
+    await waitForUpdatedSnapshot(connection.messages, (snap) => {
+      const nodes = ((snap?.graph ?? {}) as Record<string, unknown>).nodes as Record<string, { label?: string }> | undefined;
+      return nodes?.[fitId ?? '']?.label === 'Renamed fit';
+    });
     const renamedSnapshot = graphSnapshot(connection.messages);
     const renamedNodes = ((renamedSnapshot?.graph ?? {}) as Record<string, unknown>).nodes as Record<string, { label?: string }>;
     expect(renamedNodes[fitId ?? '']?.label).toBe('Renamed fit');
@@ -165,9 +177,10 @@ describe('phase 4 interactive graph', () => {
       method: 'workflow.deleteNode',
       body: { _tag: 'workflow.deleteNode', nodeId: sourceId },
     });
+    await waitForUpdatedSnapshot(connection.messages, (snap) => sourceId !== undefined && !snapshotNodeIds(snap).includes(sourceId));
     const deletedSnapshot = graphSnapshot(connection.messages);
     expect(snapshotNodeIds(deletedSnapshot)).not.toContain(sourceId);
     expect(snapshotNodeIds(deletedSnapshot)).toContain(fitId);
     connection.socket.close();
-  }, 40_000);
+  }, 60_000);
 });

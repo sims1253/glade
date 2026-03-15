@@ -1,0 +1,379 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const designs = [
+  // Batch 1: Visual/Marketing
+  {
+    slug: 'editorial',
+    title: 'Editorial',
+    subtitle: 'Scientific journal',
+    description: 'Academic typesetting with Playfair Display and Source Serif. Double rules, ordinals, figure boxes, and a paper-textured background.',
+    color: '#8b2500',
+  },
+  {
+    slug: 'terminal',
+    title: 'Terminal',
+    subtitle: 'CRT brutalism',
+    description: 'Green phosphor on black. Scanlines, boot sequence, ASCII art, monospaced everything, and flickering cursor blocks.',
+    color: '#00ff41',
+  },
+  {
+    slug: 'organic',
+    title: 'Organic',
+    subtitle: 'Natural flow',
+    description: 'Soft blob backgrounds, leaf accents, rounded cards, and gentle growth metaphors. Cream and sage palette.',
+    color: '#2d5a27',
+  },
+  {
+    slug: 'luxury',
+    title: 'Luxury',
+    subtitle: 'Dark minimal',
+    description: 'Near-black void, gold accents, Instrument Serif, numbered features, and restrained negative space.',
+    color: '#c9a84c',
+  },
+  {
+    slug: 'geometric',
+    title: 'Geometric',
+    subtitle: 'Constructivist',
+    description: 'Bold shapes, hard shadows, grid backgrounds, ticker strips, bento cards, and Syne typography.',
+    color: '#e63946',
+  },
+  // Batch 2: Domain-Appropriate
+  {
+    slug: 'rpackage',
+    title: 'Package Landing',
+    subtitle: 'CRAN-style',
+    description: 'Sidebar navigation, code blocks, installation instructions, feature lists, and a package metadata header. Like reading a CRAN page or pkgdown site.',
+    color: '#059669',
+  },
+  {
+    slug: 'paper',
+    title: 'Software Paper',
+    subtitle: 'Academic article',
+    description: 'Two-column academic paper format with abstract, numbered sections, figure panels, and references. Computer Modern typography.',
+    color: '#0055aa',
+  },
+  {
+    slug: 'docs',
+    title: 'Reference Manual',
+    subtitle: 'Technical docs',
+    description: 'Clean documentation layout with anchored sections, requirement tables, configuration reference, and callout boxes.',
+    color: '#2563eb',
+  },
+  {
+    slug: 'poster',
+    title: 'Conference Poster',
+    subtitle: 'Scientific poster',
+    description: 'Two-column poster layout with figure panels, architecture diagram, capability grid, stats, and formal references.',
+    color: '#1a3a5c',
+  },
+  {
+    slug: 'reference',
+    title: 'Reference Card',
+    subtitle: 'Cheat sheet',
+    description: 'Dense single-page reference with CLI commands, node types, keyboard shortcuts, and configuration fields. Printer-friendly.',
+    color: '#333333',
+  },
+  // Batch 3: New Directions
+  {
+    slug: 'brief',
+    title: 'Research Brief',
+    subtitle: 'Executive summary',
+    description: 'Slide-deck inspired format with key findings box, figure panels with mock screenshots, spec tables, and pull quotes. Like a McKinsey brief.',
+    color: '#1d4ed8',
+  },
+  {
+    slug: 'cli',
+    title: 'CLI Tool',
+    subtitle: 'Developer tool',
+    description: 'Dark terminal-inspired landing page for a command-line tool. Command reference, keyboard shortcuts, feature blocks, and example output.',
+    color: '#4ade80',
+  },
+  {
+    slug: 'newsletter',
+    title: 'Newsletter',
+    subtitle: 'Technical email',
+    description: 'Email/newsletter format with edition banner, numbered list, feature boxes, pull quotes, and install CTA. Like TLDR or Morning Brew for stats.',
+    color: '#0284c7',
+  },
+  {
+    slug: 'showcase',
+    title: 'App Showcase',
+    subtitle: 'Screenshot page',
+    description: 'Dark theme with a large, detailed mock screenshot of the app interface. Feature cards, stats strip, and inline annotations.',
+    color: '#4ade80',
+  },
+  {
+    slug: 'minimal',
+    title: 'Minimal Reference',
+    subtitle: 'Dense grid',
+    description: 'Ultra-minimal two-column layout with definition lists, spec tables, and monospace typography. Maximum information density.',
+    color: '#1d4ed8',
+  },
+];
+---
+
+<Layout title="Glade — Marketing Designs">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&display=swap');
+
+    :root {
+      --bg: #fafbfc;
+      --ink: #1a1a2e;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --muted: #64748b;
+      --dim: #94a3b8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Source Serif 4', 'Georgia', serif;
+      background: var(--bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 64px 0 48px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header p.eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    header p.subtitle {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 560px;
+    }
+
+    /* Section headers */
+    .section-header {
+      padding: 40px 0 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* Design grid */
+    .grid {
+      padding: 0 0 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card {
+      display: grid;
+      grid-template-columns: 48px 200px 1fr auto;
+      gap: 20px;
+      align-items: start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      text-decoration: none;
+      color: var(--ink);
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--card-color);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      transform: translateY(-1px);
+    }
+
+    .card-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      padding-top: 2px;
+    }
+
+    .card h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .card .card-type {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card-desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .card-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--card-color);
+      white-space: nowrap;
+      align-self: center;
+      transition: gap 0.2s;
+    }
+
+    .card:hover .card-link {
+      gap: 8px;
+    }
+
+    /* Footer */
+    footer {
+      padding: 24px 0;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    footer a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--ink);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    header { animation: fadeUp 0.5s ease both; }
+    .card { opacity: 0; animation: fadeUp 0.4s ease both; }
+    .card:nth-child(1) { animation-delay: 0.05s; }
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.15s; }
+    .card:nth-child(4) { animation-delay: 0.2s; }
+    .card:nth-child(5) { animation-delay: 0.25s; }
+    .card:nth-child(6) { animation-delay: 0.3s; }
+    .card:nth-child(7) { animation-delay: 0.35s; }
+    .card:nth-child(8) { animation-delay: 0.4s; }
+    .card:nth-child(9) { animation-delay: 0.45s; }
+    .card:nth-child(10) { animation-delay: 0.5s; }
+    .card:nth-child(11) { animation-delay: 0.55s; }
+    .card:nth-child(12) { animation-delay: 0.6s; }
+    .card:nth-child(13) { animation-delay: 0.65s; }
+    .card:nth-child(14) { animation-delay: 0.7s; }
+    .card:nth-child(15) { animation-delay: 0.75s; }
+
+    @media (max-width: 800px) {
+      .card {
+        grid-template-columns: 36px 1fr;
+        gap: 8px 16px;
+      }
+      .card-desc { grid-column: 2; }
+      .card-link { grid-column: 2; justify-self: start; }
+      header h1 { font-size: 24px; }
+    }
+  </style>
+
+  <div class="page">
+    <header>
+      <p class="eyebrow">Glade Marketing</p>
+      <h1>Fifteen Design Explorations</h1>
+      <p class="subtitle">
+        Three batches of design directions for the Glade marketing page.
+        Batch 1: Visual/Marketing. Batch 2: Domain-Appropriate. Batch 3: New Directions.
+      </p>
+    </header>
+
+    <div class="section-header">Batch 1 — Visual / Marketing</div>
+    <div class="grid">
+      {designs.slice(0, 5).map((d, i) => (
+        <a href={`/${d.slug}`} class="card" style={`--card-color: ${d.color}`}>
+          <div class="card-number">{String(i + 1).padStart(2, '0')}</div>
+          <div>
+            <h2>{d.title}</h2>
+            <span class="card-type">{d.subtitle}</span>
+          </div>
+          <p class="card-desc">{d.description}</p>
+          <span class="card-link">
+            View
+            <span>&rarr;</span>
+          </span>
+        </a>
+      ))}
+    </div>
+
+    <div class="section-header">Batch 2 — Domain-Appropriate</div>
+    <div class="grid">
+      {designs.slice(5, 10).map((d, i) => (
+        <a href={`/${d.slug}`} class="card" style={`--card-color: ${d.color}`}>
+          <div class="card-number">{String(i + 6).padStart(2, '0')}</div>
+          <div>
+            <h2>{d.title}</h2>
+            <span class="card-type">{d.subtitle}</span>
+          </div>
+          <p class="card-desc">{d.description}</p>
+          <span class="card-link">
+            View
+            <span>&rarr;</span>
+          </span>
+        </a>
+      ))}
+    </div>
+
+    <div class="section-header">Batch 3 — New Directions</div>
+    <div class="grid">
+      {designs.slice(10, 15).map((d, i) => (
+        <a href={`/${d.slug}`} class="card" style={`--card-color: ${d.color}`}>
+          <div class="card-number">{String(i + 11).padStart(2, '0')}</div>
+          <div>
+            <h2>{d.title}</h2>
+            <span class="card-type">{d.subtitle}</span>
+          </div>
+          <p class="card-desc">{d.description}</p>
+          <span class="card-link">
+            View
+            <span>&rarr;</span>
+          </span>
+        </a>
+      ))}
+    </div>
+
+    <footer>
+      <span>Glade v0.13.4</span>
+      <a href="#">github.com/sims1253/glade</a>
+      <span>{new Date().getFullYear()}</span>
+    </footer>
+  </div>
+</Layout>

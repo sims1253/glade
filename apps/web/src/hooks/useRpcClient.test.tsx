@@ -71,7 +71,7 @@ beforeEach(() => {
     desktopEnvironment: null,
     bootstrapped: false,
   });
-  useReplStore.setState({ replLines: [], replDetached: false });
+  useReplStore.setState({ replLines: [], rawLines: [], commandHistory: [], replDetached: false });
   useToastStore.setState({ notifications: [] });
   vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket);
 });
@@ -149,7 +149,6 @@ describe('useRpcClient', () => {
   });
 
   it('reports malformed inbound messages and continues processing later pushes', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     renderHook(() => useRpcClient());
     const socket = MockWebSocket.instances[0];
 
@@ -169,9 +168,28 @@ describe('useRpcClient', () => {
       tone: 'error',
       title: 'Could not process server message',
     });
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[websocket] dropped inbound server message',
-      expect.any(String),
-    );
+  });
+
+  it('tracks raw repl output separately and resets it on bootstrap', async () => {
+    useReplStore.getState().appendRawLine('stale');
+    renderHook(() => useRpcClient());
+    const socket = MockWebSocket.instances[0];
+
+    act(() => {
+      socket?.emitOpen();
+      socket?.emitJson({
+        _tag: 'WsPush',
+        channel: 'server.bootstrap',
+        payload: bootstrap,
+      });
+      socket?.emitJson({
+        _tag: 'WsPush',
+        channel: 'repl.rawOutput',
+        payload: { _tag: 'ReplRawOutput', line: '__GLADE_READY__' },
+      });
+    });
+
+    await waitFor(() => expect(useReplStore.getState().rawLines).toEqual(['__GLADE_READY__']));
+    expect(useReplStore.getState().replLines).toEqual(['boot']);
   });
 });

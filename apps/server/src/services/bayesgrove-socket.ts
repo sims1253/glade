@@ -13,18 +13,16 @@ import {
   type BayesgroveCommand,
   type BayesgroveCommandResult as BayesgroveCommandResultMessage,
   BayesgroveCommandResult as BayesgroveCommandResultSchema,
+  decodeGraphSnapshot,
   type GraphSnapshot as GraphSnapshotMessage,
-  GraphSnapshot as GraphSnapshotSchema,
   type ProtocolEvent as ProtocolEventMessage,
   ProtocolEvent as ProtocolEventSchema,
-  type SessionStatus,
-  type WsPush,
 } from '@glade/contracts';
 import { decodeJsonResult, decodeUnknownResult, formatSchemaError } from '@glade/shared';
 
 import { ServerConfig } from '../config';
 import { ProtocolDecodeError, SessionStartupError } from '../errors';
-import { SessionStatusStore } from './session-status';
+import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { WebSocketHub } from './websocket-hub';
 
 export type BayesgroveInboundMessage = GraphSnapshotMessage | ProtocolEventMessage | BayesgroveCommandResultMessage;
@@ -40,12 +38,7 @@ export class BayesgroveSocket extends Context.Tag('glade/BayesgroveSocket')<
   }
 >() {}
 
-function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
-  return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
-}
-
 const decodeJsonPayload = decodeJsonResult(Schema.Unknown);
-const decodeSnapshotResult = decodeUnknownResult(GraphSnapshotSchema);
 const decodeProtocolEventResult = decodeUnknownResult(ProtocolEventSchema);
 const decodeCommandResult = decodeUnknownResult(BayesgroveCommandResultSchema);
 
@@ -60,13 +53,7 @@ export const BayesgroveSocketLive = Layer.scoped(
     const closingRef = yield* Ref.make(false);
     const messageQueue = yield* Queue.unbounded<BayesgroveInboundMessage>();
 
-    const publishStatus = (state: SessionStatus['state'], reason?: string) =>
-      Effect.gen(function* () {
-        const next = statusMessage(state, reason);
-        yield* statusStore.set(next);
-        const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
-        yield* hub.broadcast(push);
-      });
+    const publishStatus = createStatusPublisher(statusStore, hub);
 
     const parseInbound = (raw: string) =>
       Effect.gen(function* () {
@@ -78,7 +65,7 @@ export const BayesgroveSocketLive = Layer.scoped(
           });
         }
 
-        const snapshotAttempt = decodeSnapshotResult(payload.right);
+        const snapshotAttempt = yield* Effect.either(decodeGraphSnapshot(payload.right));
         if (Either.isRight(snapshotAttempt)) {
           return snapshotAttempt.right;
         }
@@ -163,11 +150,14 @@ export const BayesgroveSocketLive = Layer.scoped(
         cleanupStartupListeners();
 
         socket.on('message', (data) => {
+          const raw = String(data);
           void Runtime.runPromise(
             effectRuntime,
-            parseInbound(String(data)).pipe(
+            parseInbound(raw).pipe(
               Effect.flatMap((message) => Queue.offer(messageQueue, message)),
-              Effect.catchAll((error) => publishStatus('error', `protocol_decode_error:${error.message}`)),
+              Effect.catchAll((error) => {
+                return publishStatus('error', `protocol_decode_error:${error.message}`);
+              }),
             ),
           );
         });

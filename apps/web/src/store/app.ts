@@ -16,6 +16,7 @@ function snapshot() {
     sessionReason: connection.sessionReason,
     notifications: toast.notifications,
     replLines: repl.replLines,
+    rawLines: repl.rawLines,
     replPanelOpen: uiPrefs.replPanelOpen,
     replPanelHeight: uiPrefs.replPanelHeight,
     replDetached: repl.replDetached,
@@ -32,6 +33,7 @@ type ConnectionPatch = {
 
 type ReplPatch = {
   replLines?: AppSnapshot['replLines'];
+  rawLines?: AppSnapshot['rawLines'];
   replDetached?: AppSnapshot['replDetached'];
 };
 
@@ -72,6 +74,9 @@ export const useAppStore = Object.assign(
       }
       if (partial.replLines !== undefined) {
         nextReplState.replLines = partial.replLines;
+      }
+      if (partial.rawLines !== undefined) {
+        nextReplState.rawLines = partial.rawLines;
       }
       if (partial.replPanelOpen !== undefined) {
         nextUiPrefsState.replPanelOpen = partial.replPanelOpen;

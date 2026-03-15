@@ -7,6 +7,7 @@ import type {
 
 import { isJsonValue, toJsonObject, toJsonValue } from './json';
 import type { HostRpc, ReplRpc, RpcCallResult, SessionRpc, WorkflowRpc } from './rpc';
+import { assertUnreachable } from './utils';
 import { randomUUID } from './utils';
 
 export interface LegacyCommandResult {
@@ -28,6 +29,8 @@ export type LegacyWorkflowCommand =
   | { readonly type: 'RenameNode'; readonly nodeId: string; readonly label: string }
   | { readonly type: 'RecordDecision'; readonly scope: string; readonly prompt: string; readonly choice: string; readonly rationale: string; readonly alternatives?: ReadonlyArray<string> | undefined; readonly refs?: ReadonlyArray<unknown> | undefined; readonly evidence?: ReadonlyArray<string> | undefined; readonly kind?: string | undefined; readonly metadata?: Record<string, unknown> | undefined }
   | { readonly type: 'ExecuteAction'; readonly actionId: string; readonly payload?: Record<string, unknown> | undefined }
+  | { readonly type: 'UseDefaultWorkflow' }
+  | { readonly type: 'UseWorkflowPacks'; readonly workflowPacks: ReadonlyArray<string> }
   | { readonly type: 'UpdateNodeNotes'; readonly nodeId: string; readonly notes: string }
   | { readonly type: 'UpdateNodeParameters'; readonly nodeId: string; readonly params: Record<string, unknown> }
   | { readonly type: 'SetNodeFile'; readonly nodeId: string; readonly path: string | null }
@@ -43,10 +46,6 @@ export type LegacyHostDispatch = (command: LegacyHostCommand) => Promise<LegacyC
 
 function toJsonValueArray(value: ReadonlyArray<unknown> | undefined): ReadonlyArray<JsonValue> | undefined {
   return value?.every(isJsonValue) ? value : undefined;
-}
-
-function assertUnreachable(value: never): never {
-  throw new Error(`Unhandled command type: ${String((value as { readonly type?: string }).type ?? value)}`);
 }
 
 function toRpcError(error: LegacyCommandResult['error'] | undefined): RpcError {
@@ -94,6 +93,8 @@ export function workflowRpcFromLegacyDispatch(dispatch: LegacyWorkflowDispatch):
     renameNode: async (input) => fromLegacyAck(await dispatch({ type: 'RenameNode', ...input })),
     recordDecision: async (input) => fromLegacyAck(await dispatch({ type: 'RecordDecision', ...input })),
     executeAction: async (input) => fromLegacyAck(await dispatch({ type: 'ExecuteAction', ...input })),
+    useDefaultWorkflow: async () => fromLegacyAck(await dispatch({ type: 'UseDefaultWorkflow' })),
+    useWorkflowPacks: async (input) => fromLegacyAck(await dispatch({ type: 'UseWorkflowPacks', workflowPacks: input.workflowPacks })),
     updateNodeNotes: async (input) => fromLegacyAck(await dispatch({ type: 'UpdateNodeNotes', ...input })),
     updateNodeParameters: async (input) => fromLegacyAck(await dispatch({ type: 'UpdateNodeParameters', ...input })),
     setNodeFile: async (input) => fromLegacyAck(await dispatch({ type: 'SetNodeFile', ...input })),
@@ -153,6 +154,12 @@ export function legacyWorkflowDispatchFromRpc(
         return toLegacyResult(await workflow.executeAction({
           actionId: command.actionId,
           ...(command.payload === undefined ? {} : { payload: toJsonObject(command.payload) }),
+        }));
+      case 'UseDefaultWorkflow':
+        return toLegacyResult(await workflow.useDefaultWorkflow());
+      case 'UseWorkflowPacks':
+        return toLegacyResult(await workflow.useWorkflowPacks({
+          workflowPacks: [...command.workflowPacks],
         }));
       case 'UpdateNodeNotes':
         return toLegacyResult(await workflow.updateNodeNotes({ nodeId: command.nodeId, notes: command.notes }));

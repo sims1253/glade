@@ -13,7 +13,7 @@ import {
   type ServerProcessHandle,
   waitForServer,
 } from './server-process';
-import { loadDesktopSettings } from './settings';
+import { defaultProjectPath, loadDesktopSettings } from './settings';
 import { runSmokeScenario } from './smoke-runner';
 
 let mainWindow: BrowserWindow | null = null;
@@ -27,14 +27,6 @@ let updateState: DesktopUpdateState = {
 };
 const runtimeLogTail: string[] = [];
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
-
-function shouldLogSmokeConsoleMessage(message: string) {
-  return !(
-    message.includes('Electron Security Warning') ||
-    message.includes("Cannot read properties of undefined (reading 'dimensions')") ||
-    message.includes('org.eclipse.elk.graph.json.JsonImportException')
-  );
-}
 
 function appendRuntimeLog(line: string) {
   runtimeLogTail.push(line);
@@ -274,20 +266,16 @@ function createWindow() {
     mainWindow = null;
   });
 
+  const smokeScenario = process.env.BAYESGROVE_SMOKE_SCENARIO?.trim();
   window.webContents.on('did-finish-load', () => {
     window.webContents.send('glade:update-state', updateState);
-    const smokeScenario = process.env.BAYESGROVE_SMOKE_SCENARIO?.trim();
     if (smokeScenario) {
-      window.webContents.on('console-message', (_event) => {
-        const { level, message } = _event;
-        if (shouldLogSmokeConsoleMessage(message)) {
-          console.log(`[renderer:${level}] ${message}`);
-        }
-      });
       void runSmokeScenario(window, smokeScenario)
         .then(() => app.quit())
         .catch((error) => {
-          console.error(`[desktop] smoke scenario ${smokeScenario} failed`, error);
+          const message = `Smoke scenario failed: ${error instanceof Error ? error.message : String(error)}`;
+          appendRuntimeLog(message);
+          console.error(message);
           process.exitCode = 1;
           app.quit();
         });
@@ -314,10 +302,12 @@ function attachBackendLifecycle(handle: ServerProcessHandle) {
 }
 
 async function ensureServerProcess() {
+  const stateDir = app.getPath('userData');
+
   await stopServerProcess(backendProcess);
   backendProcess = await startServerProcess({
-    projectPath: process.env.BAYESGROVE_PROJECT_PATH?.trim() || null,
-    stateDir: app.getPath('userData'),
+    projectPath: defaultProjectPath(stateDir),
+    stateDir,
     onLogLine: appendRuntimeLog,
   });
   attachBackendLifecycle(backendProcess);
@@ -441,7 +431,6 @@ app
   .whenReady()
   .then(() => bootstrap())
   .catch((error) => {
-    console.error('[desktop] failed to start', error);
     dialog.showErrorBox(
       'Glade Failed to Start',
       `The desktop application could not be started.\n\n${error instanceof Error ? error.message : String(error)}\n\nLogs:\n${runtimeLogTail.slice(-15).join('\n')}`

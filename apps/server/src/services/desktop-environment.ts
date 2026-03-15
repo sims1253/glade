@@ -1,8 +1,7 @@
-import { execFile, spawnSync } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
@@ -15,6 +14,8 @@ import type {
   DesktopPreflightState,
   DesktopSettings,
 } from '@glade/contracts';
+import { DEFAULT_DESKTOP_SETTINGS, normalizeDesktopSettings as baseNormalizeDesktopSettings } from '@glade/shared';
+import { runBufferedProcess, type BufferedProcessResult } from '@glade/shared/process';
 
 import { ServerConfig } from '../config';
 import { CommandDispatchError } from '../errors';
@@ -23,27 +24,11 @@ const PROBE_TIMEOUT_MS = 10_000;
 const COMMAND_EXISTS_TIMEOUT_MS = 1_500;
 const COMMAND_EXISTS_CACHE_TTL_MS = 30_000;
 const EDITOR_CANDIDATES = ['code', 'positron', 'cursor', 'nvim', 'vim'];
-const execFileAsync = promisify(execFile);
-const commandExistsCache = new Map<string, { readonly expiresAt: number; readonly promise: Promise<boolean> }>();
 
-const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
-  rExecutablePath: 'Rscript',
-  editorCommand: 'auto',
-  updateChannel: 'stable',
+type CommandExistsEntry = {
+  readonly expiresAt: number;
+  readonly promise: Promise<boolean>;
 };
-
-function isSupportedUpdateChannel(value: unknown): value is DesktopSettings['updateChannel'] {
-  return value === 'stable' || value === 'beta';
-}
-
-function normalizeExecutable(value: unknown, fallback: string) {
-  if (typeof value !== 'string') {
-    return fallback;
-  }
-
-  const trimmed = value.trim();
-  return trimmed || fallback;
-}
 
 function normalizeProjectPath(value: unknown) {
   if (typeof value !== 'string') {
@@ -51,18 +36,27 @@ function normalizeProjectPath(value: unknown) {
   }
 
   const trimmed = value.trim();
-  return trimmed || undefined;
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed === '~') {
+    return os.homedir();
+  }
+
+  if (trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+    return path.join(os.homedir(), trimmed.slice(2));
+  }
+
+  return trimmed;
 }
 
 export function normalizeDesktopSettings(input: unknown): DesktopSettings {
   const source = input && typeof input === 'object' ? input as Partial<DesktopSettings> : {};
   const projectPath = normalizeProjectPath(source.projectPath);
+  const base = baseNormalizeDesktopSettings(source);
   return {
-    rExecutablePath: normalizeExecutable(source.rExecutablePath, DEFAULT_DESKTOP_SETTINGS.rExecutablePath),
-    editorCommand: normalizeExecutable(source.editorCommand, DEFAULT_DESKTOP_SETTINGS.editorCommand),
-    updateChannel: isSupportedUpdateChannel(source.updateChannel)
-      ? source.updateChannel
-      : DEFAULT_DESKTOP_SETTINGS.updateChannel,
+    ...base,
     ...(projectPath ? { projectPath } : {}),
   };
 }
@@ -82,7 +76,6 @@ async function loadDesktopSettings(stateDir: string) {
       return normalizeDesktopSettings(JSON.parse(raw));
     } catch (error) {
       if (error instanceof SyntaxError) {
-        console.warn(`[server] settings file is malformed, using defaults: ${error.message}`);
         return DEFAULT_DESKTOP_SETTINGS;
       }
       throw error;
@@ -117,19 +110,18 @@ function describePreflightIssues(environment: DesktopEnvironmentState) {
   return message || 'Could not bootstrap the selected Bayesgrove project.';
 }
 
-async function commandExists(command: string) {
-  const cached = commandExistsCache.get(command);
+async function commandExists(command: string, cache: Map<string, CommandExistsEntry>) {
+  const cached = cache.get(command);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.promise;
   }
 
-  const pending = execFileAsync(command, ['--version'], {
-    timeout: COMMAND_EXISTS_TIMEOUT_MS,
-    windowsHide: true,
-  })
-    .then(() => true)
+  const pending = runBufferedProcess(
+    { command, args: ['--version'], timeoutMs: COMMAND_EXISTS_TIMEOUT_MS },
+  )
+    .then(({ exitCode }) => exitCode === 0)
     .catch(() => false);
-  commandExistsCache.set(command, {
+  cache.set(command, {
     expiresAt: Date.now() + COMMAND_EXISTS_CACHE_TTL_MS,
     promise: pending,
   });
@@ -170,16 +162,18 @@ function environmentInspectionIssue(message: string): DesktopPreflightIssue {
   };
 }
 
-function runProbe(rExecutablePath: string, expression: string) {
-  return spawnSync(rExecutablePath, ['-e', expression], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: process.env,
-    timeout: PROBE_TIMEOUT_MS,
-    encoding: 'utf8',
-  });
+async function runProbe(rExecutablePath: string, expression: string) {
+  const result = await runBufferedProcess(
+    {
+      command: rExecutablePath,
+      args: ['-e', expression],
+      timeoutMs: PROBE_TIMEOUT_MS,
+    },
+  );
+  return result;
 }
 
-function probeMessages(probe: ReturnType<typeof runProbe>) {
+function probeMessages(probe: BufferedProcessResult): Array<string> {
   return [probe.stderr, probe.stdout]
     .flatMap((chunk) => typeof chunk === 'string' ? chunk.split(/\r?\n/u) : [])
     .map((line) => line.trim())
@@ -199,21 +193,24 @@ function prepareProjectExpression(projectPath: string) {
   ].join('; ');
 }
 
-function describeProbeFailure(probe: ReturnType<typeof runProbe>, fallback: string) {
+function describeProbeFailure(probe: Awaited<ReturnType<typeof runProbe>>, fallback: string) {
   const snippet = probeMessages(probe).join(' ');
   return snippet ? `${fallback} ${snippet}` : fallback;
 }
 
-export function runDesktopPreflight(settings: DesktopSettings, projectPath: string): DesktopPreflightState {
+export async function runDesktopPreflight(settings: DesktopSettings, projectPath: string): Promise<DesktopPreflightState> {
   const issues: DesktopPreflightIssue[] = [];
 
-  const rProbe = spawnSync(settings.rExecutablePath, ['--version'], {
-    stdio: 'ignore',
-    env: process.env,
-    timeout: PROBE_TIMEOUT_MS,
-  });
-
-  if (rProbe.error || rProbe.status !== 0 || rProbe.signal) {
+  let rProbe: BufferedProcessResult;
+  try {
+    rProbe = await runBufferedProcess(
+      {
+        command: settings.rExecutablePath,
+        args: ['--version'],
+        timeoutMs: PROBE_TIMEOUT_MS,
+      },
+    );
+  } catch {
     issues.push(missingRIssue(settings.rExecutablePath));
     return {
       checkedAt: new Date().toISOString(),
@@ -223,12 +220,33 @@ export function runDesktopPreflight(settings: DesktopSettings, projectPath: stri
     };
   }
 
-  const bayesgroveProbe = runProbe(
-    settings.rExecutablePath,
-    'quit(status = if (requireNamespace("bayesgrove", quietly = TRUE)) 0 else 2)',
-  );
+  if (rProbe.exitCode !== 0 && rProbe.exitCode !== null) {
+    issues.push(missingRIssue(settings.rExecutablePath));
+    return {
+      checkedAt: new Date().toISOString(),
+      projectPath,
+      status: 'action_required',
+      issues,
+    };
+  }
 
-  if (bayesgroveProbe.status === 2) {
+  let bayesgroveProbe: BufferedProcessResult;
+  try {
+    bayesgroveProbe = await runProbe(
+      settings.rExecutablePath,
+      'quit(status = if (requireNamespace("bayesgrove", quietly = TRUE)) 0 else 2)',
+    );
+  } catch {
+    issues.push(environmentInspectionIssue(`Failed to check bayesgrove package availability.`));
+    return {
+      checkedAt: new Date().toISOString(),
+      projectPath,
+      status: 'action_required',
+      issues,
+    };
+  }
+
+  if (bayesgroveProbe.exitCode === 2) {
     issues.push(missingBayesgroveIssue(settings.rExecutablePath));
     return {
       checkedAt: new Date().toISOString(),
@@ -238,23 +256,30 @@ export function runDesktopPreflight(settings: DesktopSettings, projectPath: stri
     };
   }
 
-  if (bayesgroveProbe.error) {
-    issues.push(environmentInspectionIssue(`Failed to inspect the R environment: ${bayesgroveProbe.error.message}`));
-  } else if (bayesgroveProbe.status !== 0) {
+  if (bayesgroveProbe.exitCode !== null && bayesgroveProbe.exitCode !== 0) {
     issues.push(environmentInspectionIssue(describeProbeFailure(
       bayesgroveProbe,
-      `R exited with status ${bayesgroveProbe.status} while checking bayesgrove.`,
+      `R exited with status ${bayesgroveProbe.exitCode} while checking bayesgrove.`,
     )));
-  } else {
+  } else if (bayesgroveProbe.exitCode === 0) {
     mkdirSync(projectPath, { recursive: true });
-    const bootstrap = runProbe(settings.rExecutablePath, prepareProjectExpression(projectPath));
+    let bootstrap: BufferedProcessResult;
+    try {
+      bootstrap = await runProbe(settings.rExecutablePath, prepareProjectExpression(projectPath));
+    } catch {
+      issues.push(projectBootstrapIssue(`Failed to run project bootstrap probe.`));
+      return {
+        checkedAt: new Date().toISOString(),
+        projectPath,
+        status: 'action_required',
+        issues,
+      };
+    }
 
-    if (bootstrap.error) {
-      issues.push(projectBootstrapIssue(`Failed to inspect or initialize the project directory: ${bootstrap.error.message}`));
-    } else if (bootstrap.status !== 0) {
+    if (bootstrap.exitCode !== null && bootstrap.exitCode !== 0) {
       issues.push(projectBootstrapIssue(describeProbeFailure(
         bootstrap,
-        `R exited with status ${bootstrap.status} while opening or initializing the project directory.`,
+        `R exited with status ${bootstrap.exitCode} while opening or initializing the project directory.`,
       )));
     }
   }
@@ -267,7 +292,7 @@ export function runDesktopPreflight(settings: DesktopSettings, projectPath: stri
   };
 }
 
-async function resolveEditorCommand(settings: DesktopSettings) {
+async function resolveEditorCommand(settings: DesktopSettings, cache: Map<string, CommandExistsEntry>) {
   if (settings.editorCommand !== 'auto') {
     return settings.editorCommand;
   }
@@ -278,7 +303,7 @@ async function resolveEditorCommand(settings: DesktopSettings) {
   }
 
   for (const candidate of EDITOR_CANDIDATES) {
-    if (await commandExists(candidate)) {
+    if (await commandExists(candidate, cache)) {
       return candidate;
     }
   }
@@ -288,10 +313,10 @@ async function resolveEditorCommand(settings: DesktopSettings) {
 
 async function loadDesktopEnvironmentState(stateDir: string, projectPathOverride: string | null) {
   const settings = await loadDesktopSettings(stateDir);
-  const projectPath = projectPathOverride ?? settings.projectPath ?? defaultProjectPath(stateDir);
+  const projectPath = normalizeProjectPath(projectPathOverride ?? settings.projectPath ?? defaultProjectPath(stateDir)) ?? defaultProjectPath(stateDir);
   return {
     settings,
-    preflight: runDesktopPreflight(settings, projectPath),
+    preflight: await runDesktopPreflight(settings, projectPath),
   } satisfies DesktopEnvironmentState;
 }
 
@@ -317,10 +342,9 @@ export const DesktopEnvironmentServiceLive = Layer.scoped(
     const config = yield* ServerConfig;
     const initialState = yield* Effect.tryPromise(() => loadDesktopEnvironmentState(config.stateDir, config.projectPath));
     const stateRef = yield* Ref.make(initialState);
+    const commandExistsCache = yield* Ref.make(new Map<string, CommandExistsEntry>());
 
-    const refreshState = Effect.sync(() => {
-      commandExistsCache.clear();
-    }).pipe(
+    const refreshState = Ref.set(commandExistsCache, new Map<string, CommandExistsEntry>()).pipe(
       Effect.zipRight(Effect.tryPromise(() => loadDesktopEnvironmentState(config.stateDir, config.projectPath))),
       Effect.tap((state) => Ref.set(stateRef, state)),
     );
@@ -367,11 +391,12 @@ export const DesktopEnvironmentServiceLive = Layer.scoped(
 
     const getSessionRuntime = getState.pipe(
       Effect.flatMap((state) =>
-        Effect.tryPromise(async () => ({
-          projectPath: state.preflight.projectPath,
-          rExecutablePath: state.settings.rExecutablePath,
-          editorCommand: await resolveEditorCommand(state.settings),
-        }))),
+        Effect.flatMap(Ref.get(commandExistsCache), (cache) =>
+          Effect.tryPromise(async () => ({
+            projectPath: state.preflight.projectPath,
+            rExecutablePath: state.settings.rExecutablePath,
+            editorCommand: await resolveEditorCommand(state.settings, cache),
+          })))),
     );
 
     return {

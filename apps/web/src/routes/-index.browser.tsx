@@ -208,6 +208,18 @@ function clickButton(label: string) {
   button.click();
 }
 
+function clickButtonByTitle(title: string) {
+  const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((candidate) =>
+    candidate.title === title,
+  );
+
+  if (!button) {
+    throw new Error(`Could not find button with title: ${title}`);
+  }
+
+  button.click();
+}
+
 describe('IndexRoute browser smoke', () => {
   beforeEach(() => {
     fitMock.mockReset();
@@ -288,7 +300,7 @@ describe('IndexRoute browser smoke', () => {
     try {
       await waitForText('Setup required:');
       await waitForText('need attention before running workflows.');
-      clickButton('View health');
+      clickButtonByTitle('System health');
       await waitForText('Live server status without navigating away from the app window.');
       expect(document.body.textContent).toContain('/health');
       clickButton('Close');

@@ -28,7 +28,8 @@ function unpackMessage(message: Message): Message[] {
   if (
     message.channel === 'workflow.snapshot' ||
     message.channel === 'workflow.event' ||
-    message.channel === 'repl.output'
+    message.channel === 'repl.output' ||
+    message.channel === 'repl.rawOutput'
   ) {
     normalized.push(payload as Message);
   }

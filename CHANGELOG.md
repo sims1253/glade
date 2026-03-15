@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.14.0 - 2026-03-15
+
+- Verified compatibility with bayesgrove 0.4.9 (protocol messages, command registry, and all API functions remain compatible).
+- Addressed CodeRabbit review: added missing `--amber-bg` and `--red` CSS variables in `showcase.astro`, replaced malformed SVG icons with valid Lucide icons, added `notesPending` guard to prevent concurrent note submissions, and normalized project path before passing to `runDesktopPreflight`.
+- Refactored integration test architecture to decouple command acknowledgment from snapshot arrival, with explicit state assertions after each mutation for improved CI reliability.
+
+## 0.13.9 - 2026-03-15
+
+- Fixed CI integration test flakiness in `interactive-graph.integration.test.ts` by decoupling command acknowledgment from snapshot arrival and explicitly waiting for expected graph state after each mutation.
+
+## 0.13.8 - 2026-03-15
+
+- Fixed CI integration test failure in `interactive-graph.integration.test.ts` by waiting for a snapshot with at least one node instead of assuming the latest snapshot contains new nodes immediately after `addNode`.
+- Added missing `--amber-bg` and `--red` CSS custom properties in `showcase.astro` that were referenced but undefined, causing broken warning backgrounds and error text coloring.
+- Replaced malformed placeholder SVG icons in `showcase.astro` topbar with valid Lucide icons (GitHub, Package, Terminal).
+- Added `notesPending` guard to `submitNotes` in workspace-shell to prevent concurrent note submissions.
+- Normalized `projectPath` in `loadDesktopEnvironmentState` before passing to `runDesktopPreflight` to correctly handle `~` expansion.
+
+## 0.13.7 - 2026-03-14
+
+- Fixed CI integration test failure in `interactive-graph.integration.test.ts` by removing string-based `input_contract` arguments from `bg_register_node_kind` calls that are incompatible with the updated `dagriculture` validation.
+- Fixed workflow packs dialog backdrop accessibility by replacing `role="presentation"` with `role="button"` and adding proper keyboard support (Enter/Space/Escape).
+- Removed duplicate changelog entries from version 0.13.4.
+
+## 0.13.6 - 2026-03-14
+
+- Fixed browser test failure by using the header health button (`title="System health"`) instead of a non-existent "View health" text button in the preflight banner.
+
+## 0.13.5 - 2026-03-14
+
+- Fixed CI test failures in `health.test.ts` and `repl.test.ts` by gracefully handling missing `Rscript` executable in `runDesktopPreflight`.
+- Fixed CI typecheck failures in `execute-action.test.ts` by narrowing discriminated union types before accessing `args` properties.
+- Removed unnecessary `Effect.gen` wrapper in `desktop-environment.ts` that triggered the `unnecessaryEffectGen` lint warning.
+- Added keyboard accessibility to the workflow packs dialog backdrop.
+- Updated marketing pages from `v0.13.2` to `v0.13.4`.
+- Fixed incomplete TODO issue URL in `server-edge.test.ts`.
+- Added `console.error` logging for smoke test failures in desktop main process.
+
+## 0.13.4 - 2026-03-14
+
+- Fixed CI lint failures by removing unused imports and prefixing unused parameters across server and web packages.
+- Fixed graph selection being cleared when closing inactive node tabs by only clearing selection when the active tab is closed.
+- Fixed node notes save leaving the UI in a stuck pending state by wrapping `submitNotes` in try/catch/finally.
+- Added keyboard accessibility (Escape to close, focus trap) to the workflow packs dialog.
+- Fixed cross-test storage contamination in vitest setup by clearing localStorage/sessionStorage between tests.
+- Stopped tracking generated Astro build artifacts (`.astro/`) in version control.
+- Hardened smoke-test port validation to reject non-numeric input and out-of-range ports.
+- Added smoke failure logging before exit so failures are not silent.
+- Fixed platform-specific temp path in smoke runner by using `os.tmpdir()` instead of hardcoded `/tmp/`.
+- Added missing `rawLines` initialization in connection test setup.
+- Refactored inline snapshot publishing in server-edge to use the shared `publishWorkflowSnapshot` helper.
+- Fixed marketing pages: replaced placeholder links, corrected malformed HTML, fixed invalid CSS properties, resolved undefined CSS variables, and replaced unavailable Google Font imports.
+
+## 0.13.2 - 2026-03-14
+
+- Fixed node tab closing not working by clearing the graph store's selected node when closing tabs, preventing immediate re-addition by the sync effect.
+- Enabled `NodeDetailDrawer` in the workspace shell so clicking nodes on the canvas shows the full editing interface with notes, parameters (when schema exists), linked files, and lineage.
+- Added editable notes to the `NodeWorkbenchPanel` in node tabs, allowing users to edit node notes directly from the tab view.
+- Fixed lint warnings in desktop smoke runner related to unnecessary escape characters in regex patterns.
+- Fixed type error in desktop main process by using `defaultProjectPath` instead of accessing non-existent `projectPath` from settings.
+
 ## 0.13.1 - 2026-03-13
 
 - Added a GUI-first project setup flow with a dedicated `/welcome` route, a canonical `desktop.bootstrapProject` RPC, and improved desktop project-path persistence so users can open or initialize Bayesgrove projects without dropping to the REPL first.

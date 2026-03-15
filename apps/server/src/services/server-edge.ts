@@ -31,6 +31,7 @@ import {
   WS_METHODS,
 } from '@glade/contracts';
 import { decodeJsonResult, decodeUnknownResult, formatSchemaError } from '@glade/shared';
+import { asRecord } from '@glade/shared';
 
 import { ServerConfig } from '../config';
 import {
@@ -41,7 +42,7 @@ import { BayesgroveSocket } from './bayesgrove-socket';
 import { toExecuteActionCommand } from './execute-action';
 import { GraphStateCache } from './graph-state-cache';
 import { RProcessService } from './r-process';
-import { SessionStatusStore } from './session-status';
+import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { DesktopEnvironmentService } from './desktop-environment';
 import { WebSocketHub } from './websocket-hub';
 
@@ -62,6 +63,10 @@ type PendingRequest = {
   readonly socket: WebSocket;
   readonly method: WebSocketRequestMessage['method'];
 };
+
+function asObject(value: unknown): JsonObject | null {
+  return asRecord(value) as JsonObject | null;
+}
 
 function ackResult(): AckResult {
   return { _tag: 'AckResult' };
@@ -102,23 +107,14 @@ function errorResponse(
   } as WebSocketResponse;
 }
 
-function sessionStatus(state: SessionStatus['state'], reason?: string): SessionStatus {
-  return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
-}
-
-function asObject(value: unknown): JsonObject | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as JsonObject)
-    : null;
-}
-
 function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnapshot | null {
   const state = asObject(result);
   if (!state) {
     return null;
   }
 
-  return normalizeGraphSnapshotExtensions({
+  try {
+    return normalizeGraphSnapshotExtensions({
     protocol_version: protocolVersion,
     message_type: 'GraphSnapshot',
     emitted_at: new Date().toISOString(),
@@ -149,112 +145,42 @@ function wrapSnapshotResult(result: unknown, protocolVersion: string): GraphSnap
     ...(state.command_surface === undefined ? {} : { command_surface: state.command_surface as GraphSnapshot['command_surface'] }),
     ...(state.extension_registry === undefined ? {} : { extension_registry: state.extension_registry as GraphSnapshot['extension_registry'] }),
   });
+  } catch {
+    return null;
+  }
 }
 
 function toBayesgroveCommand(
   id: string,
   request: Extract<WebSocketRequestMessage, { method: `workflow.${string}` }>,
 ): BayesgroveCommand {
+  const header = {
+    protocol_version: '0.1.0',
+    message_type: 'Command' as const,
+    command_id: id,
+  };
+
   switch (request.method) {
     case 'workflow.addNode':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_add_node',
-        args: {
-          kind: request.body.kind,
-          label: request.body.label,
-          params: request.body.params,
-          inputs: request.body.inputs,
-          metadata: request.body.metadata,
-        },
-      };
+      return { ...header, command: 'bg_add_node', args: { kind: request.body.kind, label: request.body.label, params: request.body.params, inputs: request.body.inputs, metadata: request.body.metadata } };
     case 'workflow.deleteNode':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_remove_node',
-        args: { node_id: request.body.nodeId },
-      };
+      return { ...header, command: 'bg_remove_node', args: { node_id: request.body.nodeId } };
     case 'workflow.connectNodes':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_connect',
-        args: {
-          from: request.body.from,
-          to: request.body.to,
-          edge_type: request.body.edgeType,
-          metadata: request.body.metadata,
-        },
-      };
+      return { ...header, command: 'bg_connect', args: { from: request.body.from, to: request.body.to, edge_type: request.body.edgeType, metadata: request.body.metadata } };
     case 'workflow.renameNode':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_update_node',
-        args: { node_id: request.body.nodeId, label: request.body.label },
-      };
+      return { ...header, command: 'bg_update_node', args: { node_id: request.body.nodeId, label: request.body.label } };
     case 'workflow.recordDecision':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_record_decision',
-        args: {
-          scope: request.body.scope,
-          prompt: request.body.prompt,
-          choice: request.body.choice,
-          alternatives: request.body.alternatives,
-          rationale: request.body.rationale,
-          refs: request.body.refs,
-          evidence: request.body.evidence,
-          kind: request.body.kind,
-          metadata: request.body.metadata,
-        },
-      };
+      return { ...header, command: 'bg_record_decision', args: { scope: request.body.scope, prompt: request.body.prompt, choice: request.body.choice, alternatives: request.body.alternatives, rationale: request.body.rationale, refs: request.body.refs, evidence: request.body.evidence, kind: request.body.kind, metadata: request.body.metadata } };
+    case 'workflow.useDefaultWorkflow':
+      return { ...header, command: 'bg_use_default_workflow', args: {} };
+    case 'workflow.useWorkflowPacks':
+      return { ...header, command: 'bg_use_workflow_packs', args: { workflow_packs: request.body.workflowPacks } };
     case 'workflow.updateNodeNotes':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_update_node',
-        args: {
-          node_id: request.body.nodeId,
-          metadata: {
-            notes: request.body.notes,
-          } satisfies JsonObject,
-        },
-      };
+      return { ...header, command: 'bg_update_node', args: { node_id: request.body.nodeId, metadata: { notes: request.body.notes } satisfies JsonObject } };
     case 'workflow.updateNodeParameters':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_update_node',
-        args: {
-          node_id: request.body.nodeId,
-          params: request.body.params,
-        },
-      };
+      return { ...header, command: 'bg_update_node', args: { node_id: request.body.nodeId, params: request.body.params } };
     case 'workflow.setNodeFile':
-      return {
-        protocol_version: '0.1.0',
-        message_type: 'Command',
-        command_id: id,
-        command: 'bg_update_node',
-        args: {
-          node_id: request.body.nodeId,
-          metadata: {
-            linked_file: request.body.path,
-            file_path: request.body.path,
-          } satisfies JsonObject,
-        },
-      };
+      return { ...header, command: 'bg_update_node', args: { node_id: request.body.nodeId, metadata: { linked_file: request.body.path, file_path: request.body.path } satisfies JsonObject } };
     default:
       throw new CommandDispatchError({
         code: 'unsupported_workflow_command',
@@ -328,13 +254,7 @@ export const ServerEdgeLive = Layer.scoped(
     const pendingRequests = yield* Ref.make(new Map<string, PendingRequest>());
     const refreshInFlight = yield* Ref.make(false);
 
-    const publishStatus = (state: SessionStatus['state'], reason?: string) =>
-      Effect.gen(function* () {
-        const next = sessionStatus(state, reason);
-        yield* statusStore.set(next);
-        const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
-        yield* hub.broadcast(push);
-      });
+    const publishStatus = createStatusPublisher(statusStore, hub);
 
     const publishDesktopEnvironment = (state: DesktopEnvironmentState) => {
       const push: WsPush = { _tag: 'WsPush', channel: 'desktop.environment', payload: state };
@@ -362,10 +282,13 @@ export const ServerEdgeLive = Layer.scoped(
       );
     });
 
-    const prepareSnapshot = (snapshot: GraphSnapshot) => Effect.succeed(snapshot);
-    const registerPending = (id: string, method: WebSocketRequestMessage['method'], socket: WebSocket) =>
-      Ref.update(pendingRequests, (current) => new Map(current).set(id, { socket, method }));
-
+    const publishWorkflowSnapshot = (snapshot: GraphSnapshot) =>
+      Effect.gen(function* () {
+        yield* cache.writeSnapshot(snapshot);
+        yield* publishStatus('ready');
+        const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: snapshot };
+        yield* hub.broadcast(push);
+      });
     const handleCommandResult = (result: BayesgroveCommandResult) =>
       Effect.gen(function* () {
         if (result.command_id.startsWith(INTERNAL_SNAPSHOT_PREFIX)) {
@@ -373,14 +296,17 @@ export const ServerEdgeLive = Layer.scoped(
           if (result.ok) {
             const snapshot = wrapSnapshotResult(result.result, result.protocol_version);
             if (snapshot) {
-              const preparedSnapshot = yield* prepareSnapshot(snapshot);
-              yield* cache.writeSnapshot(preparedSnapshot);
-              yield* publishStatus('ready');
-              const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: preparedSnapshot };
-              yield* hub.broadcast(push);
+              yield* publishWorkflowSnapshot(snapshot);
             }
           }
           return;
+        }
+
+        if (result.ok) {
+          const snapshot = wrapSnapshotResult(result.result, result.protocol_version);
+          if (snapshot) {
+            yield* publishWorkflowSnapshot(snapshot);
+          }
         }
 
         const requestMap = yield* Ref.get(pendingRequests);
@@ -410,11 +336,8 @@ export const ServerEdgeLive = Layer.scoped(
     const handleBayesgroveMessage = (message: GraphSnapshot | ProtocolEvent | BayesgroveCommandResult) =>
       Effect.gen(function* () {
         if ('message_type' in message && message.message_type === 'GraphSnapshot') {
-          const preparedSnapshot = yield* prepareSnapshot(message);
-          yield* cache.writeSnapshot(preparedSnapshot);
-          yield* publishStatus('ready');
-          const push: WsPush = { _tag: 'WsPush', channel: 'workflow.snapshot', payload: preparedSnapshot };
-          yield* hub.broadcast(push);
+          yield* Ref.set(refreshInFlight, false);
+          yield* publishWorkflowSnapshot(message);
           return;
         }
 
@@ -432,6 +355,15 @@ export const ServerEdgeLive = Layer.scoped(
     yield* Effect.forkScoped(
       Stream.runForEach(bayesgroveSocket.messages, (message) => handleBayesgroveMessage(message)),
     );
+
+    const refreshSession = Effect.gen(function* () {
+      yield* cache.clear;
+      yield* Ref.set(refreshInFlight, false);
+      yield* bayesgroveSocket.disconnect;
+      yield* rProcess.restart;
+      yield* bayesgroveSocket.connect;
+      yield* requestSnapshotRefresh;
+    });
 
     const runImmediateRequest = (
       socket: WebSocket,
@@ -472,6 +404,7 @@ export const ServerEdgeLive = Layer.scoped(
               ),
             );
             yield* publishDesktopEnvironment(result);
+            yield* refreshSession;
             yield* hub.send(socket, successResponse(request.id, request.method, result));
             return;
           }
@@ -496,11 +429,7 @@ export const ServerEdgeLive = Layer.scoped(
           case 'session.restart': {
             const nextEnvironment = yield* desktopEnvironment.refreshState;
             yield* publishDesktopEnvironment(nextEnvironment);
-            yield* cache.clear;
-            yield* bayesgroveSocket.disconnect;
-            yield* rProcess.restart;
-            yield* bayesgroveSocket.connect;
-            yield* requestSnapshotRefresh;
+            yield* refreshSession;
             yield* hub.send(socket, successResponse(request.id, request.method, ackResult()));
             return;
           }
@@ -513,6 +442,7 @@ export const ServerEdgeLive = Layer.scoped(
             }
 
             yield* rProcess.sendInput(request.body.data);
+            yield* requestSnapshotRefresh;
             yield* hub.send(socket, successResponse(request.id, request.method, ackResult()));
             return;
           }
@@ -548,7 +478,10 @@ export const ServerEdgeLive = Layer.scoped(
             try: () => toExecuteActionCommand(request.id, request.body, Option.getOrNull(snapshot)),
             catch: wrapCommandMappingError,
           });
-          yield* registerPending(request.id, request.method, socket);
+          yield* Ref.update(
+            pendingRequests,
+            (current) => new Map(current).set(request.id, { socket, method: request.method }),
+          );
           yield* bayesgroveSocket.send(rawCommand);
           return;
         }
@@ -558,7 +491,10 @@ export const ServerEdgeLive = Layer.scoped(
           catch: wrapCommandMappingError,
         });
 
-        yield* registerPending(request.id, request.method, socket);
+        yield* Ref.update(
+          pendingRequests,
+          (current) => new Map(current).set(request.id, { socket, method: request.method }),
+        );
         yield* bayesgroveSocket.send(rawCommand);
       });
 

@@ -4,16 +4,16 @@ import * as Layer from 'effect/Layer';
 import * as Ref from 'effect/Ref';
 import * as Runtime from 'effect/Runtime';
 
-import type { ReplOutput, SessionStatus, WsPush } from '@glade/contracts';
+import type { ReplOutput, ReplRawOutput, WsPush } from '@glade/contracts';
 import { createLineBuffer } from '@glade/shared/logging';
 
 import { ServerConfig } from '../config';
 import { RProcessInputError } from '../errors';
-import { describeUnknown, writeRDiagnosticsLine } from '../runtime-logging';
+import { stringifyUnknown, writeRDiagnosticsLine } from '../runtime-logging';
 import { GraphStateCache } from './graph-state-cache';
 import { ProcessSupervisor, type SupervisedProcessHandle } from './process-supervisor';
 import { DesktopEnvironmentService } from './desktop-environment';
-import { SessionStatusStore } from './session-status';
+import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { WebSocketHub } from './websocket-hub';
 
 export const R_READY_SIGNAL = '__GLADE_READY__';
@@ -45,10 +45,6 @@ export function classifyReplLine(line: string) {
   }
 
   return 'console' as const;
-}
-
-function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
-  return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
 }
 
 function makeRExpression(projectPath: string, host: string, port: number, pollInterval: number) {
@@ -119,13 +115,7 @@ export const RProcessServiceLive = Layer.scoped(
     const stoppingRef = yield* Ref.make(false);
     const readySeenRef = yield* Ref.make(false);
 
-    const publishStatus = (state: SessionStatus['state'], reason?: string) =>
-      Effect.gen(function* () {
-        const next = statusMessage(state, reason);
-        yield* statusStore.set(next);
-        const push: WsPush = { _tag: 'WsPush', channel: 'session.status', payload: next };
-        yield* hub.broadcast(push);
-      });
+    const publishStatus = createStatusPublisher(statusStore, hub);
 
     const publishReplLine = (line: string) =>
       Effect.gen(function* () {
@@ -135,11 +125,20 @@ export const RProcessServiceLive = Layer.scoped(
         yield* hub.broadcast(push);
       });
 
+    const publishRawReplLine = (line: string) =>
+      Effect.gen(function* () {
+        const payload: ReplRawOutput = { _tag: 'ReplRawOutput', line };
+        const push: WsPush = { _tag: 'WsPush', channel: 'repl.rawOutput', payload };
+        yield* hub.broadcast(push);
+      });
+
     const handleLine = (line: string) =>
       Effect.gen(function* () {
         if (yield* Ref.get(stoppingRef)) {
           return;
         }
+
+        yield* publishRawReplLine(line);
 
         switch (classifyReplLine(line)) {
           case 'ready-signal':
@@ -161,7 +160,7 @@ export const RProcessServiceLive = Layer.scoped(
         console.error('[r-process] failed to handle REPL line', error);
         void writeRDiagnosticsLine(
           config.stateDir,
-          `failed to handle ${channel} line: ${describeUnknown(error)}`,
+          `failed to handle ${channel} line: ${stringifyUnknown(error)}`,
         ).catch(() => undefined);
       });
     };
@@ -218,14 +217,17 @@ export const RProcessServiceLive = Layer.scoped(
       yield* Ref.set(stoppingRef, false);
       yield* Ref.set(readySeenRef, false);
       yield* publishStatus('connecting');
-      yield* Effect.tryPromise(() => writeRDiagnosticsLine(config.stateDir, 'starting R process')).pipe(
+      yield* Effect.tryPromise(() => writeRDiagnosticsLine(
+        config.stateDir,
+        `starting R process (projectPath=${runtime.projectPath}, cwd=${runtime.projectPath})`,
+      )).pipe(
         Effect.catchAll(() => Effect.void),
       );
 
       const currentProcess = yield* supervisor.spawn({
         command: runtime.rExecutablePath,
         args: ['-e', makeRExpression(runtime.projectPath, config.rHost, config.rPort, config.rPollInterval)],
-        cwd: config.rootDir,
+        cwd: runtime.projectPath,
         env: process.env,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
@@ -244,7 +246,7 @@ export const RProcessServiceLive = Layer.scoped(
       child.stdout.on('end', () => stdoutLines.flush());
       child.stderr.on('end', () => stderrLines.flush());
       child.once('error', (error) => {
-        void writeRDiagnosticsLine(config.stateDir, `process error: ${describeUnknown(error)}`).catch(() => undefined);
+        void writeRDiagnosticsLine(config.stateDir, `process error: ${stringifyUnknown(error)}`).catch(() => undefined);
         void Runtime.runPromise(
           effectRuntime,
           Effect.gen(function* () {

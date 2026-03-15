@@ -88,6 +88,7 @@ jobs:
       - name: Verify Artifacts
         run: |
           test -f apps/web/dist/index.html
+          test -f apps/marketing/dist/index.html
           test -f apps/desktop/dist-electron/main.cjs
           test -f apps/desktop/dist-electron/preload.cjs
           test -f apps/server/dist/index.mjs

@@ -5,23 +5,14 @@ import type {
   JsonValue,
   WorkflowExecuteActionInput,
 } from '@glade/contracts';
+import { asString, asStringArray, asRecord } from '@glade/shared';
 
 import { CommandDispatchError } from '../errors';
 
 type ExecuteActionCommand = WorkflowExecuteActionInput;
 
 function asObject(value: unknown): JsonObject | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as JsonObject)
-    : null;
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function asStringArray(value: unknown): Array<string> {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  return asRecord(value) as JsonObject | null;
 }
 
 function isJsonValue(value: unknown): value is JsonValue {

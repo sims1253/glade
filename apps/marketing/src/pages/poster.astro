@@ -1,0 +1,527 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Glade — Scientific Poster">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Libre+Franklin:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --poster-bg: #ffffff;
+      --poster-border: #1a3a5c;
+      --poster-accent: #2563eb;
+      --poster-accent-dark: #1e40af;
+      --poster-accent-light: #dbeafe;
+      --poster-header-bg: #1a3a5c;
+      --poster-header-text: #ffffff;
+      --poster-text: #1a1a1a;
+      --poster-text-secondary: #4a4a4a;
+      --poster-text-muted: #7a7a7a;
+      --poster-grid-bg: #f5f7fa;
+      --poster-code-bg: #eef1f6;
+      --poster-border-light: #d1d9e6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Libre Franklin', 'Helvetica Neue', sans-serif;
+      background: #e8ecf0;
+      color: var(--poster-text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .poster {
+      max-width: 1100px;
+      margin: 32px auto;
+      background: var(--poster-bg);
+      border: 3px solid var(--poster-border);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+    }
+
+    /* Header banner */
+    .poster-header {
+      background: var(--poster-header-bg);
+      color: var(--poster-header-text);
+      padding: 32px 40px 28px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 32px;
+      align-items: center;
+    }
+
+
+    .poster-header h1 {
+      font-family: 'EB Garamond', 'Georgia', serif;
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .poster-header h1 em {
+      font-style: italic;
+    }
+
+    .poster-header .authors {
+      font-size: 14px;
+      font-weight: 400;
+      opacity: 0.85;
+      margin-bottom: 4px;
+    }
+
+    .poster-header .affiliation {
+      font-size: 12px;
+      font-weight: 300;
+      opacity: 0.65;
+    }
+
+    .poster-header-right {
+      text-align: right;
+      font-size: 12px;
+      line-height: 1.6;
+      opacity: 0.7;
+    }
+
+    .poster-header-right .version-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    /* Body grid */
+    .poster-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .poster-col {
+      padding: 32px 36px;
+      border-right: 1px solid var(--poster-border-light);
+    }
+
+    .poster-col:last-child {
+      border-right: none;
+    }
+
+    /* Section styling */
+    .poster-section {
+      margin-bottom: 32px;
+    }
+
+    .poster-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .poster-section h2 {
+      font-family: 'Libre Franklin', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--poster-accent-dark);
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+      border-bottom: 2px solid var(--poster-accent);
+    }
+
+    .poster-section h3 {
+      font-family: 'EB Garamond', serif;
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .poster-section p {
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--poster-text-secondary);
+      margin-bottom: 10px;
+    }
+
+    /* Figure panels */
+    .figure-panel {
+      background: var(--poster-grid-bg);
+      border: 1px solid var(--poster-border-light);
+      padding: 20px;
+      margin: 12px 0;
+    }
+
+    .figure-panel-label {
+      font-family: 'Libre Franklin', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--poster-accent-dark);
+      margin-bottom: 12px;
+    }
+
+    .figure-panel-content {
+      text-align: center;
+      font-size: 13px;
+      padding: 8px 0;
+    }
+
+    .figure-panel-caption {
+      font-size: 11px;
+      color: var(--poster-text-muted);
+      text-align: center;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    .figure-panel-caption strong {
+      font-weight: 600;
+      color: var(--poster-text-secondary);
+    }
+
+    /* Node diagram */
+    .node-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 12px 0;
+    }
+
+    .nd {
+      padding: 8px 14px;
+      border: 1.5px solid var(--poster-border-light);
+      background: white;
+      font-family: 'Libre Franklin', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--poster-text-secondary);
+      transition: border-color 0.2s;
+    }
+
+    .nd.active {
+      border-color: var(--poster-accent);
+      color: var(--poster-accent-dark);
+      background: var(--poster-accent-light);
+    }
+
+    .nd-arrow {
+      color: var(--poster-border-light);
+      font-size: 12px;
+    }
+
+    /* Stats */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .stat-box {
+      background: var(--poster-grid-bg);
+      border: 1px solid var(--poster-border-light);
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat-box .stat-num {
+      font-family: 'EB Garamond', serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--poster-accent-dark);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-box .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--poster-text-muted);
+    }
+
+    /* Capability grid */
+    .cap-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .cap-item {
+      background: var(--poster-grid-bg);
+      border: 1px solid var(--poster-border-light);
+      padding: 14px;
+    }
+
+    .cap-item h4 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+      color: var(--poster-text);
+    }
+
+    .cap-item p {
+      font-size: 11px;
+      margin-bottom: 0;
+      line-height: 1.5;
+    }
+
+    /* Setup code */
+    .setup-code {
+      background: var(--poster-code-bg);
+      border: 1px solid var(--poster-border-light);
+      padding: 14px 18px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      margin: 12px 0;
+    }
+
+    .setup-code .prompt {
+      color: var(--poster-accent-dark);
+      font-weight: bold;
+    }
+
+    .setup-code .comment {
+      color: var(--poster-text-muted);
+    }
+
+    /* Requirements list */
+    .req-list {
+      list-style: none;
+      font-size: 13px;
+    }
+
+    .req-list li {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--poster-border-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .req-list li:last-child { border-bottom: none; }
+
+    .req-label {
+      font-weight: 500;
+    }
+
+    .req-value {
+      font-size: 12px;
+      color: var(--poster-text-muted);
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Footer */
+    .poster-footer {
+      background: var(--poster-header-bg);
+      padding: 16px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .poster-footer a {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+    }
+
+    @media (max-width: 768px) {
+      .poster-body { grid-template-columns: 1fr; }
+      .poster-col { border-right: none; border-bottom: 1px solid var(--poster-border-light); }
+      .poster-col:last-child { border-bottom: none; }
+      .poster-header { grid-template-columns: 1fr; }
+      .poster-header-right { display: none; }
+      .poster { margin: 8px; }
+    }
+  </style>
+
+  <div class="poster">
+    <header class="poster-header">
+      <div class="poster-header-left">
+        <h1><em>Glade</em>: A Visual Desktop Environment for Bayesian Workflow Analysis</h1>
+        <p class="authors">Open-Source Software &middot; The Glade Contributors</p>
+        <p class="affiliation">Bayesian statistical modeling through structured workflow graphs</p>
+      </div>
+      <div class="poster-header-right">
+        <div class="version-badge">v0.13.4</div>
+        <div>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div>MIT License</div>
+        <div>macOS &middot; Linux &middot; Windows</div>
+      </div>
+    </header>
+
+    <div class="poster-body">
+      <!-- Left column -->
+      <div class="poster-col">
+        <div class="poster-section">
+          <h2>Introduction</h2>
+          <p>Bayesian statistical analysis involves a structured sequence of steps — data loading, prior specification, model fitting, posterior diagnostics, and decision-making. Managing the dependencies between these steps, tracking which validations remain outstanding, and ensuring reproducibility across the workflow is a persistent challenge for researchers.</p>
+          <p>Glade provides a visual desktop environment that represents the entire analysis pipeline as an interactive workflow graph. Each node corresponds to a discrete analytical operation, and edges encode the logical dependencies between operations. The environment integrates directly with the Bayesgrove R package for protocol-aware state management.</p>
+        </div>
+
+        <div class="poster-section">
+          <h2>System Architecture</h2>
+          <div class="figure-panel">
+            <div class="figure-panel-label">Three-Layer Architecture</div>
+            <div class="figure-panel-content">
+              <div class="node-diagram">
+                <div class="nd active">User Interface<br><small style="font-weight:400;color:var(--poster-text-muted)">React / Canvas</small></div>
+                <span class="nd-arrow">&darr;</span>
+                <div class="nd active">Server Layer<br><small style="font-weight:400;color:var(--poster-text-muted)">Bun / WebSocket</small></div>
+                <span class="nd-arrow">&darr;</span>
+                <div class="nd active">R Process<br><small style="font-weight:400;color:var(--poster-text-muted)">Bayesgrove</small></div>
+              </div>
+            </div>
+            <p class="figure-panel-caption">
+              <strong>Figure 1.</strong> Glade's three-layer architecture. The React-based UI communicates with a local server over WebSocket. The server manages a persistent connection to the Bayesgrove R process.
+            </p>
+          </div>
+          <p>The application uses an Electron shell for native integration (file picking, auto-updates). The workflow state is persisted to SQLite with a normalized graph schema. Node positioning uses ELK-based automatic layout with manual override support.</p>
+        </div>
+
+        <div class="poster-section">
+          <h2>Typical Workflow</h2>
+          <div class="figure-panel">
+            <div class="figure-panel-label">Analysis Pipeline</div>
+            <div class="figure-panel-content">
+              <div class="node-diagram">
+                <div class="nd active">Load Data</div>
+                <span class="nd-arrow">&rarr;</span>
+                <div class="nd">Specify Priors</div>
+                <span class="nd-arrow">&rarr;</span>
+                <div class="nd active">Fit Model</div>
+                <span class="nd-arrow">&rarr;</span>
+                <div class="nd">Diagnostics</div>
+                <span class="nd-arrow">&rarr;</span>
+                <div class="nd active">Record Decision</div>
+              </div>
+            </div>
+            <p class="figure-panel-caption">
+              <strong>Figure 2.</strong> Standard Bayesian analysis node progression. Highlighted nodes indicate stages where Glade provides primary interaction surfaces.
+            </p>
+          </div>
+        </div>
+
+        <div class="poster-section">
+          <h2>Installation</h2>
+          <div class="setup-code">
+            <span class="comment"># Install Glade desktop application</span><br>
+            <span class="prompt">$</span> curl -fsSL https://glade.dev/install.sh | sh<br><br>
+            <span class="comment"># Install Bayesgrove R package</span><br>
+            <span class="prompt">&gt;</span> install.packages("bayesgrove")<br><br>
+            <span class="comment"># Launch Glade</span><br>
+            <span class="prompt">$</span> glade init my-analysis
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="poster-col">
+        <div class="poster-section">
+          <h2>Core Capabilities</h2>
+          <div class="cap-grid">
+            <div class="cap-item">
+              <h4>Workflow Canvas</h4>
+              <p>Interactive node graph with drag-and-drop, ELK auto-layout, and annotation support.</p>
+            </div>
+            <div class="cap-item">
+              <h4>R Session</h4>
+              <p>Embedded REPL with command history, tab completion, and detachable window mode.</p>
+            </div>
+            <div class="cap-item">
+              <h4>Obligations</h4>
+              <p>Protocol-aware blocking and advisory review tasks from Bayesgrove state.</p>
+            </div>
+            <div class="cap-item">
+              <h4>Action Execution</h4>
+              <p>Preview and run recommended operations with full parameter disclosure.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="poster-section">
+          <h2>Obligation and Action Protocol</h2>
+          <p>Bayesgrove defines a protocol for managing analysis workflow state. Glade surfaces two protocol-driven interfaces:</p>
+          <h3>Obligation Panels</h3>
+          <p>Display blocking and advisory review tasks organized by protocol scope. Each obligation includes severity indicators, affected node references, and detailed descriptions. Obligations are surfaced automatically as the workflow state evolves.</p>
+          <h3>Action Panels</h3>
+          <p>Present Bayesgrove-recommended operations for user approval. Actions include invocation fields (dropdowns, text inputs), template references, and parameter metadata. Execution requires explicit confirmation.</p>
+        </div>
+
+        <div class="poster-section">
+          <h2>System Requirements</h2>
+          <ul class="req-list">
+            <li>
+              <span class="req-label">R runtime</span>
+              <span class="req-value">&ge; 4.3</span>
+            </li>
+            <li>
+              <span class="req-label">Bayesgrove</span>
+              <span class="req-value">&ge; 0.8</span>
+            </li>
+            <li>
+              <span class="req-label">macOS</span>
+              <span class="req-value">13+ (Ventura)</span>
+            </li>
+            <li>
+              <span class="req-label">Linux</span>
+              <span class="req-value">glibc 2.35+</span>
+            </li>
+            <li>
+              <span class="req-label">Windows</span>
+              <span class="req-value">10 (1903+)</span>
+            </li>
+            <li>
+              <span class="req-label">RAM</span>
+              <span class="req-value">4 GB minimum</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="poster-section">
+          <h2>Key Metrics</h2>
+          <div class="stats-row">
+            <div class="stat-box">
+              <div class="stat-num">6</div>
+              <div class="stat-label">Interface Surfaces</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num">3</div>
+              <div class="stat-label">Platforms</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num">&lt;200</div>
+              <div class="stat-label">MB Disk</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="poster-section">
+          <h2>References</h2>
+          <p style="font-size:11px;line-height:1.6;">
+            [1] R Core Team (2024). <em>R: A Language and Environment for Statistical Computing</em>. R Foundation, Vienna.<br>
+            [2] Gabry, J. et al. (2024). Bayesgrove: Protocol-Driven Bayesian Workflow Management. <em>Bayesian Analysis</em>.<br>
+            [3] Carpenter, B. et al. (2017). Stan: A Probabilistic Programming Language. <em>JSS</em>, 76(1).
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="poster-footer">
+      <span>Glade v0.13.4 &middot; MIT License</span>
+      <a href="#">github.com/sims1253/glade</a>
+    </footer>
+  </div>
+</Layout>

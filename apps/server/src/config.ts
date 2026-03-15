@@ -34,11 +34,14 @@ export class ServerConfig extends Context.Tag('glade/ServerConfig')<
 
 export const ServerConfigLive = Layer.sync(ServerConfig, () => {
   const rootDir = process.env.BAYESGROVE_APP_ROOT?.trim() || path.resolve(import.meta.dirname, '../../..');
-  const projectPath = process.env.BAYESGROVE_PROJECT_PATH?.trim() || null;
+  const nodeEnv = process.env.NODE_ENV === 'development' ? 'development' : 'production';
+  const projectPath = nodeEnv === 'development'
+    ? null
+    : (process.env.BAYESGROVE_PROJECT_PATH?.trim() || null);
 
   return Schema.decodeUnknownSync(ServerConfigSchema)({
     host: process.env.BAYESGROVE_SERVER_HOST?.trim() || '127.0.0.1',
-    nodeEnv: process.env.NODE_ENV === 'development' ? 'development' : 'production',
+    nodeEnv,
     port: Number(process.env.BAYESGROVE_SERVER_PORT ?? DEFAULT_SERVER_PORT),
     rootDir,
     stateDir: process.env.BAYESGROVE_STATE_DIR?.trim() || path.join(rootDir, '.glade'),

@@ -1,6 +1,6 @@
 {
   "name": "@glade/server",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,7 +16,6 @@
     "@glade/contracts": "workspace:*",
     "@glade/shared": "workspace:*",
     "@effect/platform-node": "catalog:",
-    "@effect/sql-sqlite-bun": "catalog:",
     "effect": "catalog:",
     "node-pty": "1.1.0",
     "open": "11.0.0",
