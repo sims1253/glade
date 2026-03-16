@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.16.0 - 2026-03-16
+
+- Added keybinding system with configurable shortcuts (`~/.glade/keybindings.json`), platform-aware `mod` key, AST-based `when` expressions, server-side persistence, and client-side resolver with Mac symbol formatting.
+- Wired keybindings into the WebSocket protocol (`server.getConfig`, `server.upsertKeybinding`, `server.configUpdated` push channel) with server-edge handlers and default shortcuts for REPL toggle, inspector, settings, and editor open.
+- Enhanced desktop update state machine with `canRetry`, `errorContext`, and `checkedAt` fields for better error recovery UX.
+- Added backend auto-restart with exponential backoff (500ms base, 30s cap, 8 max attempts) on server process exit, with proper cleanup on shutdown.
+- Made all `DesktopBridge` methods required (previously optional) to enforce implementation completeness between Electron main and renderer processes.
+- Added context menu fallback component (`ContextMenuOverlay`, `useContextMenu`) for web-mode right-click support with keyboard dismiss and viewport-aware positioning.
+- Added editor preference utility with known editor detection (Cursor, VS Code, Zed, Nova, Vim, Emacs, Sublime Text) and display name resolution.
+- Added CI workflow for PR size labeling (`pr-size.yml`) and managed issue label sync (`issue-labels.yml`).
+- Initialized shadcn/ui component foundation: Dialog, Tooltip, DropdownMenu, Badge, and Separator, all built on Radix UI primitives.
+- Added dark mode CSS foundation with oklch-based custom property theme system (light + `.dark` class variants).
+- Added visual polish: paper-edge pseudo-element highlights on cards/popovers, noise texture overlay, focus-visible rings, styled scrollbars, and animation utilities.
+- Updated workflow canvas controls and minimap to use CSS custom properties for dark mode compatibility.
+
 ## 0.15.0 - 2026-03-15
 
 - Removed dead exports and unused functions from `settings.ts`, `shell/index.ts`, and `ui-prefs.ts`.

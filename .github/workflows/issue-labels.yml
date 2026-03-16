@@ -1,0 +1,85 @@
+name: Sync Issue Labels
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/ISSUE_TEMPLATE/**
+      - .github/workflows/issue-labels.yml
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    name: Sync managed issue labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure managed issue labels exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const managedLabels = [
+              {
+                name: "bug",
+                color: "d73a4a",
+                description: "Something is broken or behaving incorrectly.",
+              },
+              {
+                name: "enhancement",
+                color: "a2eeef",
+                description: "Requested improvement or new capability.",
+              },
+              {
+                name: "ui",
+                color: "fbca04",
+                description: "Related to visual design, styling, or user interface.",
+              },
+              {
+                name: "workflow",
+                color: "1d76db",
+                description: "Related to Bayesgrove workflow or graph management.",
+              },
+              {
+                name: "desktop",
+                color: "8b5cf6",
+                description: "Related to the Electron desktop app.",
+              },
+            ];
+
+            for (const label of managedLabels) {
+              try {
+                const { data: existing } = await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                });
+
+                if (
+                  existing.color !== label.color ||
+                  (existing.description ?? "") !== label.description
+                ) {
+                  await github.rest.issues.updateLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                  });
+                }
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+              }
+            }

@@ -56,6 +56,10 @@ export function describeRpcCall(method: RpcMethod, body: WebSocketRequest['body'
       return 'Cleared REPL terminal';
     case 'host.openInEditor':
       return 'Opened linked file in editor';
+    case 'server.getConfig':
+      return 'Loaded server configuration';
+    case 'server.upsertKeybinding':
+      return 'Saved keybinding';
     default:
       return assertUnreachable(method);
   }
@@ -114,6 +118,10 @@ export function failureTitle(method: RpcMethod): string {
       return 'Could not clear REPL terminal';
     case 'host.openInEditor':
       return 'Could not open file in editor';
+    case 'server.getConfig':
+      return 'Could not load server configuration';
+    case 'server.upsertKeybinding':
+      return 'Could not save keybinding';
     default:
       return assertUnreachable(method);
   }
