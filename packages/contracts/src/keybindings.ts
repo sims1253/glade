@@ -2,6 +2,12 @@ import { Schema } from 'effect';
 
 export const MAX_KEYBINDING_VALUE_LENGTH = 64;
 const MAX_KEYBINDING_WHEN_LENGTH = 256;
+
+/**
+ * Maximum recursion depth for when-expression parsing.
+ * NOTE: The KeybindingWhenNode schema does not enforce this limit; validation must be
+ * performed by the parser/consumer using MAX_WHEN_EXPRESSION_DEPTH.
+ */
 export const MAX_WHEN_EXPRESSION_DEPTH = 64;
 export const MAX_KEYBINDINGS_COUNT = 256;
 

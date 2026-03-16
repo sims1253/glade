@@ -449,10 +449,11 @@ export const ServerEdgeLive = Layer.scoped(
               yield* hub.send(socket, errorResponse(request.id, request.method, rpcError('invalid_keybinding', 'Failed to parse keybinding rule.')));
               return;
             }
-            const currentKeybindings = yield* Ref.get(resolvedKeybindings);
-            const filtered = currentKeybindings.filter((b) => b.command !== request.body.rule.command);
-            const nextKeybindings = mergeWithDefaultKeybindings([...filtered, resolved]);
-            yield* Ref.set(resolvedKeybindings, nextKeybindings);
+            const nextKeybindings = yield* Ref.modify(resolvedKeybindings, (current) => {
+              const filtered = current.filter((b) => b.command !== request.body.rule.command);
+              const next = mergeWithDefaultKeybindings([...filtered, resolved]);
+              return [next, next];
+            });
             const configPush: WsPush = {
               _tag: 'WsPush',
               channel: 'server.configUpdated',

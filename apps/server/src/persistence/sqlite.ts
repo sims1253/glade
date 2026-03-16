@@ -129,7 +129,7 @@ const openDatabase = (filename: string) =>
         yield* Effect.tryPromise(() => mkdir(path.dirname(filename), { recursive: true }));
       }
 
-      if (typeof process === 'undefined' || typeof process.versions.bun !== 'string') {
+      if (typeof process !== 'undefined' && typeof process.versions?.bun !== 'string') {
         yield* checkNodeSqliteCompat();
       }
 

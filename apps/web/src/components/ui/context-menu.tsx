@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 
 export interface ContextMenuItem {
@@ -53,17 +54,9 @@ export function useContextMenu(): UseContextMenuResult {
       }
     };
 
-    const handleMouseDown = (_event: MouseEvent) => {
-      if (menuRef.current) {
-        setMenu(null);
-      }
-    };
-
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('mousedown', handleMouseDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('mousedown', handleMouseDown);
     };
   }, [setMenu]);
 
@@ -75,8 +68,6 @@ function useContextMenuState() {
   const setMenu = useCallback((next: ContextMenuState | null) => setState(next), []);
   return [state, setMenu] as const;
 }
-
-import * as React from 'react';
 
 export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuState; readonly hide: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,6 +130,7 @@ export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuS
             return (
               <button
                 key={entry.label}
+                type="button"
                 className={`flex w-full items-center px-3 text-left text-sm leading-none ${
                   entry.disabled
                     ? 'cursor-not-allowed px-3 py-2 text-slate-400'

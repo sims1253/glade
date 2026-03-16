@@ -14,6 +14,16 @@ import { WelcomeRoute } from './welcome';
 const desktopBootstrapProject = vi.fn();
 const sessionRestart = vi.fn();
 
+const desktopUpdateState = {
+  status: 'idle' as const,
+  version: null,
+  message: null,
+  progressPercent: null,
+  canRetry: false,
+  errorContext: null,
+  checkedAt: null,
+};
+
 vi.mock('../hooks/useRpcClient', () => ({
   useRpcClient: () => ({
     desktop: {
@@ -116,9 +126,9 @@ describe('WelcomeRoute', () => {
       openDetachedTerminal: vi.fn(async () => false),
       onDetachedTerminalState: vi.fn(() => () => {}),
       openExternal: vi.fn(async () => true),
-      getUpdateState: vi.fn(async () => ({ status: 'idle' as const, version: null, message: null, progressPercent: null, canRetry: false, errorContext: null, checkedAt: null })),
-      checkForUpdates: vi.fn(async () => ({ status: 'idle' as const, version: null, message: null, progressPercent: null, canRetry: false, errorContext: null, checkedAt: null })),
-      downloadUpdate: vi.fn(async () => ({ status: 'idle' as const, version: null, message: null, progressPercent: null, canRetry: false, errorContext: null, checkedAt: null })),
+      getUpdateState: vi.fn(async () => desktopUpdateState),
+      checkForUpdates: vi.fn(async () => desktopUpdateState),
+      downloadUpdate: vi.fn(async () => desktopUpdateState),
       installDownloadedUpdate: vi.fn(async () => true),
       onUpdateState: vi.fn(() => () => {}),
     };

@@ -182,11 +182,13 @@ body::after {
   background: oklch(0.7 0.017 285.886 / 0.6);
 }
 
-.dark ::-webkit-scrollbar-thumb {
+:is(.dark, :root, body).dark ::-webkit-scrollbar-thumb,
+:is(.dark, :root, body)::-webkit-scrollbar-thumb:where(:root, body) {
   background: oklch(0.4 0.017 285.823 / 0.5);
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
+:is(.dark, :root, body).dark ::-webkit-scrollbar-thumb:hover,
+:is(.dark, :root, body)::-webkit-scrollbar-thumb:hover:where(:root, body) {
   background: oklch(0.4 0.017 285.823 / 0.7);
 }
 

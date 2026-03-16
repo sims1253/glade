@@ -21,6 +21,14 @@ export function getEditorOptions(): ReadonlyArray<EditorOption> {
   return [...KNOWN_EDITORS];
 }
 
+function matchesEditorCommand(command: string): boolean {
+  const trimmed = command?.trim() || '';
+  if (!trimmed || trimmed === 'auto') return false;
+  return KNOWN_EDITORS.some((e) =>
+    e.commands.some((c) => trimmed === c || trimmed.endsWith(`/${c}`)),
+  );
+}
+
 export function resolveEditorPreference(settings: DesktopSettings): string {
   const command = settings.editorCommand?.trim();
   if (!command || command === 'auto' || command === '') {
@@ -45,9 +53,5 @@ export function getEditorDisplayName(editorId: string): string {
 }
 
 export function isKnownEditor(command: string): boolean {
-  const trimmed = command?.trim() || '';
-  if (!trimmed || trimmed === 'auto') return false;
-  return KNOWN_EDITORS.some((e) =>
-    e.commands.some((c) => trimmed === c || trimmed.endsWith(`/${c}`)),
-  );
+  return matchesEditorCommand(command);
 }

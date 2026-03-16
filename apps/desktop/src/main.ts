@@ -21,6 +21,7 @@ let detachedTerminalWindow: BrowserWindow | null = null;
 let backendProcess: ServerProcessHandle | null = null;
 let restartAttempt = 0;
 let restartTimer: ReturnType<typeof setTimeout> | null = null;
+let isShuttingDown = false;
 let updateState: DesktopUpdateState = {
   status: 'idle',
   version: null,
@@ -155,11 +156,13 @@ autoUpdater.on('update-downloaded', (info) => {
 
 autoUpdater.on('error', (error) => {
   appendRuntimeLog(`[updater] ${error.message}`);
+  const errorContext = updateState.status === 'downloading' ? 'download' : updateState.status === 'downloaded' ? 'install' : 'check';
   setUpdateState({
     status: 'error',
     message: error.message,
+    progressPercent: null,
     canRetry: true,
-    errorContext: 'check',
+    errorContext,
   });
 });
 
@@ -331,14 +334,23 @@ function restartBackoffMs(attempt: number): number {
 }
 
 async function ensureServerProcess(): Promise<void> {
+  if (isShuttingDown) return;
+
   const stateDir = app.getPath('userData');
 
   await stopServerProcess(backendProcess);
+  if (isShuttingDown) return;
+
   backendProcess = await startServerProcess({
     projectPath: defaultProjectPath(stateDir),
     stateDir,
     onLogLine: appendRuntimeLog,
   });
+  if (isShuttingDown) {
+    void stopServerProcess(backendProcess);
+    backendProcess = null;
+    return;
+  }
   attachBackendLifecycle(backendProcess);
   await waitForServer(backendProcess);
 }
@@ -358,6 +370,8 @@ function scheduleServerRestart(reason: string) {
 
   restartTimer = setTimeout(async () => {
     restartTimer = null;
+    if (isShuttingDown) return;
+
     restartAttempt += 1;
     try {
       await ensureServerProcess();
@@ -467,6 +481,7 @@ function registerIpcHandlers() {
 }
 
 function shutdown() {
+  isShuttingDown = true;
   if (restartTimer) {
     clearTimeout(restartTimer);
     restartTimer = null;

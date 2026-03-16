@@ -5,6 +5,7 @@
  */
 
 import type { KeybindingRule, KeybindingShortcut, KeybindingWhenNode, ResolvedKeybindingRule, ResolvedKeybindingsConfig } from '@glade/contracts';
+import { MAX_WHEN_EXPRESSION_DEPTH } from '@glade/contracts';
 
 export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: 'mod+j', command: 'repl.toggle' },
@@ -22,6 +23,8 @@ function normalizeKeyToken(token: string): string {
 }
 
 export function parseKeybindingShortcut(value: string): KeybindingShortcut | null {
+  if (value.trim() === '') return null;
+
   const rawTokens = value.toLowerCase().split('+').map((t) => t.trim());
   const tokens = [...rawTokens];
   let trailingEmptyCount = 0;
@@ -108,7 +111,7 @@ function parseWhenExpression(expression: string): KeybindingWhenNode | null {
   let index = 0;
 
   const parsePrimary = (depth: number): KeybindingWhenNode | null => {
-    if (depth > 64) return null;
+    if (depth > MAX_WHEN_EXPRESSION_DEPTH) return null;
     const token = tokens[index];
     if (!token) return null;
     if (token.type === 'identifier') { index += 1; return { type: 'identifier', name: token.value }; }
@@ -125,7 +128,7 @@ function parseWhenExpression(expression: string): KeybindingWhenNode | null {
 
   const parseUnary = (depth: number): KeybindingWhenNode | null => {
     let notCount = 0;
-    while (tokens[index]?.type === 'not') { index += 1; notCount += 1; if (notCount > 64) return null; }
+    while (tokens[index]?.type === 'not') { index += 1; notCount += 1; if (notCount > MAX_WHEN_EXPRESSION_DEPTH) return null; }
     let node = parsePrimary(depth);
     if (!node) return null;
     while (notCount > 0) { node = { type: 'not', node }; notCount -= 1; }

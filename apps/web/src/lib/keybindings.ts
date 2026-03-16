@@ -33,7 +33,9 @@ interface ShortcutMatchOptions {
   context?: Partial<ShortcutMatchContext>;
 }
 
-function isMacPlatform(platform = navigator.platform): boolean {
+function isMacPlatform(
+  platform: string = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform ?? navigator.userAgent ?? '',
+): boolean {
   return platform.startsWith('Mac');
 }
 
@@ -105,14 +107,36 @@ export function resolveShortcutCommand(
   return null;
 }
 
+const SPECIAL_KEY_LABELS: Record<string, string> = {
+  tab: 'Tab',
+  backspace: 'Backspace',
+  enter: 'Enter',
+  return: 'Enter',
+  delete: 'Del',
+  home: 'Home',
+  end: 'End',
+  pageup: 'PageUp',
+  pagedown: 'PageDown',
+  insert: 'Ins',
+  shift: 'Shift',
+  control: 'Ctrl',
+  ctrl: 'Ctrl',
+  alt: 'Alt',
+  meta: 'Meta',
+  contextmenu: 'Menu',
+  escape: 'Esc',
+  arrowup: 'Up',
+  arrowdown: 'Down',
+  arrowleft: 'Left',
+  arrowright: 'Right',
+};
+
 function formatShortcutKeyLabel(key: string): string {
   if (key === ' ') return 'Space';
+  const normalized = key.toLowerCase();
+  const mapped = SPECIAL_KEY_LABELS[normalized];
+  if (mapped) return mapped;
   if (key.length === 1) return key.toUpperCase();
-  if (key === 'escape') return 'Esc';
-  if (key === 'arrowup') return 'Up';
-  if (key === 'arrowdown') return 'Down';
-  if (key === 'arrowleft') return 'Left';
-  if (key === 'arrowright') return 'Right';
   return key.slice(0, 1).toUpperCase() + key.slice(1);
 }
 

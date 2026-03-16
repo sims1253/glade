@@ -28,8 +28,10 @@ jobs:
           fi
 
           CHANGED=$(git diff --stat "$BASE" -- ':(exclude)*.lock' ':(exclude)*.lockb' ':(exclude)**/dist/**' | tail -1)
-          LINES=$(echo "$CHANGED" | grep -oP '\d+(?= insertion)' || echo 0)
-          DELETIONS=$(echo "$CHANGED" | grep -oP '\d+(?= deletion)' || echo 0)
+          LINES=$(echo "$CHANGED" | awk 'match($0, /([0-9]+) insertion/) {print substr($0, RSTART, RLENGTH)}' | awk '{print $1}')
+          DELETIONS=$(echo "$CHANGED" | awk 'match($0, /([0-9]+) deletion/) {print substr($0, RSTART, RLENGTH)}' | awk '{print $1}')
+          LINES=${LINES:-0}
+          DELETIONS=${DELETIONS:-0}
           TOTAL=$((LINES + DELETIONS))
           echo "lines=$TOTAL" >> "$GITHUB_OUTPUT"
 

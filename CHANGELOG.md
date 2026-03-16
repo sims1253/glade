@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.16.1 - 2026-03-16
+
+- Fixed CI `pr-size.yml` to use portable `awk` instead of `grep -oP` for extracting insertion/deletion counts from git diff stat.
+- Fixed desktop main process shutdown race: added `isShuttingDown` guard to prevent restart attempts and backend process creation during app quit.
+- Fixed desktop autoUpdater error context to correctly report 'download', 'install', or 'check' based on current update status.
+- Fixed server keybinding parser to reject empty/whitespace-only shortcut inputs before trailing '+' normalization.
+- Fixed server keybinding parser to use shared `MAX_WHEN_EXPRESSION_DEPTH` constant from `@glade/contracts` instead of hardcoded value.
+- Fixed sqlite process guard condition: changed `||` to `&&` so `checkNodeSqliteCompat()` only runs when process exists and is not Bun.
+- Fixed server-edge keybinding update to use atomic `Ref.modify` instead of racy `Ref.get` + `Ref.set` pattern.
+- Fixed context menu mousedown handler to only close when click is outside menu (removed blanket close on any mousedown).
+- Fixed context menu item buttons to include `type="button"` to prevent accidental form submission.
+- Fixed dialog close button to use local `DialogClose` wrapper for consistent `data-slot="dialog-close"` attribute.
+- Fixed Tooltip component by removing per-instance `TooltipProvider` wrapper that broke shared skip-delay behavior.
+- Fixed dark mode scrollbar selectors to properly match when `.dark` class is on root/html/body elements.
+- Fixed editor-preferences duplicated command-matching logic by extracting shared `matchesEditorCommand` helper.
+- Fixed web keybindings `isMacPlatform` to use `userAgentData?.platform` with fallbacks instead of deprecated `navigator.platform`.
+- Fixed web keybindings `formatShortcutKeyLabel` to use lookup map for special key labels (Tab, Backspace, Enter, etc.).
+- Fixed welcome test to deduplicate mocked update state object into shared `desktopUpdateState` constant.
+- Moved Radix UI dependencies (`@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tooltip`) from root package.json to `apps/web/package.json`.
+- Added clarifying comment to `MAX_WHEN_EXPRESSION_DEPTH` constant noting depth limit is not enforced by schema and must be validated by parser.
+- Fixed runtime.ts to remove redundant optional chaining on required `DesktopBridge` methods.
+
 ## 0.16.0 - 2026-03-16
 
 - Added keybinding system with configurable shortcuts (`~/.glade/keybindings.json`), platform-aware `mod` key, AST-based `when` expressions, server-side persistence, and client-side resolver with Mac symbol formatting.

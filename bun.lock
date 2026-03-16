@@ -4,11 +4,6 @@
   "workspaces": {
     "": {
       "name": "glade",
-      "dependencies": {
-        "@radix-ui/react-dialog": "^1.1.15",
-        "@radix-ui/react-dropdown-menu": "^2.1.16",
-        "@radix-ui/react-tooltip": "^1.2.8",
-      },
       "devDependencies": {
         "oxlint": "1.51.0",
         "turbo": "^2.8.17",
@@ -72,6 +67,9 @@
         "@base-ui/react": "1.2.0",
         "@glade/contracts": "workspace:*",
         "@glade/shared": "workspace:*",
+        "@radix-ui/react-dialog": "^1.1.15",
+        "@radix-ui/react-dropdown-menu": "^2.1.16",
+        "@radix-ui/react-tooltip": "^1.2.8",
         "@tanstack/react-query": "5.90.21",
         "@tanstack/react-router": "1.166.3",
         "@tanstack/react-virtual": "3.13.21",
