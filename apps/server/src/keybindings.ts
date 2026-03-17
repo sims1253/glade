@@ -211,11 +211,25 @@ export function encodeShortcut(shortcut: KeybindingShortcut): string {
   return [...modifiers, key].join('+');
 }
 
+function getPrecedence(node: KeybindingWhenNode): number {
+  switch (node.type) {
+    case 'identifier': return 3;
+    case 'not': return 2;
+    case 'and': return 1;
+    case 'or': return 0;
+  }
+}
+
+function parenthesizeIfLower(child: KeybindingWhenNode, parentPrecedence: number): string {
+  const encoded = encodeWhenAst(child);
+  return getPrecedence(child) < parentPrecedence ? `(${encoded})` : encoded;
+}
+
 export function encodeWhenAst(node: KeybindingWhenNode): string {
   switch (node.type) {
     case 'identifier': return node.name;
-    case 'not': return `!(${encodeWhenAst(node.node)})`;
-    case 'and': return `(${encodeWhenAst(node.left)} && ${encodeWhenAst(node.right)})`;
-    case 'or': return `(${encodeWhenAst(node.left)} || ${encodeWhenAst(node.right)})`;
+    case 'not': return `!${parenthesizeIfLower(node.node, getPrecedence(node))}`;
+    case 'and': return `${parenthesizeIfLower(node.left, getPrecedence(node))} && ${parenthesizeIfLower(node.right, getPrecedence(node))}`;
+    case 'or': return `${parenthesizeIfLower(node.left, getPrecedence(node))} || ${parenthesizeIfLower(node.right, getPrecedence(node))}`;
   }
 }

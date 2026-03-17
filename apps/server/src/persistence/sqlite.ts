@@ -94,8 +94,10 @@ const checkNodeSqliteCompat = () => {
   const major = parts[0] ?? 0;
   if (major < 22) {
     return Effect.die(
-      `Node.js ${process.versions.node} does not include the built-in node:sqlite module. ` +
-        `Upgrade to Node.js >=22.0 or run Glade with Bun instead.`,
+      new Error(
+        `Node.js ${process.versions.node} does not include the built-in node:sqlite module. ` +
+          `Upgrade to Node.js >=22.0 or run Glade with Bun instead.`,
+      ),
     );
   }
   return Effect.void;

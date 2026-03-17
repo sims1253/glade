@@ -96,7 +96,8 @@ export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuS
   const contentHeight = needsScroll ? MAX_MENU_HEIGHT : totalHeight;
 
   return (
-    <div
+    <button
+      type="button"
       className="fixed inset-0 z-[9999]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) hide();
@@ -119,10 +120,10 @@ export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuS
           {menu.entries.map((entry, index) => {
             if (entry.separator) {
               return (
-                <div
+                <hr
                   key={`sep-${index}`}
                   className="mx-2 my-1.5 h-px bg-slate-200"
-                  role="separator"
+                  aria-orientation="horizontal"
                 />
               );
             }
@@ -151,6 +152,6 @@ export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuS
           })}
         </div>
       </div>
-    </div>
+    </button>
   );
 }

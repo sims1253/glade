@@ -21,6 +21,7 @@ let detachedTerminalWindow: BrowserWindow | null = null;
 let backendProcess: ServerProcessHandle | null = null;
 let restartAttempt = 0;
 let restartTimer: ReturnType<typeof setTimeout> | null = null;
+let serverStabilityTimer: ReturnType<typeof setTimeout> | null = null;
 let isShuttingDown = false;
 let updateState: DesktopUpdateState = {
   status: 'idle',
@@ -328,6 +329,7 @@ function attachBackendLifecycle(handle: ServerProcessHandle) {
 
 const MAX_RESTART_ATTEMPTS = 8;
 const BASE_RESTART_DELAY_MS = 500;
+const SERVER_STABILITY_MS = 5_000;
 
 function restartBackoffMs(attempt: number): number {
   return Math.min(BASE_RESTART_DELAY_MS * Math.pow(2, attempt), 30_000);
@@ -375,7 +377,6 @@ function scheduleServerRestart(reason: string) {
     restartAttempt += 1;
     try {
       await ensureServerProcess();
-      restartAttempt = 0;
       appendRuntimeLog('[desktop] server restart succeeded');
       // Notify renderer about session state after successful restart
       for (const window of BrowserWindow.getAllWindows()) {
@@ -383,6 +384,14 @@ function scheduleServerRestart(reason: string) {
           window.webContents.send('glade:update-state', updateState);
         }
       }
+      // Reset restartAttempt only after a stability period
+      if (serverStabilityTimer) {
+        clearTimeout(serverStabilityTimer);
+      }
+      serverStabilityTimer = setTimeout(() => {
+        restartAttempt = 0;
+        serverStabilityTimer = null;
+      }, SERVER_STABILITY_MS).unref();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       appendRuntimeLog(`[desktop] server restart attempt ${restartAttempt} failed: ${message}`);

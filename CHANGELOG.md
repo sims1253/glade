@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.2 - 2026-03-17
+
+- Fixed CI `pr-size.yml` to use explicit PR commit SHAs for `pull_request_target` events instead of comparing against working tree.
+- Fixed keybinding encoder to emit prettier output without redundant parentheses (e.g., `!foo` instead of `!(foo)`, `a && b || c` instead of `((a && b) || c)`).
+- Fixed sqlite compatibility check to pass `Error` instance to `Effect.die` for better diagnostics with stack traces.
+- Fixed context menu accessibility by replacing backdrop `<div>` with `<button type="button">` and separator `<div>` with semantic `<hr>`.
+- Fixed desktop server restart backoff to require 5-second stability window before resetting restart attempt counter, preventing rapid crash loops from thrashing with minimal delay.
+- Fixed editor preference detection to handle Windows paths (e.g., `C:\Program Files\Code.exe`) with proper normalization.
+
 ## 0.16.1 - 2026-03-16
 
 - Fixed CI `pr-size.yml` to use portable `awk` instead of `grep -oP` for extracting insertion/deletion counts from git diff stat.

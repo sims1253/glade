@@ -11,6 +11,47 @@ const KNOWN_EDITORS = [
   { id: 'textmate', name: 'TextMate', commands: ['mate'] },
 ] as const;
 
+// Pre-normalize known editor commands for comparison
+const NORMALIZED_KNOWN_COMMANDS = new Map(
+  KNOWN_EDITORS.flatMap((e) => e.commands.map((c) => [c.toLowerCase(), e.id] as const)),
+);
+
+function normalizeEditorCommand(command: string): string {
+  let normalized = command.trim();
+  if (!normalized || normalized === 'auto') return '';
+
+  // Strip surrounding quotes
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"')) ||
+    (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+
+  // Take only the first token (the executable path) before any arguments
+  const spaceIndex = normalized.indexOf(' ');
+  if (spaceIndex !== -1) {
+    normalized = normalized.slice(0, spaceIndex);
+  }
+
+  // Extract basename handling both '/' and '\' separators
+  const lastSep = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf('\\'));
+  if (lastSep !== -1) {
+    normalized = normalized.slice(lastSep + 1);
+  }
+
+  // Lower-case and strip common extensions
+  normalized = normalized.toLowerCase();
+  for (const ext of ['.exe', '.cmd', '.bat']) {
+    if (normalized.endsWith(ext)) {
+      normalized = normalized.slice(0, -ext.length);
+      break;
+    }
+  }
+
+  return normalized;
+}
+
 export interface EditorOption {
   readonly id: string;
   readonly name: string;
@@ -22,11 +63,9 @@ export function getEditorOptions(): ReadonlyArray<EditorOption> {
 }
 
 function matchesEditorCommand(command: string): boolean {
-  const trimmed = command?.trim() || '';
-  if (!trimmed || trimmed === 'auto') return false;
-  return KNOWN_EDITORS.some((e) =>
-    e.commands.some((c) => trimmed === c || trimmed.endsWith(`/${c}`)),
-  );
+  const normalized = normalizeEditorCommand(command);
+  if (!normalized) return false;
+  return NORMALIZED_KNOWN_COMMANDS.has(normalized);
 }
 
 export function resolveEditorPreference(settings: DesktopSettings): string {
@@ -35,11 +74,10 @@ export function resolveEditorPreference(settings: DesktopSettings): string {
     return '';
   }
 
-  const known = KNOWN_EDITORS.find((e) =>
-    e.commands.some((c) => command === c || command.endsWith(`/${c}`)),
-  );
-  if (known) {
-    return known.id;
+  const normalized = normalizeEditorCommand(command);
+  const knownId = NORMALIZED_KNOWN_COMMANDS.get(normalized);
+  if (knownId) {
+    return knownId;
   }
 
   return command;

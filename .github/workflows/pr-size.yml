@@ -23,11 +23,14 @@ jobs:
           # Merge base for PRs, or HEAD~1 for pushes
           if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            git fetch origin "$BASE" "$HEAD"
           else
             BASE="HEAD~1"
+            HEAD="HEAD"
           fi
 
-          CHANGED=$(git diff --stat "$BASE" -- ':(exclude)*.lock' ':(exclude)*.lockb' ':(exclude)**/dist/**' | tail -1)
+          CHANGED=$(git diff --stat "$BASE" "$HEAD" -- ':(exclude)*.lock' ':(exclude)*.lockb' ':(exclude)**/dist/**' | tail -1)
           LINES=$(echo "$CHANGED" | awk 'match($0, /([0-9]+) insertion/) {print substr($0, RSTART, RLENGTH)}' | awk '{print $1}')
           DELETIONS=$(echo "$CHANGED" | awk 'match($0, /([0-9]+) deletion/) {print substr($0, RSTART, RLENGTH)}' | awk '{print $1}')
           LINES=${LINES:-0}
