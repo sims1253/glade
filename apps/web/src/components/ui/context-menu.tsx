@@ -64,9 +64,7 @@ export function useContextMenu(): UseContextMenuResult {
 }
 
 function useContextMenuState() {
-  const [state, setState] = React.useState<ContextMenuState | null>(null);
-  const setMenu = useCallback((next: ContextMenuState | null) => setState(next), []);
-  return [state, setMenu] as const;
+  return React.useState<ContextMenuState | null>(null);
 }
 
 export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuState; readonly hide: () => void }) {
@@ -99,6 +97,7 @@ export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuS
     <button
       type="button"
       className="fixed inset-0 z-[9999]"
+      aria-label="Close context menu"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) hide();
       }}
@@ -132,10 +131,10 @@ export function ContextMenuOverlay({ menu, hide }: { readonly menu: ContextMenuS
               <button
                 key={entry.label}
                 type="button"
-                className={`flex w-full items-center px-3 text-left text-sm leading-none ${
+                className={`flex w-full items-center px-3 py-2 text-left text-sm leading-none ${
                   entry.disabled
-                    ? 'cursor-not-allowed px-3 py-2 text-slate-400'
-                    : 'cursor-pointer px-3 py-2 text-slate-700 hover:bg-slate-100'
+                    ? 'cursor-not-allowed text-slate-400'
+                    : 'cursor-pointer text-slate-700 hover:bg-slate-100'
                 }`}
                 role="menuitem"
                 disabled={entry.disabled}

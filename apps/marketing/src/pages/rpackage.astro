@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { version } from '../../../../package.json';
 ---
 
 <Layout title="Glade — Bayesian Workflow Environment for R">
@@ -348,11 +349,11 @@ import Layout from '../layouts/Layout.astro';
   <div class="shell">
     <aside class="sidebar">
       <div class="sidebar-brand">glade</div>
-      <div class="sidebar-version">0.16.2</div>
+      <div class="sidebar-version">{version}</div>
 
       <div class="sidebar-badges">
         <span class="badge badge-green">stable</span>
-        <span class="badge badge-blue">v0.13</span>
+        <span class="badge badge-blue">v0.16</span>
       </div>
 
       <div class="sidebar-section">
@@ -395,7 +396,7 @@ import Layout from '../layouts/Layout.astro';
       <div class="pkg-meta">
         <div>
           <div class="meta-label">Version</div>
-          <div class="meta-value">0.16.2</div>
+          <div class="meta-value">{version}</div>
         </div>
         <div>
           <div class="meta-label">License</div>
@@ -499,7 +500,7 @@ import Layout from '../layouts/Layout.astro';
       </section>
 
       <footer class="pkg-footer">
-        <span>Glade 0.16.2 &middot; Built for Bayesgrove</span>
+        <span>Glade {version} &middot; Built for Bayesgrove</span>
         <span>{new Date().getFullYear()}</span>
       </footer>
     </main>

@@ -23,8 +23,9 @@ jobs:
           # Merge base for PRs, or HEAD~1 for pushes
           if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
-            HEAD="${{ github.event.pull_request.head.sha }}"
-            git fetch origin "$BASE" "$HEAD"
+            # For fork PRs, fetch the PR head ref which is available on the base repo
+            git fetch origin "$BASE" refs/pull/${{ github.event.pull_request.number }}/head
+            HEAD="FETCH_HEAD"
           else
             BASE="HEAD~1"
             HEAD="HEAD"

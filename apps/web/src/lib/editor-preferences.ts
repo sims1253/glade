@@ -20,18 +20,24 @@ function normalizeEditorCommand(command: string): string {
   let normalized = command.trim();
   if (!normalized || normalized === 'auto') return '';
 
-  // Strip surrounding quotes
-  if (
-    (normalized.startsWith('"') && normalized.endsWith('"')) ||
-    (normalized.startsWith("'") && normalized.endsWith("'"))
-  ) {
-    normalized = normalized.slice(1, -1).trim();
-  }
-
-  // Take only the first token (the executable path) before any arguments
-  const spaceIndex = normalized.indexOf(' ');
-  if (spaceIndex !== -1) {
-    normalized = normalized.slice(0, spaceIndex);
+  // Handle quoted paths first (e.g., "C:\Program Files\Code.exe" --args)
+  // Extract the quoted executable path before any arguments
+  if (normalized.startsWith('"')) {
+    const endQuote = normalized.indexOf('"', 1);
+    if (endQuote !== -1) {
+      normalized = normalized.slice(1, endQuote);
+    }
+  } else if (normalized.startsWith("'")) {
+    const endQuote = normalized.indexOf("'", 1);
+    if (endQuote !== -1) {
+      normalized = normalized.slice(1, endQuote);
+    }
+  } else {
+    // Unquoted path: take only the first token (the executable) before any arguments
+    const spaceIndex = normalized.indexOf(' ');
+    if (spaceIndex !== -1) {
+      normalized = normalized.slice(0, spaceIndex);
+    }
   }
 
   // Extract basename handling both '/' and '\' separators

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.3 - 2026-03-17
+
+- Fixed CI `pr-size.yml` to fetch PR head via `refs/pull/<number>/head` for fork PRs instead of HEAD SHA from fork.
+- Fixed context menu to remove unnecessary `useCallback` wrapper around `setState` and deduplicated `px-3` classes.
+- Added `aria-label="Close context menu"` to context menu backdrop button for screen reader accessibility.
+- Fixed `normalizeEditorCommand` to correctly extract quoted Windows paths with arguments (e.g., `"C:\Program Files\Code.exe" --reuse-window`).
+- Centralized version string in marketing docs page by importing from root package.json instead of hardcoding.
+- Updated rpackage.astro sidebar badge from stale `v0.13` to `v0.16`.
+
 ## 0.16.2 - 2026-03-17
 
 - Fixed CI `pr-size.yml` to use explicit PR commit SHAs for `pull_request_target` events instead of comparing against working tree.
