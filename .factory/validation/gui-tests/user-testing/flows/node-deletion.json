@@ -1,0 +1,69 @@
+{
+  "groupId": "node-deletion",
+  "testedAt": "2026-03-21T17:25:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendServer": "http://localhost:3100",
+    "rProcess": "http://localhost:3101",
+    "browserSession": "402784519b94__del"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-GUI-012",
+      "title": "Node can be deleted from the workflow",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open browser at http://localhost:5173",
+          "expected": "Workspace loads with WebSocket connected to backend",
+          "observed": "Page loaded but WebSocket connections to ws://localhost:5173/ws repeatedly failed with 'Connection closed before receiving a handshake response'"
+        },
+        {
+          "action": "Check backend health at http://localhost:3100/health",
+          "expected": "HTTP 200 with status object",
+          "observed": "Connection refused (curl exit code 7). Backend server not running on port 3100."
+        },
+        {
+          "action": "Attempt REPL command: bayesgrove::bg_add_node(project, kind = \"source\")",
+          "expected": "Command executes and node appears on canvas",
+          "observed": "REPL accepted input but no output was returned — R session unreachable because backend bridge is down"
+        },
+        {
+          "action": "Attempt simple REPL command: 1+1",
+          "expected": "Output: [1] 2",
+          "observed": "No output returned — confirmed REPL cannot communicate with R process without backend"
+        },
+        {
+          "action": "Retry backend health check 5 times over 15 seconds",
+          "expected": "Backend recovers",
+          "observed": "Backend remained unavailable across all retries"
+        },
+        {
+          "action": "Wait 20 seconds and retry backend health check",
+          "expected": "Backend recovers",
+          "observed": "Backend still unavailable"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-deletion/VAL-GUI-012-initial-workspace.png",
+          "gui-tests/node-deletion/VAL-GUI-012-after-add-node.png",
+          "gui-tests/node-deletion/VAL-GUI-012-no-backend.png"
+        ],
+        "consoleErrors": "Repeated WebSocket connection failures: 'WebSocket connection to ws://localhost:5173/ws failed: Connection closed before receiving a handshake response' (30+ occurrences)",
+        "network": "curl http://localhost:3100/health → Connection refused (exit code 7)"
+      },
+      "issues": "Backend server (port 3100) is not running. The task description states it was 'verified healthy' but it was unreachable throughout the entire test session. The R process is running on port 3101, and the Vite dev server is running on port 5173, but the Bun backend server that bridges the frontend to the R process is down. Without the backend, the REPL cannot send commands to R and no graph operations (add or delete nodes) are possible."
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Backend server (Bun on port 3100) is not running. curl to http://localhost:3100/health returns connection refused. The frontend cannot establish WebSocket connection, REPL commands produce no output, and no graph operations are possible. Retried 5 times over 15 seconds and again after 20 seconds — backend never became available.",
+      "affectedAssertions": ["VAL-GUI-012"],
+      "quickFixAttempted": "Retried health checks 6 times over ~35 seconds total. Did not attempt to restart the server per isolation rules (shared infrastructure — other workers may depend on it)."
+    }
+  ],
+  "summary": "Tested 1 assertion: 0 passed, 0 failed, 1 blocked (VAL-GUI-012: backend server on port 3100 is down, making all graph operations including node deletion impossible)"
+}

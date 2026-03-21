@@ -1,0 +1,163 @@
+{
+  "groupId": "repl-settings-retest",
+  "testedAt": "2026-03-21T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendServer": "http://localhost:3100",
+    "browserSession": "402784519b94__repl2",
+    "mode": "read-only (REPL typing only, no node modifications)"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-GUI-005",
+      "title": "REPL terminal accepts keyboard input",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Check server health at /health",
+          "expected": "HTTP 200 with status ok",
+          "observed": "HTTP 200 with {\"status\":\"ok\",\"version\":\"0.14.0\"}"
+        },
+        {
+          "action": "Open app at http://localhost:5173 and wait for full load",
+          "expected": "Workspace renders with REPL panel visible",
+          "observed": "Workspace fully rendered with explorer, canvas, inspector, and REPL panels. Terminal input textbox present."
+        },
+        {
+          "action": "Click on REPL terminal input field (textbox @e25)",
+          "expected": "Input field focused",
+          "observed": "Input field focused successfully"
+        },
+        {
+          "action": "Type '1 + 1' into the REPL terminal input",
+          "expected": "Characters appear in the terminal",
+          "observed": "Characters typed successfully"
+        },
+        {
+          "action": "Press Enter to submit the command",
+          "expected": "Command sent via WebSocket repl.write RPC",
+          "observed": "Enter pressed, command submitted"
+        },
+        {
+          "action": "Wait 8 seconds for R output",
+          "expected": "R output '[1] 2' appears in the REPL",
+          "observed": "Terminal content shows '> 1 + 1\\n[1] 2\\n> ' — R correctly evaluated the expression and returned the result"
+        },
+        {
+          "action": "Verify .xterm container exists in DOM",
+          "expected": "At least one .xterm element present",
+          "observed": "Two .xterm containers present (core + renderer), confirming xterm.js terminal is properly mounted"
+        },
+        {
+          "action": "Check browser console for errors",
+          "expected": "No uncaught errors",
+          "observed": "No console errors"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/repl-settings-retest/VAL-GUI-005-repl-input-output.png",
+          "gui-tests/repl-settings-retest/VAL-GUI-005-repl-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "terminalContentVerified": "> 1 + 1\\n[1] 2\\n> "
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-GUI-007",
+      "title": "Settings page loads and renders",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to /settings",
+          "expected": "Settings route renders with form fields and buttons",
+          "observed": "Settings page loaded successfully with all required elements visible"
+        },
+        {
+          "action": "Check for 'Desktop Bayesgrove environment' header",
+          "expected": "Header title present (desktopEnvironment is not null)",
+          "observed": "Header with 'Desktop Bayesgrove environment' title confirmed present"
+        },
+        {
+          "action": "Check for 'Back to workspace' button",
+          "expected": "Button visible and interactable",
+          "observed": "'Back to workspace' button present (@e1)"
+        },
+        {
+          "action": "Check for 'Project directory' form field",
+          "expected": "Text input with project directory label",
+          "observed": "Text input present with label 'Project directory', placeholder 'Default (~/.glade/project)'"
+        },
+        {
+          "action": "Check for 'R executable path' form field",
+          "expected": "Text input with R executable path label",
+          "observed": "Text input present with label 'R executable path', value 'Rscript'"
+        },
+        {
+          "action": "Check for 'Preferred editor command' form field",
+          "expected": "Text input with editor command label",
+          "observed": "Text input present with label 'Preferred editor command', value 'auto', helper text 'Use `auto` to detect `code`, `positron`, `cursor`, or `nvim` automatically.'"
+        },
+        {
+          "action": "Check for 'Update channel' form field",
+          "expected": "Select/dropdown with channel options",
+          "observed": "Combobox present with 'stable' (selected) and 'beta' options"
+        },
+        {
+          "action": "Check for 'Reset to defaults' button",
+          "expected": "Button visible",
+          "observed": "'Reset to defaults' button present (@e9)"
+        },
+        {
+          "action": "Check for 'Discard' button",
+          "expected": "Button visible",
+          "observed": "'Discard' button present (@e10)"
+        },
+        {
+          "action": "Check for 'Save and restart session' button",
+          "expected": "Button visible",
+          "observed": "'Save and restart session' button present (@e11)"
+        },
+        {
+          "action": "Verify no 'Desktop settings only available in desktop app' message",
+          "expected": "No such message displayed (desktopEnvironment is available)",
+          "observed": "No desktop-only message present — form fields are fully rendered"
+        },
+        {
+          "action": "Navigate back to / and check for console errors",
+          "expected": "Navigation succeeds with no errors",
+          "observed": "Successfully navigated back to workspace, no console errors"
+        },
+        {
+          "action": "Check browser console for errors on settings page",
+          "expected": "No uncaught errors",
+          "observed": "No console errors"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/repl-settings-retest/VAL-GUI-007-settings-page.png"
+        ],
+        "consoleErrors": "none",
+        "formFieldsVerified": {
+          "projectDirectory": "present (placeholder: 'Default (~/.glade/project)')",
+          "rExecutablePath": "present (value: 'Rscript')",
+          "preferredEditorCommand": "present (value: 'auto')",
+          "updateChannel": "present (value: 'stable', options: ['stable', 'beta'])"
+        },
+        "actionButtonsVerified": {
+          "backToWorkspace": "present",
+          "resetToDefaults": "present",
+          "discard": "present",
+          "saveAndRestartSession": "present"
+        }
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 2 assertions: 2 passed. VAL-GUI-005: REPL terminal accepts keyboard input, types '1 + 1', receives R output '[1] 2' correctly. VAL-GUI-007: Settings page loads with all required form fields (project directory, R executable path, preferred editor command, update channel) and action buttons (back to workspace, reset to defaults, discard, save and restart session). No console errors encountered during testing."
+}

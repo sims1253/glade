@@ -1,0 +1,136 @@
+{
+  "groupId": "node-lifecycle-final",
+  "testedAt": "2026-03-21T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendServer": "http://localhost:3100",
+    "rPort": 3101,
+    "agentBrowserSession": "402784519b94__nodes3"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-GUI-008",
+      "title": "Node can be added to the workflow",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Launch browser at http://localhost:5173, wait 15s for R process",
+          "expected": "Workspace renders with no error banners",
+          "observed": "Workspace rendered successfully with 2 existing source nodes (node_9648bcd9, node_f8e70420). Session status showed 'ready'."
+        },
+        {
+          "action": "Click on REPL terminal textbox, wait 1s, type 'bayesgrove::bg_add_node(project, kind = \"source\")' and press Enter",
+          "expected": "Command is sent to R and succeeds",
+          "observed": "Command typed and sent via keyboard inserttext + Enter. Node count increased from 2 to 3 after ~5 seconds, with new node_c470c1dc appearing."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle-final/initial-workspace.png",
+          "gui-tests/node-lifecycle-final/VAL-GUI-008-repl-add-node.png"
+        ],
+        "consoleErrors": "none",
+        "network": "REPL command sent via xterm.js keyboard input; WebSocket repl.write RPC inferred from node appearing in graph"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-GUI-009",
+      "title": "Nodes appear on graph canvas after being added",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "After adding node via REPL, check canvas for .react-flow__node elements",
+          "expected": ".react-flow__node[data-id='node_c470c1dc'] appears on canvas",
+          "observed": "3 .react-flow__node elements present: node_9648bcd9, node_c470c1dc, node_f8e70420"
+        },
+        {
+          "action": "Check toolbar summary and explorer panel for updated node count",
+          "expected": "Explorer shows incremented count and new node listed",
+          "observed": "Explorer 'Data Sources' button changed from 'Data Sources 2' to 'Data Sources 3'. New node_c470c1dc listed under Data Sources group."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle-final/VAL-GUI-009-canvas-with-new-node.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Graph snapshot update received via WebSocket workflow.snapshot push"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-GUI-011",
+      "title": "Node detail drawer opens on node click",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Click on .react-flow__node[data-id='node_c470c1dc'] via JavaScript click()",
+          "expected": "Node detail drawer opens showing node information",
+          "observed": "Detail drawer opened with full node info: label 'node_c470c1dc', kind 'source', status 'state ok', obligations 0, summaries 0, decisions 0, notes field, and 'Return to canvas' button."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle-final/VAL-GUI-011-node-detail-drawer.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No additional network requests needed; drawer is a client-side view transition"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-GUI-012",
+      "title": "Node can be deleted from the workflow",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Click 'Return to canvas' to close detail drawer",
+          "expected": "Canvas view restored with nodes visible",
+          "observed": "Clicking 'Return to canvas' button did not dismiss the drawer. The drawer remained open. Tried Escape key, clicking '🕸️ Workflow DAG' button, navigating to /settings and back — drawer persisted or canvas showed 'Waiting for the first graph snapshot from bayesgrove…' overlay after navigation."
+        },
+        {
+          "action": "After page reload, attempt to add a new node for delete test",
+          "expected": "New node added and visible on canvas",
+          "observed": "After reload, canvas showed 'Waiting for the first graph snapshot from bayesgrove…' overlay. REPL command typed but node did not appear (graph snapshot not received). Backend health check (curl localhost:3100/health) returned connection refused — server crashed."
+        },
+        {
+          "action": "Verify backend health",
+          "expected": "Server responds with HTTP 200",
+          "observed": "curl exit code 7 (connection refused). Backend server on port 3100 is no longer running."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle-final/VAL-GUI-012-canvas-before-add.png"
+        ],
+        "consoleErrors": "none (browser-side)",
+        "network": "Backend server at localhost:3100 became unreachable (connection refused)"
+      },
+      "issues": "Backend server crashed during test. Unable to complete node deletion test. The 'Return to canvas' button in the node detail drawer did not work reliably — clicking it did not dismiss the drawer view, requiring navigation to /settings and back, after which the canvas showed a 'Waiting for graph snapshot' overlay that never resolved because the server had crashed."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The 'Return to canvas' button in the NodeDetailDrawer does not reliably close the drawer. Clicking it multiple times, pressing Escape, and clicking the '🕸️ Workflow DAG' tab all failed to return to the canvas view. Only navigating away (to /settings) and back restored the canvas, but then the graph snapshot was not received.",
+      "resolved": false,
+      "resolution": "Workaround was to navigate to /settings and back to /, but this caused the WebSocket to reconnect and the graph snapshot to be lost (server crash).",
+      "affectedAssertions": ["VAL-GUI-012"]
+    },
+    {
+      "description": "After navigating away from the workspace (/) to /settings and back, the canvas showed 'Waiting for the first graph snapshot from bayesgrove…' overlay indefinitely, even though the REPL showed 'interactive ready'. The server subsequently crashed.",
+      "resolved": false,
+      "resolution": "Could not resolve — the backend server (port 3100) stopped responding to health checks.",
+      "affectedAssertions": ["VAL-GUI-012"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Backend server (port 3100) crashed during testing. curl localhost:3100/health returns connection refused. Vite dev server (port 5173) still serves the SPA but the workspace cannot function without the backend. This prevented completing VAL-GUI-012 (node deletion test).",
+      "affectedAssertions": ["VAL-GUI-012"],
+      "quickFixAttempted": "Reloaded page, waited 15 seconds, verified with curl — server confirmed down."
+    }
+  ],
+  "summary": "Tested 4 assertions: 3 passed (VAL-GUI-008, VAL-GUI-009, VAL-GUI-011), 1 blocked (VAL-GUI-012). Node addition via REPL works correctly, nodes appear on canvas and in explorer with updated counts, and the node detail drawer opens on click showing comprehensive node info. VAL-GUI-012 was blocked because the backend server crashed during testing, and the 'Return to canvas' button in the detail drawer did not work reliably (friction noted)."
+}

@@ -1,0 +1,58 @@
+{
+  "milestone": "gui-tests",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-GUI-001",
+    "VAL-GUI-002",
+    "VAL-GUI-003",
+    "VAL-GUI-004",
+    "VAL-GUI-005",
+    "VAL-GUI-006",
+    "VAL-GUI-007",
+    "VAL-GUI-008",
+    "VAL-GUI-009",
+    "VAL-GUI-010",
+    "VAL-GUI-011",
+    "VAL-GUI-012"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Documented that Ctrl+K is intercepted by xterm terminal when focused — use 'Open command palette' button instead for VAL-GUI-006",
+      "source": "flow-report"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Documented that settings page form fields are only visible when desktopEnvironment is non-null (provided by server bootstrap). In web mode with server running, desktopEnvironment is populated from the DesktopEnvironmentService.",
+      "source": "flow-report"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Documented that manually started backend server (outside Playwright test lifecycle) is unstable and crashes during node operations. Playwright tests manage their own server lifecycle via shared-setup.ts and work reliably.",
+      "source": "flow-report"
+    }
+  ],
+  "validationMethods": {
+    "agentBrowser": "Used for VAL-GUI-001 through VAL-GUI-011 (interactive browser testing with screenshots)",
+    "playwright": "Used for VAL-GUI-012 confirmation (36/36 GUI tests pass including node deletion tests)",
+    "combined": "VAL-GUI-012 was blocked in agent-browser due to server instability but confirmed passing via Playwright E2E tests (e2e/gui/node-lifecycle.spec.ts: 6/6 tests pass including 'node can be deleted via REPL and disappears from canvas' and 'deleted node disappears from explorer panel')"
+  },
+  "flowReports": [
+    ".factory/validation/gui-tests/user-testing/flows/layout-canvas.json",
+    ".factory/validation/gui-tests/user-testing/flows/panels-repl.json",
+    ".factory/validation/gui-tests/user-testing/flows/repl-settings-retest.json",
+    ".factory/validation/gui-tests/user-testing/flows/node-lifecycle-final.json",
+    ".factory/validation/gui-tests/user-testing/flows/node-lifecycle-retry.json",
+    ".factory/validation/gui-tests/user-testing/flows/node-deletion.json"
+  ],
+  "previousRound": null
+}

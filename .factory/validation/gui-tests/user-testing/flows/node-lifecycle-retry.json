@@ -1,0 +1,114 @@
+{
+  "groupId": "node-lifecycle-retry",
+  "testedAt": "2026-03-21T12:00:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendPort": 3100,
+    "rProcessPort": 3101,
+    "agentBrowserSession": "402784519b94__nodes2"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-GUI-010",
+      "title": "WebSocket connection status is visible",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to http://localhost:5173",
+          "expected": "Workspace shell renders with no error banner",
+          "observed": "Workspace shell rendered with explorer panel (showing Data Sources 0, Models 0, etc.), canvas area with toolbar, inspector panel with Obligations/Actions tabs, and REPL terminal. No error banner visible. Session was in 'ready' state."
+        },
+        {
+          "action": "Check browser console for errors",
+          "expected": "No uncaught errors",
+          "observed": "No console errors detected"
+        },
+        {
+          "action": "Verify session status indicator",
+          "expected": "Session shows 'ready' state",
+          "observed": "No error banner or connecting spinner visible; workspace fully interactive with buttons enabled"
+        }
+      ],
+      "evidence": {
+        "screenshots": ["gui-tests/node-lifecycle-retry/VAL-GUI-010-workspace-ready.png"],
+        "consoleErrors": "none"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-GUI-008",
+      "title": "Node can be added to the workflow",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Click 'Use default workflow' button to enable workflow packs",
+          "expected": "Node kinds registered, button becomes disabled",
+          "observed": "Both 'Use default workflow' and 'Enable workflow packs' buttons became disabled, indicating workflow was enabled"
+        },
+        {
+          "action": "Focus REPL terminal input and type bg_add_node(project, 'source', list(label = 'Test Data'))",
+          "expected": "Command typed into REPL",
+          "observed": "Command was typed successfully into the REPL terminal"
+        },
+        {
+          "action": "Press Enter to submit the command",
+          "expected": "R command executes and returns success",
+          "observed": "After pressing Enter, a 'Timed out waiting for the server to respond' error appeared. The backend server (port 3100) crashed during or shortly after the command was submitted."
+        },
+        {
+          "action": "Verify backend health",
+          "expected": "Backend returns 200 on /health",
+          "observed": "curl http://localhost:3100/health failed — backend port 3100 no longer listening. The backend server process crashed."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["gui-tests/node-lifecycle-retry/VAL-GUI-008-node-added.png", "gui-tests/node-lifecycle-retry/blocker-backend-crash.png"],
+        "consoleErrors": "Timed out waiting for the server to respond"
+      },
+      "issues": "Backend server crashed during REPL command execution. Port 3100 stopped listening. R process on port 3101 remains running but is unreachable without the backend bridge."
+    },
+    {
+      "id": "VAL-GUI-009",
+      "title": "Nodes appear on graph canvas after being added",
+      "status": "blocked",
+      "steps": [],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "blocked"
+      },
+      "issues": "Depends on VAL-GUI-008. Backend crashed before node could be added to the graph."
+    },
+    {
+      "id": "VAL-GUI-011",
+      "title": "Node detail drawer opens on node click",
+      "status": "blocked",
+      "steps": [],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "blocked"
+      },
+      "issues": "Depends on VAL-GUI-008. No node exists on canvas to click after backend crash."
+    },
+    {
+      "id": "VAL-GUI-012",
+      "title": "Node can be deleted from the workflow",
+      "status": "blocked",
+      "steps": [],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "blocked"
+      },
+      "issues": "Depends on VAL-GUI-008. No node exists on canvas to delete after backend crash."
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Backend server (Bun, port 3100) crashed during or shortly after submitting a REPL command (bg_add_node). Port 3100 stopped listening entirely. curl to http://localhost:3100/health fails with connection refused. The R process on port 3101 remains alive but is unreachable without the backend bridge. This blocks all node lifecycle assertions (VAL-GUI-008, VAL-GUI-009, VAL-GUI-011, VAL-GUI-012).",
+      "affectedAssertions": ["VAL-GUI-008", "VAL-GUI-009", "VAL-GUI-011", "VAL-GUI-012"],
+      "quickFixAttempted": "Clicked 'Retry' button — did not resolve. Reloaded page — did not resolve. Verified backend health — port 3100 not listening. The backend process needs to be restarted."
+    }
+  ],
+  "summary": "Tested 5 assertions: 1 passed (VAL-GUI-010: WebSocket connection status visible when session is ready), 4 blocked (VAL-GUI-008, VAL-GUI-009, VAL-GUI-011, VAL-GUI-012). The backend server crashed during REPL command execution, making it impossible to test node addition, canvas rendering, detail drawer, and node deletion. The backend needs to be restarted before retrying."
+}

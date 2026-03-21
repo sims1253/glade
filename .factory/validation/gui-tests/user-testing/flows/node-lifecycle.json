@@ -1,0 +1,155 @@
+{
+  "groupId": "node-lifecycle",
+  "testedAt": "2026-03-21T17:30:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendServer": "http://localhost:3100",
+    "agentBrowserSession": "402784519b94__nodes",
+    "mutatesGraphState": true
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-GUI-008",
+      "title": "Node can be added to the workflow",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Navigate to http://localhost:5173",
+          "expected": "App loads with ready session",
+          "observed": "App loads but session is in error state: r_process_exit:null:SIGTERM. R process is dead (no Rscript process running)."
+        },
+        {
+          "action": "Attempt Retry, Refresh connection, page reload, and Use default workflow buttons",
+          "expected": "R session reconnects",
+          "observed": "None of the GUI recovery buttons restarted the R process. The server health endpoint returns ok but sessionState remains 'error'."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle/VAL-GUI-010-initial-load.png",
+          "gui-tests/node-lifecycle/VAL-GUI-010-after-retry.png",
+          "gui-tests/node-lifecycle/VAL-GUI-010-after-reload.png"
+        ],
+        "consoleErrors": "WebSocket connection to 'ws://localhost:5173/ws' failed: WebSocket is closed before the connection is established (expected given R process death)",
+        "network": "GET http://localhost:3100/health -> 200 {\"status\":\"ok\",\"version\":\"0.14.0\"}. Backend alive but R child process dead."
+      },
+      "issues": "R process was killed (SIGTERM) before testing began. The Bun backend is healthy but the R child process is not running. GUI recovery buttons (Retry, Refresh connection) did not restart the R process. Cannot add nodes without an active R session."
+    },
+    {
+      "id": "VAL-GUI-009",
+      "title": "Nodes appear on graph canvas after being added",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Prerequisite: need active R session to add nodes first",
+          "expected": "R session ready",
+          "observed": "R process is dead (SIGTERM). Cannot add nodes, so cannot verify canvas rendering of nodes."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle/VAL-GUI-010-initial-load.png"
+        ],
+        "consoleErrors": "none (no application errors)",
+        "network": "Backend health OK but R process dead"
+      },
+      "issues": "Blocked by same R process death as VAL-GUI-008. Cannot add nodes without R session, so cannot verify canvas rendering."
+    },
+    {
+      "id": "VAL-GUI-010",
+      "title": "WebSocket connection status is visible",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to app and observe connection state",
+          "expected": "Connection status indicator visible",
+          "observed": "Error state is clearly visible with multiple UI indicators"
+        },
+        {
+          "action": "Check canvas status banner",
+          "expected": "Error banner with session reason",
+          "observed": "Found div with classes 'border-rose-400/40 bg-rose-950/80 text-rose-100' showing 'Session unavailable. Showing last known graph.r_process_exit:null:SIGTERM'"
+        },
+        {
+          "action": "Check REPL panel for rose overlay",
+          "expected": "Rose overlay with error reason in REPL",
+          "observed": "Found 2 div elements with 'bg-rose-950/80 text-rose-100' showing 'Session error: r_process_exit:null:SIGTERM.' in the REPL area"
+        },
+        {
+          "action": "Check System Health dialog",
+          "expected": "Shows session state and reason",
+          "observed": "System Health dialog shows sessionState: 'error', sessionReason: 'r_process_exit:null:SIGTERM'"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle/VAL-GUI-010-initial-load.png",
+          "gui-tests/node-lifecycle/VAL-GUI-010-initial-load-annotated.png",
+          "gui-tests/node-lifecycle/VAL-GUI-010-error-state-repl.png",
+          "gui-tests/node-lifecycle/VAL-GUI-010-after-retry.png",
+          "gui-tests/node-lifecycle/VAL-GUI-010-after-reload.png"
+        ],
+        "consoleErrors": "WebSocket connection warnings expected due to R process death. No uncaught application errors.",
+        "network": "session.status pushes communicate error state transition. Backend health: 200 OK."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-GUI-011",
+      "title": "Node detail drawer opens on node click",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Prerequisite: need active R session to add a node first",
+          "expected": "R session ready with at least one node",
+          "observed": "R process is dead (SIGTERM). Cannot add nodes, so cannot test clicking on canvas nodes."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle/VAL-GUI-010-initial-load.png"
+        ],
+        "consoleErrors": "none (no application errors)",
+        "network": "Backend health OK but R process dead"
+      },
+      "issues": "Blocked by same R process death as VAL-GUI-008. Cannot add nodes without R session, so cannot test node detail drawer."
+    },
+    {
+      "id": "VAL-GUI-012",
+      "title": "Node can be deleted from the workflow",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Prerequisite: need active R session to add a node first",
+          "expected": "R session ready with at least one node to delete",
+          "observed": "R process is dead (SIGTERM). Cannot add nodes, so cannot test deletion."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/node-lifecycle/VAL-GUI-010-initial-load.png"
+        ],
+        "consoleErrors": "none (no application errors)",
+        "network": "Backend health OK but R process dead"
+      },
+      "issues": "Blocked by same R process death as VAL-GUI-008. Cannot add nodes without R session, so cannot test node deletion."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The R process was dead (SIGTERM) when the browser session started, despite the task description stating the server was running with a fresh bayesgrove project. The 'Retry' and 'Refresh connection' GUI buttons did not restart the R process — they only retry the WebSocket connection to the backend.",
+      "resolved": false,
+      "resolution": "Attempted Retry button (3 times), Refresh connection button, page reload, and 'Use default workflow' button. None restarted the R process. Per AGENTS.md rules, did not attempt to restart services or modify shared infrastructure.",
+      "affectedAssertions": ["VAL-GUI-008", "VAL-GUI-009", "VAL-GUI-011", "VAL-GUI-012"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "R child process is dead (received SIGTERM). The Bun backend on port 3100 is healthy (HTTP 200), but the R process that provides the bayesgrove session is not running. No Rscript process found on the system. The GUI shows 'Session unavailable' with reason 'r_process_exit:null:SIGTERM'. Without an active R session, cannot add/delete nodes or interact with the REPL.",
+      "affectedAssertions": ["VAL-GUI-008", "VAL-GUI-009", "VAL-GUI-011", "VAL-GUI-012"],
+      "quickFixAttempted": "Clicked Retry button (3 times over 45 seconds), clicked Refresh connection, reloaded page, clicked 'Use default workflow' button. Checked with `ps aux | grep Rscript` — no R process found. Verified backend health with curl — returns 200. Per AGENTS.md rules, did not attempt to restart the server or R process directly."
+    }
+  ],
+  "summary": "Tested 5 assertions: 1 passed (VAL-GUI-010: error state visibility confirmed with rose overlay and status banner), 4 blocked (VAL-GUI-008, VAL-GUI-009, VAL-GUI-011, VAL-GUI-012: R process dead with SIGTERM, cannot add/delete nodes without active R session). The Bun backend is healthy but its R child process was killed before testing began. GUI recovery mechanisms (Retry, Refresh) only retry WebSocket connections and do not restart the R process."
+}

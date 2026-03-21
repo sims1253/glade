@@ -1,0 +1,82 @@
+{
+  "groupId": "layout-canvas",
+  "testedAt": "2026-03-21T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendUrl": "http://localhost:3100",
+    "session": "402784519b94__layout",
+    "mode": "read-only",
+    "projectState": "fresh bayesgrove project, no nodes"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-GUI-001",
+      "title": "App loads and shows workspace canvas with toolbar",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to http://localhost:5173",
+          "expected": "Glade SPA loads and workspace shell renders",
+          "observed": "Page loaded successfully, title 'Glade' confirmed"
+        },
+        {
+          "action": "Wait for network idle (WebSocket bootstrap)",
+          "expected": "Workspace fully rendered with all panels",
+          "observed": "All panels rendered: Explorer (left), Canvas (center), Inspector (right)"
+        },
+        {
+          "action": "Check for three-panel layout via DOM query",
+          "expected": "Explorer panel, Canvas area, and Inspector panel all present",
+          "observed": "threePanelLayout=true, explorerPanelExists=true, inspectorPanelExists=true, canvasAreaExists=true, asideCount=3"
+        },
+        {
+          "action": "Check for toolbar summary string matching 'N nodes · M edges · K kinds'",
+          "expected": "Summary paragraph with pattern match",
+          "observed": "summaryText='0 nodes · 0 edges · 0 kinds', summaryMatchesPattern=true"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/layout-canvas/VAL-GUI-001-workspace-layout.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Page loaded successfully, WebSocket connection established (no errors)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-GUI-002",
+      "title": "Graph canvas renders (React Flow container is present)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Query DOM for .workflow-flow container element",
+          "expected": "A div.workflow-flow element exists within the canvas area",
+          "observed": "workflowFlowExists=true, workflowFlowTag=DIV, workflowFlowClasses='react-flow workflow-flow light'"
+        },
+        {
+          "action": "Check for React Flow internal elements (viewport, pane)",
+          "expected": "React Flow viewport and pane elements exist",
+          "observed": "hasReactFlowViewport=true, hasReactFlowPane=true"
+        },
+        {
+          "action": "Check for .react-flow__node elements",
+          "expected": "No nodes present (fresh project with no nodes)",
+          "observed": "reactFlowNodesCount=0, reactFlowNodesIds=[] — expected for empty project"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "gui-tests/layout-canvas/VAL-GUI-002-canvas-container.png"
+        ],
+        "consoleErrors": "none",
+        "network": "N/A — DOM-only verification"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 2 assertions: both passed. VAL-GUI-001 confirmed three-panel layout (Explorer/Canvas/Inspector) and toolbar summary '0 nodes · 0 edges · 0 kinds'. VAL-GUI-002 confirmed .workflow-flow React Flow container with viewport and pane elements present. No .react-flow__node elements as expected for fresh empty project. No browser console errors."
+}
