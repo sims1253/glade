@@ -42,3 +42,23 @@ Environment variables, external dependencies, and setup notes.
 - The REPL does not auto-load bayesgrove into the global namespace. Functions must be called with the `bayesgrove::` prefix (e.g., `bayesgrove::bg_add_node(...)` instead of `bg_add_node(...)`).
 - REPL commands sent while a long-running R command is active (e.g., `bg_run` sampling) get appended to the running input and cause syntax errors. Automation must wait for a clean R prompt (`> `) before sending new commands.
 - The Vite dev server proxies WebSocket connections to the backend using the `BAYESGROVE_SERVER_PORT` env var. When unset, it defaults to port 7842 (incorrect). The web service in services.yaml must set `BAYESGROVE_SERVER_PORT=3100` for correct proxy behavior.
+
+## E2E Test Infrastructure
+
+### Module Resolution
+
+Playwright's test runner uses Node.js, which cannot resolve bun workspace packages (like `@glade/shared`). The e2e fixtures in `e2e/fixtures/helpers.ts` provide self-contained implementations of `getAvailablePort`, `terminateProcessTree`, `waitForHttpReady`, and `killProcessesOnPort`. Do NOT import from `@glade/shared` or `ws` in e2e test files.
+
+Similarly, the `ws` npm package is only available in the `@glade/server` workspace. The `e2e/fixtures/websocket.ts` uses the native `WebSocket` API (available in Node.js 25+).
+
+### R Process Cleanup
+
+The Bun server spawns the R process internally via `Bun.spawn`. When the Bun process is killed (even with `process.kill(-pid, 'SIGTERM')` for the process group), the R child process often survives as an orphan. **Solution:** The `killProcessesOnPort()` helper in `e2e/fixtures/helpers.ts` uses `lsof -ti :<port>` to find and kill any remaining processes on the R port during cleanup.
+
+### bayesgrove API for Project Setup
+
+`bg_use_default_workflow()` requires a `bg_handle` object (returned by `bg_init()`), not a string path. Since R handles contain environments and cannot be serialized, both calls must be chained in a single `Rscript -e` invocation.
+
+### Vite Proxy Configuration
+
+The playwright.config.ts webServer starts Vite with `BAYESGROVE_SERVER_PORT=3100`, which tells Vite to proxy `/ws` and `/health` to `http://127.0.0.1:3100`. The backend server must run on port 3100 for the proxy to work. Since `workers: 1`, there's only one test worker at a time, so a fixed port is acceptable.
