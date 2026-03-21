@@ -44,7 +44,18 @@ describe('SchemaDrivenForm', () => {
   it('renders supported field types and submits normalized parameters', async () => {
     const onSubmit = vi.fn();
     window.desktopBridge = {
+      getWsUrl: () => 'ws://127.0.0.1:7842/ws',
       pickFile: vi.fn(async () => '/tmp/project/data.csv'),
+      pickDirectory: vi.fn(async () => null),
+      pickExecutable: vi.fn(async () => null),
+      openDetachedTerminal: vi.fn(async () => false),
+      onDetachedTerminalState: vi.fn(() => () => {}),
+      openExternal: vi.fn(async () => true),
+      getUpdateState: vi.fn(async () => ({ status: 'idle' as const, version: null, message: null, progressPercent: null, canRetry: false, errorContext: null, checkedAt: null })),
+      checkForUpdates: vi.fn(async () => ({ status: 'idle' as const, version: null, message: null, progressPercent: null, canRetry: false, errorContext: null, checkedAt: null })),
+      downloadUpdate: vi.fn(async () => ({ status: 'idle' as const, version: null, message: null, progressPercent: null, canRetry: false, errorContext: null, checkedAt: null })),
+      installDownloadedUpdate: vi.fn(async () => true),
+      onUpdateState: vi.fn(() => () => {}),
     };
 
     render(

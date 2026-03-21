@@ -40,11 +40,13 @@ export function canDetachTerminal() {
 }
 
 export function subscribeToDetachedTerminalState(listener: (isDetached: boolean) => void) {
-  return readDesktopBridge()?.onDetachedTerminalState?.(listener) ?? (() => {});
+  const bridge = readDesktopBridge();
+  return bridge ? bridge.onDetachedTerminalState(listener) : () => {};
 }
 
 export function websocketUrl() {
-  const bridgeUrl = readDesktopBridge()?.getWsUrl?.();
+  const bridge = readDesktopBridge();
+  const bridgeUrl = bridge ? bridge.getWsUrl() : null;
   if (bridgeUrl) {
     return bridgeUrl;
   }
@@ -95,10 +97,10 @@ export function createNativeApi(rpc: RpcClient) {
       resetSettings: resetEnvironment,
       bootstrapProject,
     },
-    pickFile: async () => bridge?.pickFile?.() ?? null,
-    pickDirectory: async () => bridge?.pickDirectory?.() ?? null,
-    pickExecutable: async () => bridge?.pickExecutable?.() ?? null,
-    openDetachedTerminal: async () => bridge?.openDetachedTerminal?.() ?? false,
+    pickFile: async () => bridge?.pickFile() ?? null,
+    pickDirectory: async () => bridge?.pickDirectory() ?? null,
+    pickExecutable: async () => bridge?.pickExecutable() ?? null,
+    openDetachedTerminal: async () => bridge?.openDetachedTerminal() ?? false,
     openExternal: async (url: string) => {
       if (bridge?.openExternal) {
         return bridge.openExternal(url);
@@ -108,7 +110,7 @@ export function createNativeApi(rpc: RpcClient) {
     },
     updater: {
       supported: Boolean(bridge),
-      getState: async (): Promise<DesktopUpdateState | null> => bridge?.getUpdateState?.() ?? null,
+      getState: async (): Promise<DesktopUpdateState | null> => bridge?.getUpdateState() ?? null,
       check: async (): Promise<DesktopUpdateState> => {
         if (!bridge?.checkForUpdates) {
           throw new Error('Updater is unavailable in this runtime.');
@@ -121,8 +123,8 @@ export function createNativeApi(rpc: RpcClient) {
         }
         return bridge.downloadUpdate();
       },
-      install: async () => bridge?.installDownloadedUpdate?.() ?? false,
-      subscribe: (listener: (state: DesktopUpdateState) => void) => bridge?.onUpdateState?.(listener) ?? (() => {}),
+      install: async () => bridge?.installDownloadedUpdate() ?? false,
+      subscribe: (listener: (state: DesktopUpdateState) => void) => bridge ? bridge.onUpdateState(listener) : () => {},
     },
   };
 }

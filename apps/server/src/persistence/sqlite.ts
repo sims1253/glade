@@ -84,6 +84,25 @@ function wrapNodeDatabase(database: NodeDatabaseSync): SqliteDatabaseService {
   };
 }
 
+/**
+ * Verify that the current Node.js version includes the `node:sqlite` module
+ * (stable since Node 22.0.0). Fails with a clear error on older runtimes
+ * instead of producing cryptic import errors.
+ */
+const checkNodeSqliteCompat = () => {
+  const parts = process.versions.node.split('.').map(Number);
+  const major = parts[0] ?? 0;
+  if (major < 22) {
+    return Effect.die(
+      new Error(
+        `Node.js ${process.versions.node} does not include the built-in node:sqlite module. ` +
+          `Upgrade to Node.js >=22.0 or run Glade with Bun instead.`,
+      ),
+    );
+  }
+  return Effect.void;
+};
+
 const createDatabase = (filename: string) =>
   Effect.tryPromise({
     try: async () => {
@@ -110,6 +129,10 @@ const openDatabase = (filename: string) =>
     Effect.gen(function* () {
       if (filename !== ':memory:') {
         yield* Effect.tryPromise(() => mkdir(path.dirname(filename), { recursive: true }));
+      }
+
+      if (typeof process !== 'undefined' && typeof process.versions?.bun !== 'string') {
+        yield* checkNodeSqliteCompat();
       }
 
       const database = yield* createDatabase(filename);

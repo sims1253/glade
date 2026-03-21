@@ -8,6 +8,10 @@ import {
   HealthResponse,
   ProtocolEvent,
 } from './messages';
+import {
+  ResolvedKeybindingsConfig,
+  KeybindingRule,
+} from './keybindings';
 
 export const WS_METHODS = [
   'desktop.getEnvironment',
@@ -30,6 +34,8 @@ export const WS_METHODS = [
   'repl.write',
   'repl.clear',
   'host.openInEditor',
+  'server.getConfig',
+  'server.upsertKeybinding',
 ] as const;
 export type WsMethod = (typeof WS_METHODS)[number];
 
@@ -42,6 +48,7 @@ export const WS_CHANNELS = [
   'repl.output',
   'repl.rawOutput',
   'repl.cleared',
+  'server.configUpdated',
 ] as const;
 export type WsChannel = (typeof WS_CHANNELS)[number];
 
@@ -214,6 +221,21 @@ export const HostOpenInEditorInput = Schema.TaggedStruct('host.openInEditor', {
 export type HostOpenInEditorInput = Schema.Schema.Type<typeof HostOpenInEditorInput>;
 export const HostOpenInEditorResult = AckResult;
 
+export const ServerConfig = Schema.TaggedStruct('ServerConfig', {
+  keybindings: ResolvedKeybindingsConfig,
+});
+export type ServerConfig = Schema.Schema.Type<typeof ServerConfig>;
+
+export const ServerGetConfigInput = Schema.TaggedStruct('server.getConfig', {});
+export type ServerGetConfigInput = Schema.Schema.Type<typeof ServerGetConfigInput>;
+export const ServerGetConfigResult = ServerConfig;
+
+export const ServerUpsertKeybindingInput = Schema.TaggedStruct('server.upsertKeybinding', {
+  rule: KeybindingRule,
+});
+export type ServerUpsertKeybindingInput = Schema.Schema.Type<typeof ServerUpsertKeybindingInput>;
+export const ServerUpsertKeybindingResult = AckResult;
+
 function requestSchema<TMethod extends WsMethod, TBody extends Schema.Schema.AnyNoContext>(
   method: TMethod,
   body: TBody,
@@ -275,6 +297,8 @@ export const WebSocketRequest = Schema.Union(
   requestSchema('repl.write', ReplWriteInput),
   requestSchema('repl.clear', ReplClearInput),
   requestSchema('host.openInEditor', HostOpenInEditorInput),
+  requestSchema('server.getConfig', ServerGetConfigInput),
+  requestSchema('server.upsertKeybinding', ServerUpsertKeybindingInput),
 );
 export type WebSocketRequest = Schema.Schema.Type<typeof WebSocketRequest>;
 
@@ -299,6 +323,8 @@ export const WebSocketResponse = Schema.Union(
   successResponseSchema('repl.write', ReplWriteResult),
   successResponseSchema('repl.clear', ReplClearResult),
   successResponseSchema('host.openInEditor', HostOpenInEditorResult),
+  successResponseSchema('server.getConfig', ServerGetConfigResult),
+  successResponseSchema('server.upsertKeybinding', ServerUpsertKeybindingResult),
   errorResponseSchema('desktop.getEnvironment'),
   errorResponseSchema('desktop.refreshEnvironment'),
   errorResponseSchema('desktop.saveSettings'),
@@ -319,6 +345,8 @@ export const WebSocketResponse = Schema.Union(
   errorResponseSchema('repl.write'),
   errorResponseSchema('repl.clear'),
   errorResponseSchema('host.openInEditor'),
+  errorResponseSchema('server.getConfig'),
+  errorResponseSchema('server.upsertKeybinding'),
 );
 export type WebSocketResponse = Schema.Schema.Type<typeof WebSocketResponse>;
 
@@ -331,6 +359,7 @@ export const WsPush = Schema.Union(
   pushSchema('repl.output', ReplOutput),
   pushSchema('repl.rawOutput', ReplRawOutput),
   pushSchema('repl.cleared', ReplCleared),
+  pushSchema('server.configUpdated', ServerConfig),
 );
 export type WsPush = Schema.Schema.Type<typeof WsPush>;
 

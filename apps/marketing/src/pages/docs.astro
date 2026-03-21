@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { version } from '../../../../package.json';
 
 const sections = [
   {
@@ -330,7 +331,7 @@ const sections = [
     <nav>
       <div class="nav-brand">
         <div class="nav-brand-name">glade</div>
-        <div class="nav-brand-ver">v0.13.4</div>
+        <div class="nav-brand-ver">v{version}</div>
       </div>
 
       <div class="nav-group">
@@ -473,7 +474,7 @@ const sections = [
       </section>
 
       <footer class="doc-footer">
-        <span>Glade v0.13.4</span>
+        <span>Glade v{version}</span>
         <span>{new Date().getFullYear()}</span>
       </footer>
     </main>

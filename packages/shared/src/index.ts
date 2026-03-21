@@ -23,26 +23,31 @@ export type DesktopUpdateStatus =
   | 'downloaded'
   | 'error';
 
+export type DesktopUpdateErrorContext = 'check' | 'download' | 'install' | null;
+
 export interface DesktopUpdateState {
   readonly status: DesktopUpdateStatus;
   readonly version: string | null;
   readonly message: string | null;
   readonly progressPercent: number | null;
+  readonly canRetry: boolean;
+  readonly errorContext: DesktopUpdateErrorContext;
+  readonly checkedAt: string | null;
 }
 
 export interface DesktopBridge {
-  readonly getWsUrl?: () => string;
-  readonly pickFile?: () => Promise<string | null>;
-  readonly pickDirectory?: () => Promise<string | null>;
-  readonly pickExecutable?: () => Promise<string | null>;
-  readonly openDetachedTerminal?: () => Promise<boolean>;
-  readonly onDetachedTerminalState?: (listener: (isDetached: boolean) => void) => () => void;
-  readonly openExternal?: (url: string) => Promise<boolean>;
-  readonly getUpdateState?: () => Promise<DesktopUpdateState>;
-  readonly checkForUpdates?: () => Promise<DesktopUpdateState>;
-  readonly downloadUpdate?: () => Promise<DesktopUpdateState>;
-  readonly installDownloadedUpdate?: () => Promise<boolean>;
-  readonly onUpdateState?: (listener: (state: DesktopUpdateState) => void) => () => void;
+  readonly getWsUrl: () => string;
+  readonly pickFile: () => Promise<string | null>;
+  readonly pickDirectory: () => Promise<string | null>;
+  readonly pickExecutable: () => Promise<string | null>;
+  readonly openDetachedTerminal: () => Promise<boolean>;
+  readonly onDetachedTerminalState: (listener: (isDetached: boolean) => void) => () => void;
+  readonly openExternal: (url: string) => Promise<boolean>;
+  readonly getUpdateState: () => Promise<DesktopUpdateState>;
+  readonly checkForUpdates: () => Promise<DesktopUpdateState>;
+  readonly downloadUpdate: () => Promise<DesktopUpdateState>;
+  readonly installDownloadedUpdate: () => Promise<boolean>;
+  readonly onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
 }
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {

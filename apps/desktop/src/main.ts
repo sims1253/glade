@@ -19,11 +19,18 @@ import { runSmokeScenario } from './smoke-runner';
 let mainWindow: BrowserWindow | null = null;
 let detachedTerminalWindow: BrowserWindow | null = null;
 let backendProcess: ServerProcessHandle | null = null;
+let restartAttempt = 0;
+let restartTimer: ReturnType<typeof setTimeout> | null = null;
+let serverStabilityTimer: ReturnType<typeof setTimeout> | null = null;
+let isShuttingDown = false;
 let updateState: DesktopUpdateState = {
   status: 'idle',
   version: null,
   message: null,
   progressPercent: null,
+  canRetry: false,
+  errorContext: null,
+  checkedAt: null,
 };
 const runtimeLogTail: string[] = [];
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
@@ -97,6 +104,9 @@ autoUpdater.on('checking-for-update', () => {
     status: 'checking',
     message: 'Checking GitHub Releases…',
     progressPercent: null,
+    canRetry: false,
+    errorContext: null,
+    checkedAt: new Date().toISOString(),
   });
 });
 
@@ -106,6 +116,8 @@ autoUpdater.on('update-available', (info) => {
     status: 'available',
     version: info.version,
     message: `Version ${info.version} is available.`,
+    canRetry: false,
+    errorContext: null,
   });
 });
 
@@ -115,6 +127,9 @@ autoUpdater.on('update-not-available', () => {
     status: 'not-available',
     message: 'You already have the latest release for this channel.',
     progressPercent: null,
+    canRetry: false,
+    errorContext: null,
+    checkedAt: new Date().toISOString(),
   });
 });
 
@@ -123,6 +138,8 @@ autoUpdater.on('download-progress', (progress) => {
     status: 'downloading',
     message: `Downloading update… ${Math.round(progress.percent)}%`,
     progressPercent: progress.percent,
+    canRetry: false,
+    errorContext: null,
   });
 });
 
@@ -133,14 +150,20 @@ autoUpdater.on('update-downloaded', (info) => {
     version: info.version,
     message: `Version ${info.version} is ready to install.`,
     progressPercent: 100,
+    canRetry: true,
+    errorContext: null,
   });
 });
 
 autoUpdater.on('error', (error) => {
   appendRuntimeLog(`[updater] ${error.message}`);
+  const errorContext = updateState.status === 'downloading' ? 'download' : updateState.status === 'downloaded' ? 'install' : 'check';
   setUpdateState({
     status: 'error',
     message: error.message,
+    progressPercent: null,
+    canRetry: true,
+    errorContext,
   });
 });
 
@@ -297,21 +320,84 @@ function attachBackendLifecycle(handle: ServerProcessHandle) {
       return;
     }
 
-    appendRuntimeLog(`[desktop] embedded server exited (${code ?? 'null'}/${signal ?? 'null'})`);
+    const reason = `embedded server exited (${code ?? 'null'}/${signal ?? 'null'})`;
+    appendRuntimeLog(`[desktop] ${reason}`);
+    backendProcess = null;
+    scheduleServerRestart(reason);
   });
 }
 
-async function ensureServerProcess() {
+const MAX_RESTART_ATTEMPTS = 8;
+const BASE_RESTART_DELAY_MS = 500;
+const SERVER_STABILITY_MS = 5_000;
+
+function restartBackoffMs(attempt: number): number {
+  return Math.min(BASE_RESTART_DELAY_MS * Math.pow(2, attempt), 30_000);
+}
+
+async function ensureServerProcess(): Promise<void> {
+  if (isShuttingDown) return;
+
   const stateDir = app.getPath('userData');
 
   await stopServerProcess(backendProcess);
+  if (isShuttingDown) return;
+
   backendProcess = await startServerProcess({
     projectPath: defaultProjectPath(stateDir),
     stateDir,
     onLogLine: appendRuntimeLog,
   });
+  if (isShuttingDown) {
+    void stopServerProcess(backendProcess);
+    backendProcess = null;
+    return;
+  }
   attachBackendLifecycle(backendProcess);
   await waitForServer(backendProcess);
+}
+
+function scheduleServerRestart(reason: string) {
+  if (restartAttempt >= MAX_RESTART_ATTEMPTS) {
+    appendRuntimeLog(`[desktop] server restart aborted after ${MAX_RESTART_ATTEMPTS} attempts: ${reason}`);
+    return;
+  }
+
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+  }
+
+  const delay = restartBackoffMs(restartAttempt);
+  appendRuntimeLog(`[desktop] scheduling server restart attempt ${restartAttempt + 1}/${MAX_RESTART_ATTEMPTS} in ${delay}ms: ${reason}`);
+
+  restartTimer = setTimeout(async () => {
+    restartTimer = null;
+    if (isShuttingDown) return;
+
+    restartAttempt += 1;
+    try {
+      await ensureServerProcess();
+      appendRuntimeLog('[desktop] server restart succeeded');
+      // Notify renderer about session state after successful restart
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) {
+          window.webContents.send('glade:update-state', updateState);
+        }
+      }
+      // Reset restartAttempt only after a stability period
+      if (serverStabilityTimer) {
+        clearTimeout(serverStabilityTimer);
+      }
+      serverStabilityTimer = setTimeout(() => {
+        restartAttempt = 0;
+        serverStabilityTimer = null;
+      }, SERVER_STABILITY_MS).unref();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendRuntimeLog(`[desktop] server restart attempt ${restartAttempt} failed: ${message}`);
+      scheduleServerRestart(message);
+    }
+  }, delay).unref();
 }
 
 async function checkForUpdates() {
@@ -320,6 +406,8 @@ async function checkForUpdates() {
       status: 'error',
       message: 'Auto-updates are available only in packaged builds.',
       progressPercent: null,
+      canRetry: false,
+      errorContext: null,
     });
     return updateState;
   }
@@ -334,6 +422,8 @@ async function checkForUpdates() {
       status: 'error',
       message,
       progressPercent: null,
+      canRetry: true,
+      errorContext: 'check',
     });
   }
   return updateState;
@@ -345,6 +435,8 @@ async function downloadUpdate() {
       status: 'error',
       message: 'Auto-updates are available only in packaged builds.',
       progressPercent: null,
+      canRetry: false,
+      errorContext: null,
     });
     return updateState;
   }
@@ -359,6 +451,8 @@ async function downloadUpdate() {
       status: 'error',
       message,
       progressPercent: null,
+      canRetry: true,
+      errorContext: 'download',
     });
   }
   return updateState;
@@ -396,6 +490,12 @@ function registerIpcHandlers() {
 }
 
 function shutdown() {
+  isShuttingDown = true;
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
+  }
+  restartAttempt = MAX_RESTART_ATTEMPTS; // prevent further restarts
   detachedTerminalWindow?.close();
   void stopServerProcess(backendProcess).catch((error) => {
     appendRuntimeLog(

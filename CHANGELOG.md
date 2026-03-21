@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.16.3 - 2026-03-17
+
+- Fixed CI `pr-size.yml` to fetch PR head via `refs/pull/<number>/head` for fork PRs instead of HEAD SHA from fork.
+- Fixed context menu to remove unnecessary `useCallback` wrapper around `setState` and deduplicated `px-3` classes.
+- Added `aria-label="Close context menu"` to context menu backdrop button for screen reader accessibility.
+- Fixed `normalizeEditorCommand` to correctly extract quoted Windows paths with arguments (e.g., `"C:\Program Files\Code.exe" --reuse-window`).
+- Centralized version string in marketing docs page by importing from root package.json instead of hardcoding.
+- Updated rpackage.astro sidebar badge from stale `v0.13` to `v0.16`.
+
+## 0.16.2 - 2026-03-17
+
+- Fixed CI `pr-size.yml` to use explicit PR commit SHAs for `pull_request_target` events instead of comparing against working tree.
+- Fixed keybinding encoder to emit prettier output without redundant parentheses (e.g., `!foo` instead of `!(foo)`, `a && b || c` instead of `((a && b) || c)`).
+- Fixed sqlite compatibility check to pass `Error` instance to `Effect.die` for better diagnostics with stack traces.
+- Fixed context menu accessibility by replacing backdrop `<div>` with `<button type="button">` and separator `<div>` with semantic `<hr>`.
+- Fixed desktop server restart backoff to require 5-second stability window before resetting restart attempt counter, preventing rapid crash loops from thrashing with minimal delay.
+- Fixed editor preference detection to handle Windows paths (e.g., `C:\Program Files\Code.exe`) with proper normalization.
+
+## 0.16.1 - 2026-03-16
+
+- Fixed CI `pr-size.yml` to use portable `awk` instead of `grep -oP` for extracting insertion/deletion counts from git diff stat.
+- Fixed desktop main process shutdown race: added `isShuttingDown` guard to prevent restart attempts and backend process creation during app quit.
+- Fixed desktop autoUpdater error context to correctly report 'download', 'install', or 'check' based on current update status.
+- Fixed server keybinding parser to reject empty/whitespace-only shortcut inputs before trailing '+' normalization.
+- Fixed server keybinding parser to use shared `MAX_WHEN_EXPRESSION_DEPTH` constant from `@glade/contracts` instead of hardcoded value.
+- Fixed sqlite process guard condition: changed `||` to `&&` so `checkNodeSqliteCompat()` only runs when process exists and is not Bun.
+- Fixed server-edge keybinding update to use atomic `Ref.modify` instead of racy `Ref.get` + `Ref.set` pattern.
+- Fixed context menu mousedown handler to only close when click is outside menu (removed blanket close on any mousedown).
+- Fixed context menu item buttons to include `type="button"` to prevent accidental form submission.
+- Fixed dialog close button to use local `DialogClose` wrapper for consistent `data-slot="dialog-close"` attribute.
+- Fixed Tooltip component by removing per-instance `TooltipProvider` wrapper that broke shared skip-delay behavior.
+- Fixed dark mode scrollbar selectors to properly match when `.dark` class is on root/html/body elements.
+- Fixed editor-preferences duplicated command-matching logic by extracting shared `matchesEditorCommand` helper.
+- Fixed web keybindings `isMacPlatform` to use `userAgentData?.platform` with fallbacks instead of deprecated `navigator.platform`.
+- Fixed web keybindings `formatShortcutKeyLabel` to use lookup map for special key labels (Tab, Backspace, Enter, etc.).
+- Fixed welcome test to deduplicate mocked update state object into shared `desktopUpdateState` constant.
+- Moved Radix UI dependencies (`@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tooltip`) from root package.json to `apps/web/package.json`.
+- Added clarifying comment to `MAX_WHEN_EXPRESSION_DEPTH` constant noting depth limit is not enforced by schema and must be validated by parser.
+- Fixed runtime.ts to remove redundant optional chaining on required `DesktopBridge` methods.
+
+## 0.16.0 - 2026-03-16
+
+- Added keybinding system with configurable shortcuts (`~/.glade/keybindings.json`), platform-aware `mod` key, AST-based `when` expressions, server-side persistence, and client-side resolver with Mac symbol formatting.
+- Wired keybindings into the WebSocket protocol (`server.getConfig`, `server.upsertKeybinding`, `server.configUpdated` push channel) with server-edge handlers and default shortcuts for REPL toggle, inspector, settings, and editor open.
+- Enhanced desktop update state machine with `canRetry`, `errorContext`, and `checkedAt` fields for better error recovery UX.
+- Added backend auto-restart with exponential backoff (500ms base, 30s cap, 8 max attempts) on server process exit, with proper cleanup on shutdown.
+- Made all `DesktopBridge` methods required (previously optional) to enforce implementation completeness between Electron main and renderer processes.
+- Added context menu fallback component (`ContextMenuOverlay`, `useContextMenu`) for web-mode right-click support with keyboard dismiss and viewport-aware positioning.
+- Added editor preference utility with known editor detection (Cursor, VS Code, Zed, Nova, Vim, Emacs, Sublime Text) and display name resolution.
+- Added CI workflow for PR size labeling (`pr-size.yml`) and managed issue label sync (`issue-labels.yml`).
+- Initialized shadcn/ui component foundation: Dialog, Tooltip, DropdownMenu, Badge, and Separator, all built on Radix UI primitives.
+- Added dark mode CSS foundation with oklch-based custom property theme system (light + `.dark` class variants).
+- Added visual polish: paper-edge pseudo-element highlights on cards/popovers, noise texture overlay, focus-visible rings, styled scrollbars, and animation utilities.
+- Updated workflow canvas controls and minimap to use CSS custom properties for dark mode compatibility.
+
 ## 0.15.0 - 2026-03-15
 
 - Removed dead exports and unused functions from `settings.ts`, `shell/index.ts`, and `ui-prefs.ts`.

@@ -21,8 +21,10 @@ import {
   type JsonObject,
   type JsonValue,
   type ProtocolEvent,
+  type ResolvedKeybindingsConfig,
   type RpcError,
   type ServerBootstrap,
+  type ServerConfig as ServerConfigSchema,
   type SessionStatus,
   type WebSocketRequest as WebSocketRequestMessage,
   type WebSocketResponse,
@@ -31,6 +33,8 @@ import {
   WS_METHODS,
 } from '@glade/contracts';
 import { decodeJsonResult, decodeUnknownResult, formatSchemaError, asRecord } from '@glade/shared';
+
+import { DEFAULT_KEYBINDINGS, compileResolvedKeybindingsConfig, compileResolvedKeybindingRule, mergeWithDefaultKeybindings } from '../keybindings';
 
 import { ServerConfig } from '../config';
 import {
@@ -84,7 +88,7 @@ function rpcError(code: string, message: string, details?: unknown): RpcError {
 function successResponse(
   id: string,
   method: WebSocketRequestMessage['method'],
-  result: AckResult | DesktopEnvironmentState,
+  result: AckResult | DesktopEnvironmentState | ServerConfigSchema,
 ): WebSocketResponse {
   return {
     _tag: 'WebSocketSuccess',
@@ -253,6 +257,9 @@ export const ServerEdgeLive = Layer.scoped(
     const effectRuntime = yield* Effect.runtime<never>();
     const pendingRequests = yield* Ref.make(new Map<string, PendingRequest>());
     const refreshInFlight = yield* Ref.make(false);
+    const resolvedKeybindings = yield* Ref.make<ResolvedKeybindingsConfig>(
+      mergeWithDefaultKeybindings(compileResolvedKeybindingsConfig(DEFAULT_KEYBINDINGS)),
+    );
 
     const publishStatus = createStatusPublisher(statusStore, hub);
 
@@ -423,6 +430,36 @@ export const ServerEdgeLive = Layer.scoped(
                   cause: error,
                 }),
             });
+            yield* hub.send(socket, successResponse(request.id, request.method, ackResult()));
+            return;
+          }
+          case 'server.getConfig': {
+            const currentKeybindings = yield* Ref.get(resolvedKeybindings);
+            const configPush: WsPush = {
+              _tag: 'WsPush',
+              channel: 'server.configUpdated',
+              payload: { _tag: 'ServerConfig', keybindings: currentKeybindings },
+            };
+            yield* hub.send(socket, successResponse(request.id, request.method, configPush.payload));
+            return;
+          }
+          case 'server.upsertKeybinding': {
+            const resolved = compileResolvedKeybindingRule(request.body.rule);
+            if (!resolved) {
+              yield* hub.send(socket, errorResponse(request.id, request.method, rpcError('invalid_keybinding', 'Failed to parse keybinding rule.')));
+              return;
+            }
+            const nextKeybindings = yield* Ref.modify(resolvedKeybindings, (current) => {
+              const filtered = current.filter((b) => b.command !== request.body.rule.command);
+              const next = mergeWithDefaultKeybindings([...filtered, resolved]);
+              return [next, next];
+            });
+            const configPush: WsPush = {
+              _tag: 'WsPush',
+              channel: 'server.configUpdated',
+              payload: { _tag: 'ServerConfig', keybindings: nextKeybindings },
+            };
+            yield* hub.broadcast(configPush);
             yield* hub.send(socket, successResponse(request.id, request.method, ackResult()));
             return;
           }

@@ -56,6 +56,9 @@ const desktopUpdateState: DesktopUpdateState = {
   version: null,
   message: null,
   progressPercent: null,
+  canRetry: false,
+  errorContext: null,
+  checkedAt: null,
 };
 
 vi.mock('@xterm/xterm', () => ({
@@ -403,7 +406,12 @@ describe('IndexRoute phase 5 workflow UI', () => {
     });
     window.desktopBridge = {
       getWsUrl: () => 'ws://127.0.0.1:7842/ws',
+      pickFile: vi.fn(async () => null),
       pickDirectory: vi.fn(async () => '/tmp/glade/project'),
+      pickExecutable: vi.fn(async () => null),
+      openDetachedTerminal: vi.fn(async () => false),
+      onDetachedTerminalState: vi.fn(() => () => {}),
+      openExternal: vi.fn(async () => true),
       getUpdateState,
       checkForUpdates: vi.fn(async () => desktopUpdateState),
       downloadUpdate: vi.fn(async () => desktopUpdateState),
