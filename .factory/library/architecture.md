@@ -50,7 +50,8 @@ Client → Server: `WebSocketRequest` with `{ _tag, id, method, body }`
 | `bg_connect` | Create edge between nodes |
 | `bg_update_node` | Update node parameters |
 | `bg_remove_node` | Delete a node |
-| `bg_submit` | Submit async execution |
+| `bg_run` | Run workflow synchronously (has targets type bug via bg_serve) |
+| `bg_submit` | Submit async execution (NOT in installed schema v0.5.1; use `bg_run` via REPL as workaround) |
 | `bg_cancel` | Cancel running execution |
 | `bg_record_decision` | Record a protocol decision |
 | `bg_answer_gate` | Answer a workflow gate |
