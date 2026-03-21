@@ -14,7 +14,7 @@ packages/*/dist/
 *.log
 mockups/
 __screenshots__/
-.factory/
+# .factory/ is NOT ignored — it contains mission infrastructure committed to the repo
 assets/desktop/icons/
 apps/web/screenshots/
 apps/web/take-screenshot.mjs

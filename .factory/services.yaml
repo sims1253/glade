@@ -1,0 +1,24 @@
+commands:
+  install: bun install
+  typecheck: bun run typecheck
+  build: bun run build
+  test: bun run test
+  lint: bun run lint
+  test:e2e: npx playwright test
+  test:e2e:gui: npx playwright test e2e/gui/
+  test:e2e:pipeline: npx playwright test e2e/pipeline/
+
+services:
+  web:
+    start: cd /home/m0hawk/Documents/glade && bun run dev:web
+    stop: lsof -ti :5173 | xargs kill -9 2>/dev/null; echo "stopped"
+    healthcheck: curl -sf http://localhost:5173
+    port: 5173
+    depends_on: []
+
+  server:
+    start: cd /home/m0hawk/Documents/glade && BAYESGROVE_APP_ROOT=/home/m0hawk/Documents/glade BAYESGROVE_PROJECT_PATH=${BAYESGROVE_PROJECT_PATH:-/tmp/glade-test} BAYESGROVE_STATE_DIR=${BAYESGROVE_STATE_DIR:-/tmp/glade-state} BAYESGROVE_SERVER_PORT=3100 BAYESGROVE_R_PORT=3101 NODE_ENV=production bun run apps/server/src/index.ts
+    stop: lsof -ti :3100 | xargs kill -9 2>/dev/null; lsof -ti :3101 | xargs kill -9 2>/dev/null; echo "stopped"
+    healthcheck: curl -sf http://localhost:3100/health
+    port: 3100
+    depends_on: []
