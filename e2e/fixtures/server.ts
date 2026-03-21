@@ -8,8 +8,7 @@
 
 import { spawn } from 'node:child_process';
 
-import { getAvailablePort } from '@glade/shared/net';
-import { terminateProcessTree, waitForHttpReady, type ManagedProcessLike } from '@glade/shared/process';
+import { getAvailablePort, terminateProcessTree, waitForHttpReady, killProcessesOnPort } from './helpers';
 
 const E2E_PORT_MIN = 3100;
 const E2E_PORT_MAX = 3199;
@@ -103,9 +102,16 @@ export async function startServer(config: ServerConfig): Promise<ServerHandle> {
   }
 
   const stop = async () => {
-    await terminateProcessTree(child as unknown as ManagedProcessLike, {
+    // Kill the main server process tree
+    await terminateProcessTree(child, {
       gracePeriodMs: 5_000,
     });
+
+    // Kill any orphaned R process on the R port.
+    // The R process is spawned by the Bun server internally and may survive
+    // parent termination (it becomes an orphan). We use port-based cleanup
+    // as a safety net.
+    killProcessesOnPort(rPort);
   };
 
   // Wait for health endpoint

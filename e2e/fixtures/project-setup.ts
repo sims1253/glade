@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { getAvailablePort } from '@glade/shared/net';
+import { getAvailablePort } from './helpers';
 
 const E2E_PORT_MIN = 3100;
 const E2E_PORT_MAX = 3199;
@@ -80,16 +80,13 @@ export async function createBayesgroveProject(): Promise<BayesgroveProject> {
   mkdirSync(stateDir, { recursive: true });
 
   try {
-    // Initialize bayesgrove project
+    // Initialize bayesgrove project and enable default workflow in a single
+    // Rscript invocation, since bg_use_default_workflow requires the
+    // bg_handle object returned by bg_init (it cannot be passed as a path).
     runRscript(`
       library(bayesgrove)
-      bg_init("${projectPath.replace(/"/g, '\\"')}")
-    `);
-
-    // Enable default workflow (registers starter node kinds)
-    runRscript(`
-      library(bayesgrove)
-      bg_use_default_workflow("${projectPath.replace(/"/g, '\\"')}")
+      h <- bg_init("${projectPath.replace(/"/g, '\\"')}")
+      h <- bg_use_default_workflow(h)
     `);
   } catch (error) {
     // Clean up on failure

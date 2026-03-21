@@ -8,8 +8,6 @@
  * - Unpacking `WsPush` messages (server.bootstrap, workflow.snapshot, etc.)
  */
 
-import WebSocket from 'ws';
-
 const WS_TIMEOUT_MS = 30_000;
 
 /**
@@ -97,16 +95,17 @@ export function connectWebSocket(port: number): WebSocketHandle {
   let requestIdCounter = 0;
   let closed = false;
 
+  // Use native WebSocket (available in Node.js 25+)
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
 
-  ws.on('message', (payload: WebSocket.Data) => {
-    const parsed = JSON.parse(String(payload)) as ServerMessage;
+  ws.addEventListener('message', (event: MessageEvent) => {
+    const parsed = JSON.parse(String(event.data)) as ServerMessage;
     const unpacked = unpackMessage(parsed);
 
     for (const msg of unpacked) {
       messages.push(msg);
 
-      // Check pending waiters
+      // Check pending waiters (iterate in reverse to allow splice)
       for (let i = pendingWaiters.length - 1; i >= 0; i--) {
         const waiter = pendingWaiters[i]!;
         if (waiter.predicate(msg)) {
@@ -118,8 +117,8 @@ export function connectWebSocket(port: number): WebSocketHandle {
     }
   });
 
-  ws.on('error', (error: Error) => {
-    // Reject all pending waiters
+  ws.addEventListener('error', (event: Event) => {
+    const error = new Error(`WebSocket error: ${(event as ErrorEvent).message ?? 'unknown'}`);
     for (const waiter of pendingWaiters) {
       clearTimeout(waiter.timer);
       waiter.reject(error);
@@ -127,7 +126,7 @@ export function connectWebSocket(port: number): WebSocketHandle {
     pendingWaiters.length = 0;
   });
 
-  ws.on('close', () => {
+  ws.addEventListener('close', () => {
     closed = true;
     for (const waiter of pendingWaiters) {
       clearTimeout(waiter.timer);
