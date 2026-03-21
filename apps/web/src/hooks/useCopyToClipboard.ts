@@ -46,9 +46,9 @@ export function useCopyToClipboard<TContext = void>({
       (error) => {
         if (onErrorRef.current) {
           onErrorRef.current(error, ctx);
-        } else {
-          console.error(error);
+          return;
         }
+        console.error(error);
       },
     );
   }, []);

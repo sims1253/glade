@@ -5,15 +5,12 @@ import type {
   JsonValue,
   WorkflowExecuteActionInput,
 } from '@glade/contracts';
-import { asString, asStringArray, asRecord } from '@glade/shared';
+import { asString, asStringArray } from '@glade/shared';
 
 import { CommandDispatchError } from '../errors';
+import { asObject } from '../lib/json-utils';
 
 type ExecuteActionCommand = WorkflowExecuteActionInput;
-
-function asObject(value: unknown): JsonObject | null {
-  return asRecord(value) as JsonObject | null;
-}
 
 function isJsonValue(value: unknown): value is JsonValue {
   if (value === null) {

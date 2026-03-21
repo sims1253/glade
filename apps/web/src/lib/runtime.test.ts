@@ -11,7 +11,7 @@ import {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  delete (window as Record<string, unknown>).desktopBridge;
+  delete (window as unknown as Record<string, unknown>).desktopBridge;
 });
 
 describe('isDesktopRuntime', () => {
@@ -20,7 +20,7 @@ describe('isDesktopRuntime', () => {
   });
 
   it('returns true when desktopBridge is defined', () => {
-    (window as Record<string, unknown>).desktopBridge = {};
+    (window as unknown as Record<string, unknown>).desktopBridge = {};
     expect(isDesktopRuntime()).toBe(true);
   });
 });
@@ -31,12 +31,12 @@ describe('hasNativeFilePicker', () => {
   });
 
   it('returns false when pickFile is not a function', () => {
-    (window as Record<string, unknown>).desktopBridge = {};
+    (window as unknown as Record<string, unknown>).desktopBridge = {};
     expect(hasNativeFilePicker()).toBe(false);
   });
 
   it('returns true when pickFile is a function', () => {
-    (window as Record<string, unknown>).desktopBridge = { pickFile: vi.fn() };
+    (window as unknown as Record<string, unknown>).desktopBridge = { pickFile: vi.fn() };
     expect(hasNativeFilePicker()).toBe(true);
   });
 });
@@ -47,7 +47,7 @@ describe('canDetachTerminal', () => {
   });
 
   it('returns true when openDetachedTerminal is a function', () => {
-    (window as Record<string, unknown>).desktopBridge = { openDetachedTerminal: vi.fn() };
+    (window as unknown as Record<string, unknown>).desktopBridge = { openDetachedTerminal: vi.fn() };
     expect(canDetachTerminal()).toBe(true);
   });
 });
@@ -60,12 +60,12 @@ describe('websocketUrl', () => {
   });
 
   it('uses the bridge WS URL when available', () => {
-    (window as Record<string, unknown>).desktopBridge = { getWsUrl: () => 'ws://localhost:9000/ws' };
+    (window as unknown as Record<string, unknown>).desktopBridge = { getWsUrl: () => 'ws://localhost:9000/ws' };
     expect(websocketUrl()).toBe('ws://localhost:9000/ws');
   });
 
   it('falls back to window.location when bridge returns null', () => {
-    (window as Record<string, unknown>).desktopBridge = { getWsUrl: () => null };
+    (window as unknown as Record<string, unknown>).desktopBridge = { getWsUrl: () => null };
     const url = websocketUrl();
     expect(url).toContain('/ws');
     expect(url).toMatch(/^wss?:\/\//);

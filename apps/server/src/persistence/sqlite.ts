@@ -15,13 +15,13 @@ import { runCacheMigrations } from './migrations';
 
 type UnknownParams = Array<unknown>;
 
-export interface SqliteStatement {
+interface SqliteStatement {
   readonly run: (...params: UnknownParams) => void;
   readonly get: <TRow>(...params: UnknownParams) => TRow | null;
   readonly all: <TRow>(...params: UnknownParams) => Array<TRow>;
 }
 
-export interface SqliteDatabaseService {
+interface SqliteDatabaseService {
   readonly exec: (sql: string) => void;
   readonly prepare: (sql: string) => SqliteStatement;
   readonly transaction: (callback: () => void) => () => void;

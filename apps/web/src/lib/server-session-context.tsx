@@ -50,8 +50,3 @@ export function useServerSession(): ServerSessionContextValue {
   }
   return context;
 }
-
-export function useRpc(): RpcClient {
-  const { rpc } = useServerSession();
-  return rpc;
-}

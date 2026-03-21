@@ -328,8 +328,6 @@ export function WorkspaceShell({
   );
 }
 
-export type { CommandItem };
-
 function NodeWorkbenchPanel({ host, node, workflow }: { host: HostRpc; node: WorkflowNodeData | null; workflow?: WorkflowRpc }) {
   const [notesDraft, setNotesDraft] = useState(node?.notes ?? '');
   const [notesPending, setNotesPending] = useState(false);

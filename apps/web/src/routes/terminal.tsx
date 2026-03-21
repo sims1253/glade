@@ -7,7 +7,7 @@ export const Route = createFileRoute('/terminal')({
   component: TerminalRoute,
 });
 
-export function TerminalRoute() {
+function TerminalRoute() {
   const { rpc } = useServerSession();
 
   return (

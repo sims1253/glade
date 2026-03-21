@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import { randomUUID } from '../lib/utils';
 
-export type ToastTone = 'success' | 'error';
+type ToastTone = 'success' | 'error';
 
 export interface ToastMessage {
   readonly id: string;

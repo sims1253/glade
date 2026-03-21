@@ -51,7 +51,7 @@ function normalizeProjectPath(value: unknown) {
   return trimmed;
 }
 
-export function normalizeDesktopSettings(input: unknown): DesktopSettings {
+function normalizeDesktopSettings(input: unknown): DesktopSettings {
   const source = input && typeof input === 'object' ? input as Partial<DesktopSettings> : {};
   const projectPath = normalizeProjectPath(source.projectPath);
   const base = baseNormalizeDesktopSettings(source);

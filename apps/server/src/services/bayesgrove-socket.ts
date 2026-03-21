@@ -25,7 +25,7 @@ import { ProtocolDecodeError, SessionStartupError } from '../errors';
 import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { WebSocketHub } from './websocket-hub';
 
-export type BayesgroveInboundMessage = GraphSnapshotMessage | ProtocolEventMessage | BayesgroveCommandResultMessage;
+type BayesgroveInboundMessage = GraphSnapshotMessage | ProtocolEventMessage | BayesgroveCommandResultMessage;
 
 export class BayesgroveSocket extends Context.Tag('glade/BayesgroveSocket')<
   BayesgroveSocket,

@@ -4,12 +4,11 @@ import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 
 import { readExtensionRegistry, type GraphSnapshot, type ProtocolEvent } from '@glade/contracts';
-import { asString, asRecord } from '@glade/shared';
+import { asString } from '@glade/shared';
 
 import { GraphStateCacheError } from '../errors';
 import { SqliteDatabase } from '../persistence/sqlite';
-
-type JsonObject = Record<string, unknown>;
+import { asObject } from '../lib/json-utils';
 
 export class GraphStateCache extends Context.Tag('glade/GraphStateCache')<
   GraphStateCache,
@@ -23,9 +22,6 @@ export class GraphStateCache extends Context.Tag('glade/GraphStateCache')<
     readonly appendReplLine: (line: string) => Effect.Effect<void>;
   }
 >() {}
-
-const asObject = (value: unknown): JsonObject | null =>
-  asRecord(value) as JsonObject | null;
 
 const asArray = (value: unknown): Array<unknown> => (Array.isArray(value) ? value : []);
 

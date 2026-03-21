@@ -4,11 +4,18 @@ import { setupDesktopIssues, trimCommand } from './desktop-preflight';
 import type { DesktopEnvironmentState } from '@glade/contracts';
 
 const okEnvironment: DesktopEnvironmentState = {
-  preflight: { status: 'ok', issues: [] },
-  projectPath: '/some/path',
-  rBinaryPath: '/usr/bin/R',
-  editorCommand: null,
-  updateChannel: 'stable',
+  settings: {
+    rExecutablePath: '/usr/bin/R',
+    editorCommand: '',
+    updateChannel: 'stable',
+    projectPath: '/some/path',
+  },
+  preflight: {
+    checkedAt: new Date().toISOString(),
+    projectPath: '/some/path',
+    status: 'ok',
+    issues: [],
+  },
 };
 
 describe('trimCommand', () => {
@@ -34,13 +41,15 @@ describe('setupDesktopIssues', () => {
     const env: DesktopEnvironmentState = {
       ...okEnvironment,
       preflight: {
-        status: 'issues',
-        issues: [{ code: 'r_not_found', title: 'R not found', description: '' }],
+        checkedAt: new Date().toISOString(),
+        projectPath: '/some/path',
+        status: 'action_required',
+        issues: [{ code: 'r_missing', title: 'R not found', description: '', command: null, href: null }],
       },
     };
     const issues = setupDesktopIssues(env, null);
     expect(issues).toHaveLength(1);
-    expect(issues[0]?.code).toBe('r_not_found');
+    expect(issues[0]?.code).toBe('r_missing');
   });
 
   it('appends a session issue when preflight is ok and reason is set', () => {

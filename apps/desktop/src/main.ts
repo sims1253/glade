@@ -298,9 +298,9 @@ function createWindow() {
         .catch((error) => {
           const message = `Smoke scenario failed: ${error instanceof Error ? error.message : String(error)}`;
           appendRuntimeLog(message);
-          console.error(message);
           process.exitCode = 1;
           app.quit();
+          console.error(message);
         });
       return;
     }

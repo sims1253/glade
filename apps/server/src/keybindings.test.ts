@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { KeybindingRule } from '@glade/contracts';
+
 import {
   compileResolvedKeybindingRule,
   compileResolvedKeybindingsConfig,
@@ -64,7 +66,7 @@ describe('parseKeybindingShortcut', () => {
 
 describe('compileResolvedKeybindingRule', () => {
   it('compiles a simple rule without a when clause', () => {
-    const rule = { key: 'mod+j', command: 'repl.toggle' };
+    const rule = { key: 'mod+j', command: 'repl.toggle' } as const;
     const compiled = compileResolvedKeybindingRule(rule);
     expect(compiled).not.toBeNull();
     expect(compiled?.command).toBe('repl.toggle');
@@ -73,26 +75,26 @@ describe('compileResolvedKeybindingRule', () => {
   });
 
   it('compiles a rule with a when clause', () => {
-    const rule = { key: 'mod+j', command: 'repl.toggle', when: 'replOpen' };
+    const rule = { key: 'mod+j', command: 'repl.toggle', when: 'replOpen' } as const;
     const compiled = compileResolvedKeybindingRule(rule);
     expect(compiled).not.toBeNull();
     expect(compiled?.whenAst).toEqual({ type: 'identifier', name: 'replOpen' });
   });
 
   it('returns null for invalid key syntax', () => {
-    expect(compileResolvedKeybindingRule({ key: '', command: 'test' })).toBeNull();
+    expect(compileResolvedKeybindingRule({ key: '', command: 'repl.toggle' })).toBeNull();
   });
 
   it('returns null for invalid when expression', () => {
-    expect(compileResolvedKeybindingRule({ key: 'mod+j', command: 'test', when: '&&' })).toBeNull();
+    expect(compileResolvedKeybindingRule({ key: 'mod+j', command: 'repl.toggle', when: '&&' })).toBeNull();
   });
 });
 
 describe('compileResolvedKeybindingsConfig', () => {
   it('filters out invalid rules and keeps valid ones', () => {
-    const config = [
+    const config: KeybindingRule[] = [
       { key: 'mod+j', command: 'repl.toggle' },
-      { key: '', command: 'invalid' },
+      { key: '', command: 'repl.clear' },
       { key: 'ctrl+l', command: 'repl.clear' },
     ];
     const compiled = compileResolvedKeybindingsConfig(config);
@@ -169,7 +171,7 @@ describe('mergeWithDefaultKeybindings', () => {
 
 describe('syncMissingDefaults', () => {
   it('appends missing default rules', () => {
-    const existing = [{ key: 'mod+j', command: 'repl.toggle' }];
+    const existing: KeybindingRule[] = [{ key: 'mod+j', command: 'repl.toggle' }];
     const synced = syncMissingDefaults(existing);
     const commands = synced.map((r) => r.command);
     expect(commands).toContain('repl.toggle');
@@ -185,7 +187,7 @@ describe('syncMissingDefaults', () => {
 
   it('does not add a default if the shortcut is already in use', () => {
     // Bind mod+j to a different command — should block the default repl.toggle from being added
-    const existing = [{ key: 'mod+j', command: 'custom.action' }];
+    const existing: KeybindingRule[] = [{ key: 'mod+j', command: 'repl.clear' }];
     const synced = syncMissingDefaults(existing);
     const replToggleRules = synced.filter((r) => r.command === 'repl.toggle');
     expect(replToggleRules).toHaveLength(0);

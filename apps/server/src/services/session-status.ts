@@ -5,7 +5,7 @@ import * as Ref from 'effect/Ref';
 
 import type { SessionStatus, WsPush } from '@glade/contracts';
 
-export function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
+function statusMessage(state: SessionStatus['state'], reason?: string): SessionStatus {
   return reason ? { _tag: 'SessionStatus', state, reason } : { _tag: 'SessionStatus', state };
 }
 

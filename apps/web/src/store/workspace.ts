@@ -120,7 +120,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushPendingWorkspacePrefsWrites);
 }
 
-export function readStoredWorkspacePrefs(storage: WorkspacePrefsStorage = workspacePrefsStorage): StoredWorkspacePrefs {
+function readStoredWorkspacePrefs(storage: WorkspacePrefsStorage = workspacePrefsStorage): StoredWorkspacePrefs {
   const raw = storage.getItem(WORKSPACE_PREFS_STORAGE_KEY);
   if (!raw) {
     return DEFAULT_WORKSPACE_PREFS;
@@ -149,7 +149,7 @@ export function readStoredWorkspacePrefs(storage: WorkspacePrefsStorage = worksp
   }
 }
 
-export function writeStoredWorkspacePrefs(
+function writeStoredWorkspacePrefs(
   value: StoredWorkspacePrefs,
   storage: WorkspacePrefsStorage = workspacePrefsStorage,
 ) {

@@ -33,7 +33,7 @@ const decodeWsInbound = decodeJsonResult(WsMessage);
 type PendingRequest = {
   readonly method: RpcMethod;
   readonly body: WebSocketRequest['body'];
-  readonly resolve: (result: RpcCallResult<any>) => void;
+  readonly resolve: (result: RpcCallResult<unknown>) => void;
   readonly timeout: number;
   readonly encodedRequest: string;
   queued: boolean;
@@ -293,7 +293,7 @@ export function useRpcClient(): RpcClient {
       pendingRequestsRef.current.set(request.id, {
         method,
         body: request.body,
-        resolve: resolve as (result: RpcCallResult<any>) => void,
+        resolve: resolve as (result: RpcCallResult<unknown>) => void,
         timeout,
         encodedRequest,
         queued: true,

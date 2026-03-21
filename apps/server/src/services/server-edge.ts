@@ -32,9 +32,10 @@ import {
   type WsPush,
   WS_METHODS,
 } from '@glade/contracts';
-import { decodeJsonResult, decodeUnknownResult, formatSchemaError, asRecord } from '@glade/shared';
+import { decodeJsonResult, decodeUnknownResult, formatSchemaError } from '@glade/shared';
 
 import { DEFAULT_KEYBINDINGS, compileResolvedKeybindingsConfig, compileResolvedKeybindingRule, mergeWithDefaultKeybindings } from '../keybindings';
+import { asObject } from '../lib/json-utils';
 
 import { ServerConfig } from '../config';
 import {
@@ -48,10 +49,6 @@ import { RProcessService } from './r-process';
 import { SessionStatusStore, createStatusPublisher } from './session-status';
 import { DesktopEnvironmentService } from './desktop-environment';
 import { WebSocketHub } from './websocket-hub';
-
-function asObject(value: unknown): JsonObject | null {
-  return asRecord(value) as JsonObject | null;
-}
 
 export class ServerEdge extends Context.Tag('glade/ServerEdge')<
   ServerEdge,

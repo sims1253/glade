@@ -157,11 +157,11 @@ export const RProcessServiceLive = Layer.scoped(
     const onLine = (channel: 'stdout' | 'stderr', line: string) => {
       void writeRDiagnosticsLine(config.stateDir, `[${channel}] ${line}`).catch(() => undefined);
       void Runtime.runPromise(effectRuntime, handleLine(line)).catch((error) => {
-        console.error('[r-process] failed to handle REPL line', error);
         void writeRDiagnosticsLine(
           config.stateDir,
           `failed to handle ${channel} line: ${stringifyUnknown(error)}`,
         ).catch(() => undefined);
+        console.error('[r-process] failed to handle REPL line', error);
       });
     };
     const stdoutLines = createLineBuffer((line) => onLine('stdout', line));

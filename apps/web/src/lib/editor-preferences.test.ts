@@ -20,42 +20,46 @@ describe('getEditorOptions', () => {
 });
 
 describe('resolveEditorPreference', () => {
+  const baseSettings = {
+    rExecutablePath: '/usr/bin/R',
+    updateChannel: 'stable' as const,
+  };
+
   it('returns empty string for empty or auto command', () => {
-    expect(resolveEditorPreference({ editorCommand: '' })).toBe('');
-    expect(resolveEditorPreference({ editorCommand: 'auto' })).toBe('');
-    expect(resolveEditorPreference({ editorCommand: undefined })).toBe('');
-    expect(resolveEditorPreference({ editorCommand: '  ' })).toBe('');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: '' })).toBe('');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'auto' })).toBe('');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: '  ' })).toBe('');
   });
 
   it('resolves known editor commands to their ids', () => {
-    expect(resolveEditorPreference({ editorCommand: 'code' })).toBe('vscode');
-    expect(resolveEditorPreference({ editorCommand: 'cursor' })).toBe('cursor');
-    expect(resolveEditorPreference({ editorCommand: 'vim' })).toBe('vim');
-    expect(resolveEditorPreference({ editorCommand: 'nvim' })).toBe('vim');
-    expect(resolveEditorPreference({ editorCommand: 'zed' })).toBe('zed');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'code' })).toBe('vscode');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'cursor' })).toBe('cursor');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'vim' })).toBe('vim');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'nvim' })).toBe('vim');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'zed' })).toBe('zed');
   });
 
   it('resolves known commands case-insensitively', () => {
-    expect(resolveEditorPreference({ editorCommand: 'CODE' })).toBe('vscode');
-    expect(resolveEditorPreference({ editorCommand: 'Cursor' })).toBe('cursor');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'CODE' })).toBe('vscode');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'Cursor' })).toBe('cursor');
   });
 
   it('strips .exe extensions on Windows-style paths', () => {
-    expect(resolveEditorPreference({ editorCommand: 'code.exe' })).toBe('vscode');
-    expect(resolveEditorPreference({ editorCommand: 'cursor.exe' })).toBe('cursor');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'code.exe' })).toBe('vscode');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'cursor.exe' })).toBe('cursor');
   });
 
   it('handles quoted paths', () => {
-    expect(resolveEditorPreference({ editorCommand: '"C:\\Program Files\\Microsoft VS Code\\code.exe"' })).toBe('vscode');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: '"C:\\Program Files\\Microsoft VS Code\\code.exe"' })).toBe('vscode');
   });
 
   it('strips arguments from unquoted paths', () => {
-    expect(resolveEditorPreference({ editorCommand: 'code --wait' })).toBe('vscode');
-    expect(resolveEditorPreference({ editorCommand: '/usr/bin/vim --noplugin' })).toBe('vim');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'code --wait' })).toBe('vscode');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: '/usr/bin/vim --noplugin' })).toBe('vim');
   });
 
   it('returns the raw command for unknown editors', () => {
-    expect(resolveEditorPreference({ editorCommand: 'my-custom-editor' })).toBe('my-custom-editor');
+    expect(resolveEditorPreference({ ...baseSettings, editorCommand: 'my-custom-editor' })).toBe('my-custom-editor');
   });
 });
 

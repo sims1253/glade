@@ -15,7 +15,7 @@ import { Button } from '../ui/button';
 type JsonRecord = Record<string, unknown>;
 type FormValues = Record<string, unknown>;
 
-export interface SchemaNodeOption {
+interface SchemaNodeOption {
   readonly id: string;
   readonly label: string;
 }
