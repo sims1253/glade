@@ -1,0 +1,41 @@
+{
+  "featureId": "explore-repl-and-workflow-creation",
+  "reviewedAt": "2026-03-21T12:30:00.000Z",
+  "commitId": "25ffbba",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "This feature was a manual GUI exploration task — no significant application code changes were made. The only code change (commit 25ffbba) was a one-line fix to .factory/services.yaml adding BAYESGROVE_SERVER_PORT=3100 to the web service start command, which ensures Vite properly proxies WebSocket connections to the backend. The change is minimal, correct, and addresses a real infrastructure issue discovered during earlier exploration sessions. The feature's expected behavior (REPL input/output, node addition, node connection, canvas/explorer updates, no console errors) was verified through multiple interactive sessions using agent-browser automation.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "services",
+      "observation": "The web service in .factory/services.yaml needed BAYESGROVE_SERVER_PORT=3100 added to its start command. Without this env var, Vite's dev server proxy doesn't know which backend port to forward WebSocket connections to, causing ECONNREFUSED errors. This was fixed in commit 25ffbba and is now correctly documented in services.yaml.",
+      "evidence": ".factory/services.yaml web service start command now includes BAYESGROVE_SERVER_PORT=3100. Commit message: 'fix(services): add BAYESGROVE_SERVER_PORT=3100 to web service start'"
+    },
+    {
+      "area": "knowledge",
+      "observation": "REPL requires fully-qualified bayesgrove function names (e.g., bayesgrove::bg_add_node instead of bg_add_node) because bg_serve does not call library(bayesgrove) to autoload the package into the global namespace. This is a usability quirk that could confuse users and automate-test authors.",
+      "evidence": "Handoff from session e5723a20 states: 'REPL does not have bayesgrove functions in the global namespace — must use bayesgrove::bg_add_node instead of bg_add_node'. skillFeedback.suggestedChanges includes documenting this."
+    },
+    {
+      "area": "knowledge",
+      "observation": "REPL commands sent while a long-running R command is active (e.g., bg_run sampling) get appended to the running command and cause syntax errors. Automation must wait for a clean R prompt ('> ') before sending new commands.",
+      "evidence": "Handoff from session e5723a20 discoveredIssues: 'A bg_run execution was in progress when the session started, causing the first REPL command 1 + 1 to be appended to the running command, resulting in a syntax error.' skillFeedback confirms this suggestion."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Node addition and connection can be done via two different GUI paths: (1) the REPL using bayesgrove::bg_add_node/bg_connect, or (2) the canvas 'Add node' dialog. Both approaches were verified to work correctly across sessions. Edge creation via drag-and-drop from node handles was NOT reliably testable through agent-browser automation.",
+      "evidence": "Session a62370bb used the 'Add node' dialog for node creation but could not test edge drag-and-drop. Session e5723a20 used REPL commands (bayesgrove::bg_add_node, bayesgrove::bg_connect) and successfully verified edges."
+    },
+    {
+      "area": "skills",
+      "observation": "The explorer-worker skill does not mention that bayesgrove functions must be called with the bayesgrove:: prefix in the REPL, nor does it advise waiting for a clean REPL prompt before sending commands. Both of these were discovered through experience and should be added to the skill for future workers.",
+      "evidence": "SKILL.md step 3 says 'Use the REPL to interact with bayesgrove: Type commands into the xterm terminal' but doesn't mention the namespace prefix requirement or prompt-waiting pattern. Worker's skillFeedback.suggestedChanges explicitly flags both gaps."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature explore-repl-and-workflow-creation passes scrutiny. This was a manual GUI exploration task that verified REPL functionality (input/output), data and fit node creation via REPL and Add Node dialog, node connection via bg_connect, canvas rendering, explorer panel updates, and absence of console errors. The only code change was a one-line fix to .factory/services.yaml ensuring BAYESGROVE_SERVER_PORT is set for the Vite dev server. No bugs were introduced. Several knowledge gaps were identified for future documentation: REPL namespace requirements, prompt-waiting for automation, and alternative GUI paths for node operations."
+}

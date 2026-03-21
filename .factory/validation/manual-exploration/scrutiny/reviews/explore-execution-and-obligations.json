@@ -1,0 +1,31 @@
+{
+  "featureId": "explore-execution-and-obligations",
+  "reviewedAt": "2026-03-21T13:15:00.000Z",
+  "commitId": "3cf19a7",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature's single commit (3cf19a7) is a pure documentation change to .factory/library/architecture.md and .factory/library/environment.md, recording bayesgrove quirks discovered during manual GUI exploration. No application code was modified. The handoff confirms all expected behaviors were met: execution completed (291 divergences, E-BFMI warning), HMC diagnostics appeared, and protocol obligations (review_computation_validity) surfaced in the Inspector panel with the correct UI elements (Focus related nodes button, Actions tab with 2 protocol actions). The worker followed the skill procedure, deviated only where forced by bugs in the external bayesgrove R package (read-only submodule), and documented thorough workarounds.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Worker documented that there is no `workflow.executeCommand` RPC method on the Bun server, contradicting the architecture.md library entry which lists it under 'Key RPC Methods'. The worker's discovery is correct — they tested it and found only specific `workflow.*` methods, `workflow.executeAction`, and `repl.write` exist. The library entry should be updated to remove the stale `workflow.executeCommand` reference.",
+      "evidence": "environment.md now correctly documents: 'There is no workflow.executeCommand RPC method on the Bun server.' However, architecture.md still lists it in the 'Key RPC Methods' table as a valid method."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Worker discovered that executor closures capture variables from the registration R session, not from the bg_serve R session. This is documented in environment.md. The explorer-worker skill still registers executors in the init Rscript (Step 1.2) rather than via REPL in the bg_serve session, which could mislead future workers.",
+      "evidence": "explorer-worker SKILL.md Step 1.2 registers executors via `Rscript -e` (init session), but environment.md warns: 'If executors are registered in an init Rscript but bg_serve runs in a different session, captured variables (like stan_file) won't be available.'"
+    },
+    {
+      "area": "skills",
+      "observation": "Worker suggested the explorer-worker skill should include guidance on bg_serve WebSocket protocol execution paths and document that executor registration must happen in the bg_serve R session. The current skill only mentions bg_submit via REPL but doesn't explain the protocol command path or the known bugs blocking it.",
+      "evidence": "skillFeedback.suggestedChanges: ['The explorer-worker skill should include guidance on the bg_serve WebSocket protocol...', 'The skill should document that executor registration must happen in the bg_serve R session...']"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature PASSED. The worker successfully executed the Eight Schools model fit through the GUI, verified HMC diagnostic results (291 divergences, E-BFMI warning), confirmed protocol obligations surfaced in the Inspector panel (review_computation_validity with Focus related nodes button), and maintained server health throughout. Execution was completed via REPL workaround due to two blocking bugs in the external bayesgrove R package (read-only submodule). The worker thoroughly documented these bugs and workarounds in .factory/library/. No application code changes were made — only documentation additions. Three shared-state observations identified: (1) stale workflow.executeCommand reference in architecture.md, (2) skill/init script contradiction on executor registration session, (3) skill should document bg_serve protocol paths and known bugs."
+}

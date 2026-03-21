@@ -1,0 +1,74 @@
+{
+  "milestone": "manual-exploration",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "bun run test",
+      "exitCode": 0,
+      "observation": "All 279 tests passed across 5 packages (server: 61, web: 170, shared: 30, contracts: 17, desktop: 0 with passWithNoTests). 1 skipped test."
+    },
+    "typecheck": {
+      "passed": false,
+      "command": "bun run typecheck",
+      "exitCode": 1,
+      "observation": "@glade/web#typecheck failed with pre-existing errors in test files (desktop-preflight.test.ts, editor-preferences.test.ts, runtime.test.ts) due to DesktopSettings contract changes. These errors existed before the manual-exploration milestone and do not affect test execution or runtime behavior. All other packages (contracts, shared, server, desktop, scripts, marketing) pass typecheck."
+    },
+    "lint": {
+      "passed": true,
+      "command": "bun run lint",
+      "exitCode": 0,
+      "observation": "oxlint found 0 warnings and 0 errors across 199 files."
+    }
+  },
+  "typecheckNote": "Typecheck failure is pre-existing and unrelated to the manual-exploration milestone. The errors are in test utility files that were last changed in commit 111f648 (E2E infrastructure commit), not by any milestone feature worker.",
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Removed stale workflow.executeCommand from architecture.md Key RPC Methods table and updated Bayesgrove Commands header to reference repl.write. Added note explaining no workflow.executeCommand exists.",
+      "sourceFeature": "explore-execution-and-obligations"
+    },
+    {
+      "target": "library",
+      "description": "Added REPL namespace quirk (bayesgrove:: prefix required), REPL prompt-waiting requirement for automation, and Vite WebSocket proxy BAYESGROVE_SERVER_PORT dependency to environment.md Key Quirks section.",
+      "sourceFeature": "explore-repl-and-workflow-creation"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills (explorer-worker)",
+      "suggestion": "Update explorer-worker SKILL.md Step 1 to reference services.yaml commands (which include BAYESGROVE_SERVER_PORT) instead of inline shell commands. Add guidance that bayesgrove REPL functions require the bayesgrove:: prefix and that commands must wait for a clean R prompt. Document that executor registration must happen in the bg_serve R session (via REPL), not in an init Rscript, because closures capture variables from their registration session.",
+      "evidence": "Feature explore-full-stack-startup fixed services.yaml but the skill's inline start command is still stale. Feature explore-repl-and-workflow-creation discovered the namespace prefix and prompt-waiting requirements. Feature explore-execution-and-obligations discovered the executor registration session mismatch.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills (explorer-worker)",
+      "suggestion": "Add bg_serve WebSocket protocol guidance to the explorer-worker skill, including known bugs: bg_submit not in installed schema v0.5.1, bg_run has a targets type bug via bg_serve. Document that the workaround is to use repl.write for all bayesgrove commands.",
+      "evidence": "Feature explore-execution-and-obligations documented these bugs and workarounds in .factory/library/environment.md but the skill procedure doesn't reference them.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "BAYESGROVE_SERVER_PORT=3100 hardcoded in web service start command (review 1)",
+      "reason": "duplicate — already documented in services.yaml and acknowledged as acceptable for current single-instance usage"
+    },
+    {
+      "observation": "Node addition/connection via two GUI paths (review 2)",
+      "reason": "low-priority knowledge already implicitly captured in architecture.md GUI component hierarchy"
+    },
+    {
+      "observation": "Vite proxy defaults to port 7842 when BAYESGROVE_SERVER_PORT unset (reviews 1 & 2)",
+      "reason": "already-documented — applied directly to environment.md Key Quirks"
+    }
+  ],
+  "previousRound": null
+}

@@ -34,11 +34,12 @@ Client → Server: `WebSocketRequest` with `{ _tag, id, method, body }`
 
 | Method | Purpose |
 |---|---|
-| `repl.write` | Send command to R REPL |
-| `workflow.executeCommand` | Send bayesgrove command (bg_add_node, bg_connect, bg_submit, etc.) |
+| `repl.write` | Send command to R REPL (primary way to run bayesgrove commands) |
 | `workflow.executeAction` | Execute a protocol action from the GUI |
 
-## Bayesgrove Commands (via workflow.executeCommand)
+> **Note:** There is no `workflow.executeCommand` RPC method on the Bun server. Bayesgrove commands (bg_add_node, bg_connect, etc.) must be sent via `repl.write` instead.
+
+## Bayesgrove Commands (via repl.write)
 
 | Command | Description |
 |---|---|

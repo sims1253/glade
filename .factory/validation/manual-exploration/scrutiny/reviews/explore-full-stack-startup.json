@@ -1,0 +1,38 @@
+{
+  "featureId": "explore-full-stack-startup",
+  "reviewedAt": "2026-03-21T01:15:00.000Z",
+  "commitId": "25ffbba96ff04c8df36e02dd3492e1849c1a4d0d",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The worker explored the full Glade stack startup and identified a missing BAYESGROVE_SERVER_PORT=3100 environment variable in the web service's start command in .factory/services.yaml. Without this, Vite's WebSocket proxy defaulted to port 7842 (incorrect), causing ECONNREFUSED errors. The fix is a single-line, well-targeted change that adds the env var prefix to the start command. All expected behaviors were verified: Vite serves HTML on 5173, backend /health returns 200 on 3100, R process emits __GLADE_READY__, and the web app loads with workspace shell, explorer, inspector, and REPL panels. All 170 existing tests pass with no regressions.",
+    "issues": [
+      {
+        "file": ".factory/services.yaml",
+        "line": 13,
+        "severity": "non_blocking",
+        "description": "The BAYESGROVE_SERVER_PORT=3100 is hardcoded in the web service start command. If the server service port changes (e.g., during parallel test runs), the web service would still proxy to 3100. Consider using a shell variable reference or documenting this coupling. However, this is acceptable for the current single-instance usage pattern documented in AGENTS.md."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "services",
+      "observation": "The web service (Vite) requires BAYESGROVE_SERVER_PORT to be set in order for WebSocket proxying to work correctly. Without it, Vite defaults to port 7842, causing ECONNREFUSED. This dependency is now captured in services.yaml but should be noted in environment.md as it's a quirk of the Vite proxy configuration.",
+      "evidence": "Handoff: 'Fixed the .factory/services.yaml web service start command to include BAYESGROVE_SERVER_PORT=3100. This ensures Vite properly proxies WebSocket connections to the backend server.' The diff shows: 'BAYESGROVE_SERVER_PORT=3100 bun run dev:web'"
+    },
+    {
+      "area": "knowledge",
+      "observation": "The Vite dev server proxies WebSocket connections to the backend using the BAYESGROVE_SERVER_PORT env var. When unset, it defaults to port 7842. This is a runtime quirk worth documenting.",
+      "evidence": "Handoff discoveredIssues: 'Previously, the start command didn't set this variable, causing WebSocket connections to fail with ECONNREFUSED errors when connecting to the default port (7842).'"
+    },
+    {
+      "area": "skills",
+      "observation": "The explorer-worker skill's Step 1 starts the Vite dev server with just 'bun run dev:web &' without setting BAYESGROVE_SERVER_PORT. The worker discovered this was incorrect and fixed it in services.yaml. The skill procedure should reference using the services.yaml commands rather than inline shell commands, or the skill should document the required env var.",
+      "evidence": "SKILL.md Step 1: 'cd /home/m0hawk/Documents/glade && bun run dev:web &' — missing BAYESGROVE_SERVER_PORT. The worker's fix in services.yaml adds it. skillFeedback.followedProcedure is true because the worker adapted, but the skill's procedure is slightly stale."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Clean, well-scoped fix. The worker discovered that the Vite dev server's WebSocket proxy needs BAYESGROVE_SERVER_PORT to connect to the correct backend port, added it to .factory/services.yaml, and verified all three processes (Vite, Bun backend, R process) start and communicate correctly. All expected behaviors from the feature spec were met. The skill procedure has a minor staleness issue (missing the env var in its inline commands) that could be updated for future workers."
+}
