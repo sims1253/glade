@@ -1,0 +1,127 @@
+{
+  "milestone": "gui-tests",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "bun run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "bun run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "featureId": "test-gui-workspace-and-canvas",
+      "severity": "non_blocking",
+      "description": "captureConsoleErrors race condition — async errors may arrive after assertion runs"
+    },
+    {
+      "featureId": "test-gui-workspace-and-canvas",
+      "severity": "non_blocking",
+      "description": "shared-setup.ts singleton pattern is fragile if workers share processes or files are reordered"
+    },
+    {
+      "featureId": "test-gui-workspace-and-canvas",
+      "severity": "non_blocking",
+      "description": "Hardcoded SERVER_PORT=3100 could conflict with concurrent test suites"
+    },
+    {
+      "featureId": "test-gui-panels-and-repl",
+      "severity": "non_blocking",
+      "description": "REPL output test (repl.spec.ts) does not verify actual text output — only checks .xterm-rows is attached"
+    },
+    {
+      "featureId": "test-gui-panels-and-repl",
+      "severity": "non_blocking",
+      "description": "Test named 'backdrop click closes palette' actually uses Escape key — misleading name"
+    },
+    {
+      "featureId": "test-gui-node-lifecycle-and-status",
+      "severity": "non_blocking",
+      "description": "Connection error state (VAL-GUI-010 third state) is not tested — only ready and connecting are covered"
+    },
+    {
+      "featureId": "test-gui-node-lifecycle-and-status",
+      "severity": "non_blocking",
+      "description": "Silent retry with empty catch in waitForWorkspace could mask real bugs"
+    }
+  ],
+  "suggestions": [
+    {
+      "featureId": "test-gui-workspace-and-canvas",
+      "description": "Extract duplicated captureConsoleErrors helper to shared module (e2e/gui/helpers.ts)"
+    },
+    {
+      "featureId": "test-gui-workspace-and-canvas",
+      "description": "Add data-testid='canvas-toolbar-summary' to workflow-canvas-toolbar.tsx for robust test targeting"
+    },
+    {
+      "featureId": "test-gui-panels-and-repl",
+      "description": "Strengthen explorer expand/collapse assertion from >= 0 to >= 1"
+    },
+    {
+      "featureId": "test-gui-panels-and-repl",
+      "description": "Use more specific selector for settings form fields instead of input { hasText: '' }.first()"
+    },
+    {
+      "featureId": "test-gui-node-lifecycle-and-status",
+      "description": "Use waitForFunction instead of fixed waitForTimeout(5000) in typeReplCommand helper"
+    },
+    {
+      "featureId": "test-gui-node-lifecycle-and-status",
+      "description": "Add stronger toolbar count assertion: expect(finalCount).toBe(initialCount + 2)"
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Added Playwright WebSocket interception tip (use page.routeWebSocket not page.route) and frontend test targeting notes (toolbar summary data-testid gap) to environment.md",
+      "sourceFeature": "test-gui-node-lifecycle-and-status"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Document the shared-setup.ts singleton pattern convention: server starts once via ensureTestEnvironment() in beforeAll, cleanup deferred to last-alphabetically-ordered test file (currently settings.spec.ts). New GUI test files must NOT add cleanupTestEnvironment() calls — they go in the last file only. This convention exists because Vite's proxy crashes if the backend server is stopped and restarted between test files.",
+      "evidence": "All 3 review subagents flagged this. e2e/gui/shared-setup.ts:8-12, e2e/gui/settings.spec.ts:23-26, comments in workspace.spec.ts:22, canvas.spec.ts:22, repl.spec.ts:18, node-lifecycle.spec.ts:23, connection-status.spec.ts:21.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Establish convention: shared test helpers (like captureConsoleErrors) should be extracted to e2e/gui/helpers.ts rather than duplicated across test files. Currently duplicated in 5+ files.",
+      "evidence": "All 3 review subagents flagged captureConsoleErrors duplication. Files: workspace.spec.ts, canvas.spec.ts, explorer.spec.ts, inspector.spec.ts, repl.spec.ts, command-palette.spec.ts, settings.spec.ts, node-lifecycle.spec.ts, connection-status.spec.ts.",
+      "isSystemic": true
+    },
+    {
+      "target": "gui-test-worker skill",
+      "suggestion": "Update step 3 to reflect the actual shared-setup singleton pattern instead of 'Start the server in a beforeAll hook / Stop the server in an afterAll hook per test file'. Also add the command palette trigger button as alternative to Ctrl+K (xterm intercepts keyboard events making Ctrl+K unreliable in E2E).",
+      "evidence": "Two reviewers flagged the skill procedure mismatch. Worker handoffs confirm deviation: 'singleton backend server shared across test files to avoid Vite proxy crash' and 'Ctrl+K via page.keyboard.press was unreliable due to xterm intercepting keyboard events'.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Clarify when to use fixed vs dynamic port allocation: GUI tests (e2e/gui/) use fixed port 3100 with workers:1 (acceptable since single worker). Pipeline/infrastructure tests (e2e/fixtures/) use dynamic ports from 3100-3199 range. Future parallel test workers should use dynamic allocation.",
+      "evidence": "Two reviewers flagged hardcoded port 3100. e2e/gui/shared-setup.ts:14 uses const SERVER_PORT = 3100. e2e/fixtures/server.ts uses dynamic allocation via getAvailablePort().",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}

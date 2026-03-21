@@ -1,0 +1,73 @@
+{
+  "featureId": "test-gui-workspace-and-canvas",
+  "reviewedAt": "2026-03-21T15:45:00.000Z",
+  "commitId": "b1c5453",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation adds 3 files (workspace.spec.ts, canvas.spec.ts, shared-setup.ts) with 7 total Playwright E2E tests covering VAL-GUI-001 (workspace layout) and VAL-GUI-002 (graph canvas). All CSS selectors match the actual frontend source code. Tests are well-structured, use proper timeouts, capture console errors, and follow existing fixture patterns. A shared-setup singleton pattern avoids Vite proxy crashes. Minor non-blocking issues noted but nothing that blocks acceptance.",
+    "issues": [
+      {
+        "file": "e2e/gui/workspace.spec.ts",
+        "line": 80,
+        "severity": "suggestion",
+        "description": "The toolbarSummary locator uses `.workflow-flow.locator('..').locator('p.truncate')` which relies on DOM proximity (parent sibling traversal). If the toolbar moves in the DOM, this selector silently breaks. Consider adding a data-testid attribute to the toolbar summary element in the frontend for more stable test targeting. The current approach works but is fragile."
+      },
+      {
+        "file": "e2e/gui/canvas.spec.ts",
+        "line": 96,
+        "severity": "suggestion",
+        "description": "Same toolbarSummary locator fragility as workspace.spec.ts — duplicated across both files. This locator pattern should ideally be shared in a helper or the frontend should expose a data-testid."
+      },
+      {
+        "file": "e2e/gui/workspace.spec.ts",
+        "line": 42,
+        "severity": "non_blocking",
+        "description": "captureConsoleErrors registers listeners after page is created but before goto. The function returns an array synchronously but errors are pushed asynchronously. The final assertion `expect(consoleErrors).toHaveLength(0)` may race if console errors arrive after all DOM assertions complete but before the expect runs. In practice this is unlikely to cause false passes since Playwright's auto-waiting provides implicit timing, but for completeness consider wrapping the final check in a short delay or using page.waitForTimeout(500) before asserting."
+      },
+      {
+        "file": "e2e/gui/canvas.spec.ts",
+        "line": 42,
+        "severity": "non_blocking",
+        "description": "Same captureConsoleErrors race condition as in workspace.spec.ts — duplicated helper function."
+      },
+      {
+        "file": "e2e/gui/shared-setup.ts",
+        "line": 30,
+        "severity": "non_blocking",
+        "description": "The singleton pattern uses module-level mutable state (started, project, server). This works because Playwright runs each test file in a separate worker process by default, but if workers are configured to share a process (workers: 1 in playwright.config), the cleanup in settings.spec.ts would leave the environment torn down for subsequent test files. The comment documenting this dependency on alphabetical ordering is helpful but the pattern is inherently fragile."
+      },
+      {
+        "file": "e2e/gui/shared-setup.ts",
+        "line": 28,
+        "severity": "non_blocking",
+        "description": "killProcessesOnPort(SERVER_PORT) is called before starting the server, but SERVER_PORT is hardcoded to 3100. If another test suite (e.g., e2e/pipeline/) runs concurrently and also uses port 3100, this could kill that server. AGENTS.md specifies port range 3100-3199 but shared-setup always uses 3100. Consider using getAvailablePort() from the fixtures instead."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The worker introduced a shared-setup.ts singleton pattern to avoid Vite proxy crashes between test files. This pattern depends on alphabetical file ordering for cleanup (settings.spec.ts is last alphabetically and calls cleanupTestEnvironment). This is a significant convention that should be documented in AGENTS.md or the gui-test-worker skill so future workers adding new GUI test files know not to add cleanupTestEnvironment() calls in their own files.",
+      "evidence": "e2e/gui/shared-setup.ts lines 5-10 comment; e2e/gui/settings.spec.ts:24 calls cleanupTestEnvironment; all other spec files have comment noting cleanup is in last alphabetical file."
+    },
+    {
+      "area": "conventions",
+      "observation": "The captureConsoleErrors helper is duplicated verbatim in both workspace.spec.ts and canvas.spec.ts. This should be extracted to a shared utility in e2e/gui/shared-setup.ts or a new e2e/gui/helpers.ts to follow DRY principles.",
+      "evidence": "e2e/gui/workspace.spec.ts lines 35-47 and e2e/gui/canvas.spec.ts lines 35-47 contain identical function definitions."
+    },
+    {
+      "area": "services",
+      "observation": "The gui-test-worker skill's step 3 says 'Start the server in a beforeAll hook / Stop the server in an afterAll hook' per test file, but the worker correctly deviated from this because stopping the server between files crashes Vite's proxy. The skill procedure should be updated to reflect the singleton shared-setup pattern.",
+      "evidence": ".factory/skills/gui-test-worker/SKILL.md section 3 says 'Start the server in a beforeAll hook / Stop the server in an afterAll hook' but the actual implementation uses shared-setup.ts singleton. Worker handoff confirms: 'singleton backend server shared across test files to avoid Vite proxy crash'."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The toolbar summary element in the frontend (workflow-canvas-toolbar.tsx:59) uses `<p className='truncate text-slate-700'>` with no data-testid. Tests locate it via `.workflow-flow.locator('..').locator('p.truncate')`. Adding a data-testid='canvas-toolbar-summary' to the frontend component would make these tests more robust and self-documenting.",
+      "evidence": "apps/web/src/components/graph/workflow-canvas-toolbar.tsx:59 — `<p ref={summaryRef} className='truncate text-slate-700'>{summary}</p>`. Tests in workspace.spec.ts:80 and canvas.spec.ts:96 use fragile parent-sibling traversal to find this element."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS — Feature test-gui-workspace-and-canvas is well-implemented. 7 Playwright E2E tests cover VAL-GUI-001 (3 tests: three-panel layout, toolbar summary, explorer header) and VAL-GUI-002 (4 tests: .workflow-flow container, background, controls/minimap, empty graph). All CSS selectors verified against actual frontend source code. Shared-setup singleton pattern is a practical solution to the Vite proxy crash issue. All verification commands passed (playwright tests, typecheck, lint). Non-blocking suggestions: extract duplicated captureConsoleErrors helper, add data-testid to toolbar summary element, update gui-test-worker skill to document singleton pattern, consider dynamic port allocation instead of hardcoded 3100."
+}

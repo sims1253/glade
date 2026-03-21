@@ -62,3 +62,12 @@ The Bun server spawns the R process internally via `Bun.spawn`. When the Bun pro
 ### Vite Proxy Configuration
 
 The playwright.config.ts webServer starts Vite with `BAYESGROVE_SERVER_PORT=3100`, which tells Vite to proxy `/ws` and `/health` to `http://127.0.0.1:3100`. The backend server must run on port 3100 for the proxy to work. Since `workers: 1`, there's only one test worker at a time, so a fixed port is acceptable.
+
+### Playwright WebSocket Interception
+
+Use `page.routeWebSocket('**/ws', handler)` to intercept WebSocket messages in Playwright tests. Do NOT use `page.route('/ws', handler)` — that only handles HTTP requests, not WebSocket upgrades. This is documented in Playwright's API but is a common source of confusion. See `e2e/gui/connection-status.spec.ts` for a working example.
+
+### Frontend Test Targeting
+
+Some frontend elements lack `data-testid` attributes, forcing E2E tests to use fragile DOM traversal selectors. Known cases:
+- **Toolbar summary**: `apps/web/src/components/graph/workflow-canvas-toolbar.tsx:59` uses `<p className='truncate text-slate-700'>` — tests locate it via `.workflow-flow.locator('..').locator('p.truncate')`. Adding `data-testid='canvas-toolbar-summary'` would make tests more robust.
