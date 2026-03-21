@@ -1,0 +1,52 @@
+{
+  "featureId": "setup-smoke-test-and-isolation",
+  "milestone": "e2e-infrastructure",
+  "reviewedAt": "2026-03-21T14:45:00.000Z",
+  "commitId": "4d767c9",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The smoke test and isolation implementation is well-executed. The worker created e2e/smoke.spec.ts with 3 tests covering app load, WebSocket connection, and console error detection. Key refactoring of e2e fixtures to be self-contained (no monorepo imports) was necessary and properly done. Test isolation is solid with unique temp dirs, port-based process cleanup for orphaned R processes, and verified idempotent runs. The smoke test hardcodes serverPort: 3100 which matches the Vite proxy config — acceptable since workers: 1 prevents concurrent execution.",
+    "issues": [
+      {
+        "file": "e2e/fixtures/project-setup.ts",
+        "line": 21,
+        "severity": "non_blocking",
+        "description": "Module-level mutable `portCounter` variable is shared across test files if multiple fixtures import project-setup.ts. Since workers: 1 in playwright.config.ts, this is safe in practice, but would break if parallelism were ever enabled. The server.ts fixture has the same issue.",
+        "suggestedFix": "Consider using the `getAvailablePort()` function without a preferred port to always get an OS-assigned ephemeral port, or reset the counter in a global setup. Not urgent since workers: 1."
+      },
+      {
+        "file": "e2e/smoke.spec.ts",
+        "line": 18,
+        "severity": "non_blocking",
+        "description": "Module-level `consoleErrors` array is shared across all three tests. If tests ran in parallel, they would interfere. Since workers: 1 and fullyParallel: false, this is safe, but the design is fragile.",
+        "suggestedFix": "Consider scoping consoleErrors within each test or using test-specific fixtures. Not urgent given current config."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The skill (e2e-infra-worker/SKILL.md) instructs workers to import from `@glade/shared/net` and `@glade/shared/process` for getAvailablePort and terminateProcessTree, but Playwright's Node.js runtime cannot resolve bun workspace packages. The worker correctly deviated by creating self-contained helpers.ts. The skill should be updated to reflect this reality.",
+      "evidence": "SKILL.md steps 4-5 say 'Use getAvailablePort() from @glade/shared/net' and 'use terminateProcessTree from @glade/shared/process'. The worker's skillFeedback.deviation[0] documents that these imports fail in Playwright's Node.js context. The fix is already in e2e/fixtures/helpers.ts."
+    },
+    {
+      "area": "skills",
+      "observation": "The skill does not mention the R process orphan cleanup pattern. The worker discovered that killing the Bun server's process tree doesn't reliably kill the R child process, and added killProcessesOnPort() as a safety net. The skill should document this pattern for future workers.",
+      "evidence": "skillFeedback.deviation[1]: 'Added killProcessesOnPort() helper that uses lsof to find and kill orphaned R processes on the R port after server termination'. server.ts:109-112 shows the cleanup code."
+    },
+    {
+      "area": "skills",
+      "observation": "The skill does not mention that bg_use_default_workflow requires a bg_handle object and must be chained with bg_init in the same Rscript invocation. The worker discovered this through trial and error.",
+      "evidence": "skillFeedback.deviation[2]: 'Chained bg_init and bg_use_default_workflow in a single Rscript -e invocation since bg_use_default_workflow requires a bg_handle object'. project-setup.ts:89-92 shows the chained call."
+    },
+    {
+      "area": "library",
+      "observation": "The worker documented e2e infrastructure quirks in .factory/library/environment.md (module resolution, R cleanup, bayesgrove API, Vite proxy config). This is well-done and covers all three deviations from the skill procedure. No additional library updates needed for this feature."
+      "evidence": ".factory/library/environment.md contains 'E2E Test Infrastructure' section with subsections on Module Resolution, R Process Cleanup, bayesgrove API for Project Setup, and Vite Proxy Configuration."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The setup-smoke-test-and-isolation feature passes review. The smoke test (e2e/smoke.spec.ts) has 3 well-structured tests covering app load, WebSocket connection establishment, and console error detection. Test isolation is properly implemented with unique temp directories, dynamic port allocation, process cleanup including orphaned R processes via killProcessesOnPort, and verified idempotent runs (two consecutive runs with identical results, no orphaned processes, no leftover temp dirs). The worker made three justified deviations from the skill procedure (self-contained helpers, R orphan cleanup, chained bg_init+bg_use_default_workflow) and documented all findings in .factory/library/environment.md. Two non-blocking issues noted: module-level mutable port counters and shared consoleErrors array are fragile if parallelism is ever enabled, but safe under current workers: 1 config. VAL-INFRA-02 (Playwright can launch tests), VAL-INFRA-07 (test isolation), and VAL-INFRA-08 (end-to-end launch/navigate/interact) are all fulfilled."
+}

@@ -1,0 +1,64 @@
+{
+  "featureId": "setup-test-fixtures",
+  "milestone": "e2e-infrastructure",
+  "reviewedAt": "2026-03-21T15:30:00.000Z",
+  "commitId": "18590cc",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature fully implements all four required fixture modules (project-setup.ts, server.ts, websocket.ts, models/eight_schools.stan) plus a helpers.ts utility module. All VAL-INFRA-03 through VAL-INFRA-06 criteria are met. A subsequent commit (1017dba) refactored the fixtures to be self-contained (removing @glade/shared imports that Playwright's Node.js runtime cannot resolve) and fixed the bg_use_default_workflow API usage (chaining in a single Rscript call). The code is well-documented, handles edge cases (port conflicts, cleanup on failure, orphan R processes), and passes lint/typecheck.",
+    "issues": [
+      {
+        "file": "e2e/fixtures/project-setup.ts",
+        "line": 18,
+        "severity": "non_blocking",
+        "description": "Module-level mutable portCounter is duplicated between project-setup.ts and server.ts (both independently track ports 3100-3199). Since getAvailablePort falls back to ephemeral ports when the preferred port is taken, this doesn't cause failures, but the counters should ideally live in helpers.ts for DRY and to avoid potential port conflicts when both modules allocate ports in the same test.",
+        "suggestedFix": "Move nextPort(), portCounter, E2E_PORT_MIN, E2E_PORT_MAX to helpers.ts and import from there."
+      },
+      {
+        "file": "e2e/fixtures/models/eight_schools",
+        "line": 0,
+        "severity": "non_blocking",
+        "description": "A compiled Stan model binary (2.7MB ELF executable) was committed to the repository by a subsequent commit (7ded3c5). Build artifacts should not be tracked in git. This bloats the repo and is unnecessary since cmdstanr recompiles as needed.",
+        "suggestedFix": "Add 'e2e/fixtures/models/eight_schools' to .gitignore and remove the binary from tracking with 'git rm --cached e2e/fixtures/models/eight_schools'."
+      },
+      {
+        "file": "e2e/fixtures/websocket.ts",
+        "line": 74,
+        "severity": "non_blocking",
+        "description": "connectWebSocket() is synchronous (returns immediately) while the WebSocket connection opens asynchronously. The JSDoc and interface don't clarify that callers must wait for a message (e.g., server.bootstrap) before the connection is actually established. This is a reasonable design (callers use waitForChannel/waitForMessage) but could be documented more explicitly.",
+        "suggestedFix": "Add a note in the JSDoc: 'The connection is opened asynchronously; use waitForChannel(\"server.bootstrap\") or similar to wait for the connection to be established.'"
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "library",
+      "observation": "The worker discovered that @glade/shared and ws npm packages cannot be imported from e2e test files because Playwright's test runner uses Node.js, which cannot resolve bun workspace packages. The worker fixed this by creating self-contained helpers.ts. This was already documented in .factory/library/environment.md under 'E2E Test Infrastructure > Module Resolution' — the documentation is accurate and was likely written based on this worker's findings.",
+      "evidence": "library/environment.md: 'Playwright's test runner uses Node.js, which cannot resolve bun workspace packages (like @glade/shared).'"
+    },
+    {
+      "area": "library",
+      "observation": "The worker discovered that bg_use_default_workflow() requires a bg_handle object (returned by bg_init()), not a string path. Both calls must be chained in a single Rscript invocation. This was also documented in library/environment.md under 'bayesgrove API for Project Setup' — accurate and actionable.",
+      "evidence": "library/environment.md: 'bg_use_default_workflow() requires a bg_handle object (returned by bg_init()), not a string path.'"
+    },
+    {
+      "area": "library",
+      "observation": "The worker discovered that the Bun server's R child process survives parent termination as an orphan, requiring port-based cleanup (lsof). This was documented in library/environment.md under 'R Process Cleanup' — accurate.",
+      "evidence": "library/environment.md: 'The Bun server spawns the R process internally via Bun.spawn. When the Bun process is killed... the R child process often survives as an orphan.'"
+    },
+    {
+      "area": "skills",
+      "observation": "The e2e-infra-worker SKILL.md instructs workers to use '@glade/shared/net' for getAvailablePort and '@glade/shared/process' for terminateProcessTree, but the actual implementation cannot use these (module resolution issue). The skill should be updated to instruct workers to use e2e/fixtures/helpers.ts instead, or to create self-contained implementations.",
+      "evidence": "SKILL.md step 4: 'Use getAvailablePort() from @glade/shared/net for port allocation'. SKILL.md step 5: 'stop() must use terminateProcessTree from @glade/shared/process'. But actual code uses './helpers' for both."
+    },
+    {
+      "area": "conventions",
+      "observation": "A compiled Stan model binary (e2e/fixtures/models/eight_schools, 2.7MB) was committed to the repo. There's no .gitignore rule for compiled Stan model artifacts. AGENTS.md doesn't mention this convention. A rule like 'e2e/fixtures/models/*' (excluding *.stan files) should be added to .gitignore.",
+      "evidence": "git ls-files shows 'e2e/fixtures/models/eight_schools' (binary). .gitignore has no entry for it."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature setup-test-fixtures PASSES review. All four fixture modules (project-setup.ts, server.ts, websocket.ts, eight_schools.stan) are implemented correctly and fulfill VAL-INFRA-03 through VAL-INFRA-06. A subsequent commit (1017dba) fixed critical issues (module resolution, bg_use_default_workflow API chaining, orphan R process cleanup, native WebSocket). Three non-blocking issues noted: duplicated port counter logic, a compiled Stan binary committed to git, and unclear async connection documentation. One skill gap identified: SKILL.md references @glade/shared imports that don't work in Playwright context."
+}

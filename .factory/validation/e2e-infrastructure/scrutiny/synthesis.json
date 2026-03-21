@@ -1,0 +1,112 @@
+{
+  "milestone": "e2e-infrastructure",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "bun run test",
+      "exitCode": 0,
+      "observation": "All 5 packages passed: @glade/shared (30 tests), @glade/contracts (17 tests), @glade/server (61 tests, 1 skipped), @glade/web (170 tests), @glade/desktop (no tests). Total: 278 tests passed."
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "bun run typecheck",
+      "exitCode": 0,
+      "observation": "All 7 packages typecheck successfully: @glade/contracts, @glade/shared, @glade/marketing (astro check: 0 errors), @glade/scripts, @glade/server, @glade/desktop, @glade/web."
+    },
+    "lint": {
+      "passed": true,
+      "command": "bun run lint",
+      "exitCode": 0,
+      "observation": "oxlint found 0 warnings and 0 errors across 205 files with 93 rules using 12 threads."
+    }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "featureId": "setup-test-fixtures",
+      "description": "Module-level mutable portCounter is duplicated between project-setup.ts and server.ts. Should be in helpers.ts for DRY.",
+      "file": "e2e/fixtures/project-setup.ts",
+      "suggestedFix": "Move nextPort(), portCounter, E2E_PORT_MIN, E2E_PORT_MAX to helpers.ts"
+    },
+    {
+      "featureId": "setup-test-fixtures",
+      "description": "Compiled Stan model binary (2.7MB ELF) committed to git. Build artifacts should not be tracked.",
+      "file": "e2e/fixtures/models/eight_schools",
+      "suggestedFix": "Add 'e2e/fixtures/models/eight_schools' to .gitignore and run 'git rm --cached e2e/fixtures/models/eight_schools'"
+    },
+    {
+      "featureId": "setup-test-fixtures",
+      "description": "connectWebSocket() JSDoc doesn't clarify that connection is async and callers must wait for a message before it's established.",
+      "file": "e2e/fixtures/websocket.ts",
+      "suggestedFix": "Add JSDoc note about async connection and using waitForChannel for readiness"
+    },
+    {
+      "featureId": "setup-smoke-test-and-isolation",
+      "description": "Module-level mutable portCounter and shared consoleErrors array are fragile if parallelism were enabled. Safe under workers: 1.",
+      "file": "e2e/smoke.spec.ts",
+      "suggestedFix": "Not urgent given workers: 1. Consider per-test scoping if parallelism is ever needed."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "Update e2e-infra-worker SKILL.md to instruct workers to use e2e/fixtures/helpers.ts for getAvailablePort, terminateProcessTree, and killProcessesOnPort instead of importing from @glade/shared. Playwright's Node.js runtime cannot resolve bun workspace packages.",
+      "evidence": "Both setup-test-fixtures and setup-smoke-test-and-isolation workers discovered this and deviated from the skill. The SKILL.md still references @glade/shared/net and @glade/shared/process imports.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update e2e-infra-worker SKILL.md to document the R process orphan cleanup pattern: killProcessesOnPort() must be called during server teardown because the Bun server's R child process survives parent termination.",
+      "evidence": "setup-smoke-test-and-isolation worker added killProcessesOnPort() as a deviation. setup-test-fixtures also needed this pattern. This is a consistent gap in the skill.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update e2e-infra-worker SKILL.md to document that bg_use_default_workflow() requires a bg_handle object from bg_init() and both must be chained in a single Rscript -e invocation.",
+      "evidence": "setup-smoke-test-and-isolation worker discovered this through trial and error. The skill doesn't mention this API constraint.",
+      "isSystemic": false
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add a convention: compiled Stan model binaries (non-.stan files in e2e/fixtures/models/) should be gitignored. Build artifacts should never be committed.",
+      "evidence": "A 2.7MB compiled Stan binary (e2e/fixtures/models/eight_schools) was committed to git by a worker. No existing .gitignore rule prevents this.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "services.yaml alignment between playwright.config.ts webServer command and web service start command",
+      "reason": "already-documented: The alignment is correct and was verified. No update needed."
+    },
+    {
+      "observation": "Vite proxy configuration quirk (BAYESGROVE_SERVER_PORT=3100)",
+      "reason": "already-documented: Already covered in .factory/library/environment.md under 'Vite Proxy Configuration'."
+    },
+    {
+      "observation": "Module resolution limitation (Playwright cannot resolve @glade/shared)",
+      "reason": "already-documented: Already covered in .factory/library/environment.md under 'E2E Test Infrastructure > Module Resolution'."
+    },
+    {
+      "observation": "R process orphan cleanup pattern",
+      "reason": "already-documented: Already covered in .factory/library/environment.md under 'R Process Cleanup'. Converted to skill update suggestion instead."
+    },
+    {
+      "observation": "bg_use_default_workflow API quirk (requires bg_handle)",
+      "reason": "already-documented: Already covered in .factory/library/environment.md under 'bayesgrove API for Project Setup'. Converted to skill update suggestion instead."
+    },
+    {
+      "observation": "e2e library documentation was already written by workers",
+      "reason": "already-documented: The smoke test worker documented all findings in .factory/library/environment.md. No additional library updates needed."
+    }
+  ],
+  "previousRound": null
+}
