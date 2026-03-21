@@ -1,0 +1,13 @@
+{
+  "assertionId": "VAL-INFRA-06",
+  "status": "pass",
+  "evidence": [
+    "File exists at /home/m0hawk/Documents/glade/e2e/fixtures/models/eight_schools.stan",
+    "Contains valid Stan code with data block (J, y, sigma), parameters block (mu, tau, theta), and model block (normal priors and likelihood)",
+    "Compiled successfully with cmdstanr::cmdstan_model(compile=TRUE) using CmdStan 2.37.0",
+    "Compiled binary exists at /home/m0hawk/Documents/glade/e2e/fixtures/models/eight_schools (2.7MB)"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["Read file", "Rscript cmdstanr"]
+}

@@ -1,0 +1,13 @@
+{
+  "assertionId": "VAL-INFRA-02",
+  "status": "pass",
+  "evidence": [
+    "`npx playwright test e2e/smoke.spec.ts` executed without configuration error",
+    "Playwright reporter showed: 3 passed (1.6m) on first run",
+    "Smoke tests navigate to baseURL, assert workspace renders, assert WebSocket connects, assert no console errors",
+    "All 3 tests passed on first run and second run (identical results)"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["npx playwright test"]
+}

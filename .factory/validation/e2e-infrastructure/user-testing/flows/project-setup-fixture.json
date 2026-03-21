@@ -1,0 +1,16 @@
+{
+  "assertionId": "VAL-INFRA-03",
+  "status": "pass",
+  "evidence": [
+    "File exists at /home/m0hawk/Documents/glade/e2e/fixtures/project-setup.ts",
+    "Exports createBayesgroveProject() returning { projectPath, stateDir, serverPort, rPort }",
+    "Exports cleanupProject(projectPath, stateDir) for teardown",
+    "Uses Rscript to run bg_init() and bg_use_default_workflow()",
+    "Creates temp directories with unique names using Date.now()",
+    "Uses dynamic port allocation (getAvailablePort with 3100-3199 range)",
+    "Smoke test successfully exercises this fixture (beforeAll creates project, afterAll cleans up)"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["Read file", "npx playwright test"]
+}

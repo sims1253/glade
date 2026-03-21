@@ -1,0 +1,17 @@
+{
+  "assertionId": "VAL-INFRA-07",
+  "status": "pass",
+  "evidence": [
+    "First smoke test run: 3 passed (1.6m), no orphaned processes, no leftover temp dirs",
+    "Second smoke test run: 3 passed (17.5s), no orphaned processes, no leftover temp dirs",
+    "Identical pass/fail results on both runs",
+    "lsof -ti :3100 -ti :3101 -ti :5173 found no orphaned processes after either run",
+    "ls /tmp/glade-e2e-* found no leftover temp dirs after either run",
+    "project-setup.ts uses unique temp dirs with Date.now() prefix",
+    "server.ts uses terminateProcessTree + killProcessesOnPort for cleanup",
+    "helpers.ts provides getAvailablePort for dynamic port allocation"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["npx playwright test (x2)", "lsof", "ls /tmp"]
+}

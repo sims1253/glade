@@ -1,0 +1,16 @@
+{
+  "assertionId": "VAL-INFRA-04",
+  "status": "pass",
+  "evidence": [
+    "File exists at /home/m0hawk/Documents/glade/e2e/fixtures/server.ts",
+    "Exports startServer(config) returning { port, rPort, stop }",
+    "Spawns 'bun run apps/server/src/index.ts' with all required env vars (BAYESGROVE_APP_ROOT, BAYESGROVE_PROJECT_PATH, BAYESGROVE_STATE_DIR, BAYESGROVE_SERVER_PORT, BAYESGROVE_R_PORT, NODE_ENV=production)",
+    "Waits for /health endpoint using waitForHttpReady",
+    "stop() uses terminateProcessTree for cleanup + killProcessesOnPort for orphan R processes",
+    "Uses dynamic port allocation (3100-3199 range)",
+    "Smoke test successfully exercises this fixture (server starts, health check passes, server stops cleanly)"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["Read file", "npx playwright test"]
+}

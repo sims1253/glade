@@ -1,0 +1,17 @@
+{
+  "assertionId": "VAL-INFRA-05",
+  "status": "pass",
+  "evidence": [
+    "File exists at /home/m0hawk/Documents/glade/e2e/fixtures/websocket.ts",
+    "Exports connectWebSocket(port) returning { send, waitForMessage, waitForChannel, waitForResponse, getMessages, close }",
+    "send() sends WebSocketRequest with _tag, id, method, body",
+    "waitForMessage() accepts predicate function with 30s default timeout",
+    "waitForChannel() waits for WsPush on specific channel",
+    "waitForResponse() waits for WebSocketSuccess/WebSocketError matching request ID",
+    "unpackMessage() handles WsPush unpacking for server.bootstrap, workflow.snapshot, workflow.event, repl.output",
+    "Smoke test exercises WebSocket connection via browser (second test: 'WebSocket connection establishes')"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["Read file", "npx playwright test"]
+}

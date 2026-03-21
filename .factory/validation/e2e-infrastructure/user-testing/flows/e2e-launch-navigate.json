@@ -1,0 +1,14 @@
+{
+  "assertionId": "VAL-INFRA-08",
+  "status": "pass",
+  "evidence": [
+    "Smoke test 'app loads and workspace renders': launches Chromium, navigates to app, asserts workspace shell (.workspace-shell) is visible, asserts explorer panel (aside) is visible, no console errors",
+    "Smoke test 'WebSocket connection establishes': launches Chromium, navigates to app, asserts .workflow-flow container is visible (React Flow canvas), no console errors",
+    "Smoke test 'no browser console errors during smoke test': launches Chromium, navigates to app, waits 3s, reloads page, asserts zero console errors across both loads",
+    "All 3 smoke tests completed within 60s timeout (27s, 5.2s, 6.8s on first run)",
+    "No browser console errors of level 'error' or higher in any test"
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["npx playwright test"]
+}
