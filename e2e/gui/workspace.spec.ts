@@ -9,7 +9,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-import { ensureTestEnvironment, cleanupTestEnvironment } from './shared-setup';
+import { ensureTestEnvironment } from './shared-setup';
 
 // --- Lifecycle ---------------------------------------------------------------
 
@@ -17,9 +17,8 @@ test.beforeAll(async () => {
   await ensureTestEnvironment();
 });
 
-test.afterAll(async () => {
-  await cleanupTestEnvironment();
-});
+// Note: cleanupTestEnvironment is called by the last test file alphabetically
+// (settings.spec.ts) to avoid Vite proxy crashes.
 
 // --- Helpers -----------------------------------------------------------------
 

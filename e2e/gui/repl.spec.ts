@@ -10,7 +10,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-import { ensureTestEnvironment, cleanupTestEnvironment } from './shared-setup';
+import { ensureTestEnvironment } from './shared-setup';
 
 // --- Lifecycle ---------------------------------------------------------------
 
