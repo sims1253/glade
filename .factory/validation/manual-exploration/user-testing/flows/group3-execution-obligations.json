@@ -1,0 +1,160 @@
+{
+  "groupId": "group3-execution-obligations",
+  "testedAt": "2026-03-21T14:55:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendUrl": "http://localhost:3100",
+    "rProcessPort": 3101,
+    "browserSession": "dd8c626bc112__u2",
+    "projectPath": "/tmp/glade-test"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-EXPLORE-07",
+      "title": "Execution results (HMC diagnostics) appear in GUI",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Clicked REPL terminal input and typed bayesgrove::bg_run(project)",
+          "expected": "Command sent to R process via WebSocket",
+          "observed": "Command sent successfully, R process began execution"
+        },
+        {
+          "action": "Waited ~90 seconds for MCMC sampling to complete",
+          "expected": "bg_run completes with status succeeded",
+          "observed": "bg_run completed: Status: succeeded, Mode: sync, Executed Nodes: 2"
+        },
+        {
+          "action": "Read REPL output via JavaScript eval",
+          "expected": "HMC diagnostic summaries visible (divergences, R-hat)",
+          "observed": "REPL showed: 'Warning: 291 of 1000 (29.0%) transitions ended with a divergence' and 'Warning: 1 of 2 chains had an E-BFMI less than 0.3', plus execution timing"
+        },
+        {
+          "action": "Clicked fit node (node_41f674f0) in explorer panel",
+          "expected": "Node detail drawer opens showing fit node status",
+          "observed": "Drawer opened showing 'node_41f674f0', 'fit · state ok', with obligations/summaries/decisions sections"
+        },
+        {
+          "action": "Checked canvas nodes via DOM query",
+          "expected": "Canvas renders fit node with updated status",
+          "observed": "Canvas shows both nodes (data + fit), fit node has class 'react-flow__node-fit' and displays 'ok' status"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "evidence/manual-exploration/group3/initial-state.png",
+          "evidence/manual-exploration/group3/after-execution-obligations.png",
+          "evidence/manual-exploration/group3/full-page-after-execution.png",
+          "evidence/manual-exploration/group3/fit-node-detail-drawer.png"
+        ],
+        "consoleErrors": "none",
+        "replOutput": "Mean chain execution time: 0.1 seconds.\nTotal execution time: 0.4 seconds.\n\nWarning: 291 of 1000 (29.0%) transitions ended with a divergence.\nSee https://mc-stan.org/misc/warnings for details.\n\nWarning: 1 of 2 chains had an E-BFMI less than 0.3.\nSee https://mc-stan.org/misc/warnings for details.\n\n<bg_run_handle> run_ae08b0c8\n• Status: succeeded\n• Mode: sync\n• Executed Nodes: 2",
+        "network": "bg_run command sent via repl.write WebSocket RPC; execution completed within ~90s"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-EXPLORE-08",
+      "title": "Protocol obligations surface after execution",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Observed Inspector panel after execution completed",
+          "expected": "Obligations tab shows at least 1 obligation",
+          "observed": "Obligations tab changed from 'Obligations (0)' to 'Obligations (1)'"
+        },
+        {
+          "action": "Read obligations tab content via JavaScript eval",
+          "expected": "Obligation shows title, description, scopeLabel, and Focus related nodes button",
+          "observed": "Title: 'Review computation validity', Description: 'Fresh warning or error summaries are active in this scope.', Scope: 'PROJECT', Button: 'Focus related nodes'"
+        },
+        {
+          "action": "Clicked Actions tab to verify related actions",
+          "expected": "Actions tab shows execution-related actions",
+          "observed": "Actions (2) shown: 'Branch and modify to resolve diagnostics' and 'Record a computation review', both with Run buttons"
+        },
+        {
+          "action": "Clicked 'Focus related nodes' button in obligations tab",
+          "expected": "Button responds (no crash, visual feedback)",
+          "observed": "Button click executed without error; page remained stable"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "evidence/manual-exploration/group3/after-execution-obligations.png",
+          "evidence/manual-exploration/group3/VAL-EXPLORE-08-obligations-tab.png",
+          "evidence/manual-exploration/group3/VAL-EXPLORE-08-actions-tab.png",
+          "evidence/manual-exploration/group3/VAL-EXPLORE-08-focus-related-nodes.png"
+        ],
+        "consoleErrors": "none",
+        "inspectorContent": "INSPECTOR\n\nObligations (1)\nActions (2)\n\nReview computation validity\n\nFresh warning or error summaries are active in this scope.\n\nPROJECT\n\nFocus related nodes",
+        "actionsContent": "INSPECTOR\n\nObligations (1)\nActions (2)\n\nBranch and modify to resolve diagnostics\n\nA new branch preserves provenance while you iterate on diagnostics.\n\nPROJECT\n\nRun\n\nRecord a computation review\n\nA blocking computation-validity obligation is active.\n\nPROJECT\n\nRun",
+        "note": "WebSocket snapshot interception was not possible without CLI WebSocket tools (websocat/wscat not installed). Evidence is based on DOM inspection of the rendered GUI."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-EXPLORE-09",
+      "title": "No crashes or console errors during normal workflow",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cleared browser console errors at session start",
+          "expected": "Clean error state",
+          "observed": "Console cleared successfully"
+        },
+        {
+          "action": "Completed full workflow: app load, navigate to canvas, send bg_run command, wait for execution, view REPL output, click fit node, view obligations tab, click Focus related nodes, view actions tab",
+          "expected": "No uncaught JavaScript errors, no React error boundaries, no WebSocket disconnections",
+          "observed": "Zero uncaught JavaScript errors throughout entire workflow"
+        },
+        {
+          "action": "Checked browser console via agent-browser errors command",
+          "expected": "No error-level messages",
+          "observed": "No errors reported. Only Vite HMR WebSocket warnings during page reload (not app errors)."
+        },
+        {
+          "action": "Ran curl -sf http://127.0.0.1:3100/health after workflow completion",
+          "expected": "HTTP 200 with status ok",
+          "observed": "{'status':'ok','version':'0.14.0'} - server healthy"
+        },
+        {
+          "action": "Checked /tmp/glade-server.log for crash messages",
+          "expected": "No crash messages",
+          "observed": "Only startup message: 'Glade server listening at http://127.0.0.1:3100'"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "evidence/manual-exploration/group3/initial-state.png",
+          "evidence/manual-exploration/group3/after-execution-obligations.png",
+          "evidence/manual-exploration/group3/final-state.png"
+        ],
+        "consoleErrors": "none (only Vite HMR WebSocket warnings during reload, not application errors)",
+        "consoleWarnings": [
+          "[warning] WebSocket connection to 'ws://localhost:5173/ws' failed: WebSocket is closed before the connection is established. (x2 - Vite HMR, not app WebSocket)"
+        ],
+        "serverHealth": "curl http://127.0.0.1:3100/health -> {\"status\":\"ok\",\"version\":\"0.14.0\"}",
+        "serverLog": "Glade server listening at http://127.0.0.1:3100 (no crash messages)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "WebSocket frame capture for snapshot/protocol data was not possible because no CLI WebSocket tools (websocat, wscat) are installed, and the browser WebSocket interceptor couldn't be installed before the initial connection. Evidence for VAL-EXPLORE-08 protocol field verification relies on DOM inspection rather than raw WebSocket payload.",
+      "resolved": true,
+      "resolution": "Used JavaScript eval to read rendered DOM content from the Inspector panel, confirming obligation title, description, scopeLabel, and Focus related nodes button are all present.",
+      "affectedAssertions": ["VAL-EXPLORE-08"]
+    },
+    {
+      "description": "Page reload was needed to install WebSocket interceptor, but this caused Vite HMR WebSocket warnings. These are not application errors.",
+      "resolved": true,
+      "resolution": "Identified the warnings as Vite HMR-related (ws://localhost:5173/ws), not the app's bayesgrove WebSocket (ws://127.0.0.1:3100/ws). Confirmed app WebSocket reconnected successfully.",
+      "affectedAssertions": ["VAL-EXPLORE-09"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 3 passed. VAL-EXPLORE-07: HMC diagnostics (291 divergences, E-BFMI warning) clearly visible in REPL output after bg_run execution. VAL-EXPLORE-08: Protocol obligation 'Review computation validity' surfaced in Inspector with title, description, PROJECT scope, and Focus related nodes button. 2 related actions also appeared. VAL-EXPLORE-09: Zero uncaught JavaScript errors throughout workflow. Server remained healthy (health check returned 200). No crashes."
+}

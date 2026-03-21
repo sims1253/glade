@@ -1,0 +1,133 @@
+{
+  "groupId": "group2-repl-workflow",
+  "testedAt": "2026-03-21T12:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendUrl": "http://localhost:3100",
+    "browserSession": "dd8c626bc112__u1"
+  },
+  "toolsUsed": ["agent-browser", "python-websockets"],
+  "assertions": [
+    {
+      "id": "VAL-EXPLORE-05",
+      "title": "REPL terminal is functional",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to http://localhost:5173 with new browser session dd8c626bc112__u1",
+          "expected": "App loads with workspace shell, canvas, inspector, and REPL panel",
+          "observed": "App loaded successfully. REPL panel visible with 'R Console' tab, 'Terminal input' textbox, and 'Clear output'/'Copy output' buttons."
+        },
+        {
+          "action": "Click REPL terminal input area and type '1 + 1', press Enter",
+          "expected": "R expression is sent via WebSocket repl.write RPC, output appears in REPL panel",
+          "observed": "R output '[1] 2' appeared in REPL. Terminal content verified via JS eval: '> 1 + 1\\n[1] 2\\n> '"
+        },
+        {
+          "action": "Send repl.write WebSocket request directly via Python websockets: '42 * 2'",
+          "expected": "WebSocketSuccess response received, followed by WsPush on repl.output channel",
+          "observed": "Received WebSocketSuccess for method='repl.write', then WsPush on 'repl.output' channel with payload {\"_tag\":\"ReplOutput\",\"line\":\"[1] 84\"}. Also received repl.rawOutput and session.status pushes."
+        },
+        {
+          "action": "Check browser console for errors",
+          "expected": "No uncaught JavaScript errors",
+          "observed": "No console errors reported (agent-browser errors command returned empty)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "manual-exploration/group2/VAL-EXPLORE-05-initial-state.png",
+          "manual-exploration/group2/VAL-EXPLORE-05-repl-output.png"
+        ],
+        "consoleErrors": "none",
+        "network": "WebSocket repl.write -> WebSocketSuccess. WsPush channels received: repl.rawOutput, repl.output (payload: {\"_tag\":\"ReplOutput\",\"line\":\"[1] 84\"}), session.status, workflow.snapshot",
+        "terminalContent": "> 1 + 1\\n[1] 2\\n> "
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-EXPLORE-06",
+      "title": "Complete Eight Schools workflow via GUI",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Register data executor via REPL: bayesgrove::bg_register_node_kind(project, 'data', executor = function(node, inputs) { list(J=8L, y=c(28,8,-3,7,-1,1,18,12), sigma=c(15,10,16,11,9,11,10,18)) })",
+          "expected": "Executor registered without error, prompt returns",
+          "observed": "Command executed successfully. No error output. R prompt '>' returned immediately."
+        },
+        {
+          "action": "Register fit executor via REPL: bayesgrove::bg_register_node_kind(project, 'fit', executor = function(node, inputs) { ... cmdstanr sampling ... })",
+          "expected": "Executor registered without error, prompt returns",
+          "observed": "Command executed successfully. No error output. R prompt '>' returned immediately."
+        },
+        {
+          "action": "Add data node via REPL: bayesgrove::bg_add_node(project, 'data')",
+          "expected": "Node created, ID returned, node appears on canvas and in explorer panel",
+          "observed": "R returned '[1] \"node_ae71fcbf\"'. Explorer panel updated: 'Data Sources 1' with 'node_ae71fcbf data'. Canvas shows react-flow__node[data-id=node_ae71fcbf]."
+        },
+        {
+          "action": "Add fit node via REPL: bayesgrove::bg_add_node(project, 'fit')",
+          "expected": "Node created, ID returned, node appears on canvas and in explorer panel",
+          "observed": "R returned '[1] \"node_41f674f0\"'. Explorer panel updated: 'Fits 1' with 'node_41f674f0 fit'. Canvas shows react-flow__node[data-id=node_41f674f0]."
+        },
+        {
+          "action": "Connect data node to fit node via REPL: bayesgrove::bg_connect(project, 'node_ae71fcbf', 'node_41f674f0')",
+          "expected": "Edge created, ID returned, edge rendered on canvas",
+          "observed": "R returned '[1] \"edge_cc50f735\"'. Canvas shows 1 react-flow__edge[data-id=edge_cc50f735]."
+        },
+        {
+          "action": "Verify final graph state via WebSocket snapshot",
+          "expected": "Snapshot shows 2 nodes, 1 edge, correct kinds registered",
+          "observed": "Graph snapshot confirmed: 2 nodes (node_ae71fcbf=data, node_41f674f0=fit), 1 edge (edge_cc50f735), 5 kinds (compare, data, fit, ppc, source)"
+        },
+        {
+          "action": "Verify canvas DOM state",
+          "expected": "workflow-flow container with 2 .react-flow__node and 1 .react-flow__edge",
+          "observed": "containerExists=true, nodeCount=2, edgeCount=1, nodeIds=[\"node_41f674f0\",\"node_ae71fcbf\"], edgeIds=[\"edge_cc50f735\"]"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "manual-exploration/group2/VAL-EXPLORE-06-executors-registered.png",
+          "manual-exploration/group2/VAL-EXPLORE-06-data-node-added.png",
+          "manual-exploration/group2/VAL-EXPLORE-06-fit-node-added.png",
+          "manual-exploration/group2/VAL-EXPLORE-06-nodes-connected.png",
+          "manual-exploration/group2/VAL-EXPLORE-06-complete-workflow.png"
+        ],
+        "consoleErrors": "none",
+        "network": "All REPL commands executed via WebSocket repl.write RPC. Graph state confirmed via workflow.snapshot WsPush on separate WebSocket connection.",
+        "graphSnapshot": {
+          "nodeCount": 2,
+          "edgeCount": 1,
+          "kindCount": 5,
+          "nodeIds": ["node_ae71fcbf", "node_41f674f0"],
+          "edgeIds": ["edge_cc50f735"],
+          "kinds": ["compare", "data", "fit", "ppc", "source"]
+        },
+        "explorerPanel": {
+          "dataSources": 1,
+          "fits": 1,
+          "dataNodeLabel": "node_ae71fcbf data",
+          "fitNodeLabel": "node_41f674f0 fit"
+        }
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The task prompt specified bayesgrove::bg_active_handle() for the first argument to bg_register_node_kind, but this function does not exist in the bayesgrove namespace. The correct variable name in the bg_serve REPL context is 'project' (set by the Bun server's makeRExpression). Discovered by checking the error message and inspecting the R process startup code.",
+      "resolved": true,
+      "resolution": "Used 'project' directly instead of 'bayesgrove::bg_active_handle()'. All subsequent REPL commands used 'project' as the first argument.",
+      "affectedAssertions": ["VAL-EXPLORE-06"]
+    },
+    {
+      "description": "Long R commands (like the fit executor registration) wrap in the xterm.js terminal, but the terminal input still processes them correctly. The wrapping is cosmetic only.",
+      "resolved": true,
+      "resolution": "No action needed - commands execute correctly despite visual wrapping.",
+      "affectedAssertions": ["VAL-EXPLORE-06"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 2 assertions: both passed. VAL-EXPLORE-05 confirmed REPL terminal accepts keyboard input, sends via repl.write WebSocket RPC, and receives output via repl.output WsPush. VAL-EXPLORE-06 confirmed complete Eight Schools workflow creation: registered data and fit executors, added data and fit nodes, connected them with an edge. All changes reflected in canvas (React Flow), explorer panel, and graph snapshot. No console errors."
+}

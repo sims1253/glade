@@ -1,0 +1,163 @@
+{
+  "groupId": "group1-startup-load",
+  "testedAt": "2026-03-21T13:53:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "backendUrl": "http://localhost:3100",
+    "rProcessPort": 3101,
+    "browserSession": "dd8c626bc112",
+    "projectPath": "/tmp/glade-test",
+    "stateDir": "/tmp/glade-state"
+  },
+  "toolsUsed": ["agent-browser", "curl", "python3 (websockets)"],
+  "assertions": [
+    {
+      "id": "VAL-EXPLORE-01",
+      "title": "Full stack starts successfully",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "curl health endpoint at http://127.0.0.1:3100/health",
+          "expected": "HTTP 200 with status object",
+          "observed": "HTTP 200 with {\"status\":\"ok\",\"version\":\"0.14.0\"}"
+        },
+        {
+          "action": "curl Vite dev server at http://localhost:5173/",
+          "expected": "HTTP 200 HTML response",
+          "observed": "HTTP 200"
+        },
+        {
+          "action": "Check listening ports with ss -tlnp",
+          "expected": "Three processes on ports 5173, 3100, 3101",
+          "observed": "Vite (node, PID 967691) on :5173, Bun backend (PID 967694) on :3100, R process (PID 967849) on :3101"
+        },
+        {
+          "action": "Verify R process runs bg_serve with __GLADE_READY__ signal",
+          "expected": "R process command line includes bg_serve and __GLADE_READY__",
+          "observed": "R process running bg_serve with cat(\"__GLADE_READY__\", \"\\n\") in its startup code"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "manual-exploration/group1/VAL-EXPLORE-01-stack-evidence.json"
+        ],
+        "healthCheck": "curl http://127.0.0.1:3100/health -> {\"status\":\"ok\",\"version\":\"0.14.0\"}",
+        "viteCheck": "curl http://localhost:5173/ -> HTTP 200",
+        "processPorts": "Vite:5173, Backend:3100, R:3101"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-EXPLORE-02",
+      "title": "Web app loads and renders the workspace",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open http://localhost:5173 in Chromium (1280x720)",
+          "expected": "Glade SPA loads with workspace shell",
+          "observed": "Page title 'Glade', workspace shell fully rendered"
+        },
+        {
+          "action": "Take accessibility snapshot of rendered page",
+          "expected": "Graph canvas area, inspector panel, REPL terminal panel visible",
+          "observed": "Explorer panel (left) with project 'exploration-test' and 5 node groups (Data Sources, Models, Fits, Diagnostics, Results). Canvas toolbar showing '0 nodes · 0 edges · 4 kinds'. REPL terminal panel with R Console tab. Inspector panel with Obligations (0) and Actions (0) tabs."
+        },
+        {
+          "action": "Check browser console for uncaught errors",
+          "expected": "No uncaught errors",
+          "observed": "No console errors reported by agent-browser errors command"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "manual-exploration/group1/VAL-EXPLORE-02-workspace-rendered.png",
+          "manual-exploration/group1/VAL-EXPLORE-02-workspace-annotated.png"
+        ],
+        "consoleErrors": "none"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-EXPLORE-03",
+      "title": "WebSocket connection establishes and receives GraphSnapshot",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Connect to ws://127.0.0.1:3100/ws via Python websockets client",
+          "expected": "WebSocket connection accepted, first message is server.bootstrap with snapshot",
+          "observed": "Connection accepted. First message received: WsPush with channel 'server.bootstrap' containing ServerBootstrap payload with embedded snapshot field of type GraphSnapshot"
+        },
+        {
+          "action": "Verify GraphSnapshot fields in snapshot",
+          "expected": "message_type, protocol_version, graph, protocol fields present",
+          "observed": "snapshot.message_type='GraphSnapshot', snapshot.protocol_version='0.1.0', snapshot.graph (with edges, gates, metadata, nodes, registry), snapshot.protocol (with summary and project sections)"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "manual-exploration/group1/VAL-EXPLORE-03-04-ws-bootstrap.json"
+        ],
+        "wsFrame": {
+          "channel": "server.bootstrap",
+          "snapshotMessageType": "GraphSnapshot",
+          "snapshotProtocolVersion": "0.1.0",
+          "snapshotHasGraph": true,
+          "snapshotHasProtocol": true
+        }
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-EXPLORE-04",
+      "title": "Server bootstrap message arrives correctly",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Parse first WebSocket push message",
+          "expected": "WsPush with channel 'server.bootstrap'",
+          "observed": "_tag='WsPush', channel='server.bootstrap'"
+        },
+        {
+          "action": "Verify ServerBootstrap payload fields",
+          "expected": "_tag, version (non-empty), projectPath, sessionStatus, desktopEnvironment, replHistory, optional snapshot",
+          "observed": "All fields present: _tag='ServerBootstrap', version='0.14.0', projectPath='/tmp/glade-test', sessionStatus={_tag:'SessionStatus', state:'ready'}, desktopEnvironment={settings:{...}, preflight:{...}}, replHistory=[], snapshot={...}"
+        },
+        {
+          "action": "Verify version is non-empty string",
+          "expected": "Non-empty version string",
+          "observed": "version='0.14.0'"
+        },
+        {
+          "action": "Verify sessionStatus state",
+          "expected": "SessionStatus struct with state field",
+          "observed": "sessionStatus._tag='SessionStatus', sessionStatus.state='ready'"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "manual-exploration/group1/VAL-EXPLORE-03-04-ws-bootstrap.json"
+        ],
+        "verifiedFields": [
+          "_tag: ServerBootstrap",
+          "version: 0.14.0 (non-empty)",
+          "projectPath: /tmp/glade-test",
+          "sessionStatus: {_tag: SessionStatus, state: ready}",
+          "desktopEnvironment: {settings: {rExecutablePath, editorCommand, updateChannel}, preflight: {checkedAt, projectPath, status, issues}}",
+          "replHistory: []",
+          "snapshot: {protocol_version, message_type, graph, protocol, ...} (present)"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "WebSocket interception via JavaScript injection (window.WebSocket override) does not survive page navigation — the interceptor is lost when navigating from about:blank to the app URL. Had to use a separate Python websockets client to capture WS messages.",
+      "resolved": true,
+      "resolution": "Used Python websockets library to connect directly to ws://127.0.0.1:3100/ws and capture the bootstrap message independently of the browser.",
+      "affectedAssertions": ["VAL-EXPLORE-03", "VAL-EXPLORE-04"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 4 assertions: all 4 passed. Full stack (Vite, Bun backend, R/bayesgrove) running correctly on expected ports. Health endpoint returns 200. Web app renders complete workspace layout (explorer, canvas, REPL, inspector) with no console errors. WebSocket connection receives server.bootstrap with properly structured ServerBootstrap payload including embedded GraphSnapshot."
+}

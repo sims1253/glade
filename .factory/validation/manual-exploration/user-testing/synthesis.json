@@ -1,0 +1,37 @@
+{
+  "milestone": "manual-exploration",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-EXPLORE-01",
+    "VAL-EXPLORE-02",
+    "VAL-EXPLORE-03",
+    "VAL-EXPLORE-04",
+    "VAL-EXPLORE-05",
+    "VAL-EXPLORE-06",
+    "VAL-EXPLORE-07",
+    "VAL-EXPLORE-08",
+    "VAL-EXPLORE-09"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Documented that bayesgrove::bg_active_handle() does not exist; the correct REPL variable is 'project' (set by Bun server's makeRExpression)",
+      "source": "flow-report"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Documented that JS WebSocket interception via window.WebSocket override does not survive page navigation; Python websockets library is a reliable alternative for WS frame capture",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": null
+}
