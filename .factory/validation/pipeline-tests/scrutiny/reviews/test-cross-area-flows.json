@@ -1,0 +1,67 @@
+{
+  "featureId": "test-cross-area-flows",
+  "reviewedAt": "2026-03-22T12:30:00.000Z",
+  "commitId": "2ee3351",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Well-structured cross-area E2E tests covering VAL-CROSS-001 (app load to canvas within 10s), VAL-CROSS-002 (state preserved across navigation), and VAL-CROSS-003 (full Eight Schools E2E cycle). The implementation correctly adapts to bayesgrove 0.5.1 limitations (bg_run instead of bg_submit, no result persistence) and uses robust patterns (silence-based REPL completion, count-based canvas assertions, server-authoritative state verification). Several non-blocking issues identified around timing constraints and helper duplication.",
+    "issues": [
+      {
+        "file": "e2e/pipeline/cross-area.spec.ts",
+        "line": 321,
+        "severity": "non_blocking",
+        "description": "VAL-CROSS-001 asserts loadDurationMs < 10_000 but uses a 30_000ms timeout for the toolbar summary to appear. The 10s assertion measures wall-clock time from goto() to toolbar ready, but if the R process is slow (5-15s per AGENTS.md), the test could flake on slower machines. The 10s claim in the test name is aspirational rather than guaranteed. Consider documenting this as a 'best-effort' timing assertion or increasing to 30s to match the actual timeout."
+      },
+      {
+        "file": "e2e/pipeline/cross-area.spec.ts",
+        "line": 187,
+        "severity": "non_blocking",
+        "description": "Helper functions (addNodeViaRpc, connectNodesViaRpc, waitForNewNodes, parseSnapshotGraph, sendReplCommand, waitForGraphSnapshot, getLatestSnapshot, connectAndWait, captureConsoleErrors, filterAppErrors) are duplicated between cross-area.spec.ts, workflow-creation.spec.ts, and execution.spec.ts. These should be extracted to a shared helpers file (e.g., e2e/pipeline/helpers.ts) to reduce maintenance burden and ensure consistency."
+      },
+      {
+        "file": "e2e/pipeline/cross-area.spec.ts",
+        "line": 546,
+        "severity": "non_blocking",
+        "description": "VAL-CROSS-003 Step 8 uses `await new Promise((resolve) => setTimeout(resolve, 3_000))` as a fixed sleep after `sendReplCommand(ws, '1+1', 10_000)` to 'refresh snapshot'. This 3s hardcoded delay adds to test runtime and is a potential source of flakiness. A more robust approach would be to wait for a specific GraphSnapshot update or use a shorter poll loop."
+      },
+      {
+        "file": "e2e/pipeline/cross-area.spec.ts",
+        "line": 467,
+        "severity": "non_blocking",
+        "description": "Divergence detection in VAL-CROSS-003 uses case-insensitive matching (toLowerCase()) which is good, but the test only logs a WARNING when divergences aren't detected instead of failing. The feature description says 'full end-to-end Eight Schools cycle from project init to obligation display' and expectedBehavior says 'verify obligation'. However, the test acknowledges bayesgrove 0.5.1 limitations where obligations are not generated. This is correctly documented but the test name could be more precise about what it actually verifies."
+      },
+      {
+        "file": "e2e/pipeline/cross-area.spec.ts",
+        "line": 588,
+        "severity": "non_blocking",
+        "description": "The `toolbarSummary.textContent({ timeout: 15_000 })` call in VAL-CROSS-002 Step 5 passes a timeout option to textContent(). Playwright's textContent() does not accept a timeout option — it's synchronous. The timeout is silently ignored. This doesn't cause a failure because the toolbar is already visible from the previous assertion, but it's misleading."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The pipeline-test-worker SKILL.md documents bg_submit as the execution method and shows example code using workflow.executeCommand with bg_submit. However, bayesgrove 0.5.1 does not export bg_submit. The actual tests (including this feature) correctly use bg_run via REPL. The skill file is misleading and should be updated to reflect the actual available commands.",
+      "evidence": "SKILL.md section '4. Pipeline test patterns' shows: `ws.sendCommand('workflow.executeCommand', { command: 'bg_submit', ... })`. The actual implementation in cross-area.spec.ts uses `sendReplCommand(ws, 'bayesgrove::bg_run(project)', ...)`. The .factory/library/pipeline-tests.md correctly documents this limitation."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker discovered that Playwright's webServer (Vite via turbo) becomes orphaned after test runs. This is documented in the handoff's discoveredIssues and skillFeedback.suggestedChanges. This knowledge should be added to .factory/library/ as it affects test reliability and is not currently documented anywhere in shared state.",
+      "evidence": "Handoff discoveredIssues: 'Playwright webServer (Vite via turbo) becomes orphaned after test run. Subsequent test runs with reuseExistingServer:true may fail if the orphaned Vite process is in a degraded state.'"
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker discovered that the REPL silence detection period needs to be 5s (not 3s) to reliably bridge gaps between MCMC chain outputs during bg_run. This was a significant source of test failures in earlier attempts. This should be documented in .factory/library/pipeline-tests.md.",
+      "evidence": "Cross-area.spec.ts line 51: REPL_SILENCE_MS = 5_000. Commit message: 'Fixed REPL silence detection (5s instead of 3s) to bridge MCMC chain gaps'. Handoff mentions multiple worker sessions (4 total) were needed, suggesting this was discovered through iteration."
+    },
+    {
+      "area": "conventions",
+      "observation": "Significant helper function duplication across pipeline test files. cross-area.spec.ts, workflow-creation.spec.ts, and execution.spec.ts all define near-identical versions of addNodeViaRpc, connectNodesViaRpc, parseSnapshotGraph, waitForNewNodes, waitForGraphSnapshot, sendReplCommand, connectAndWait, captureConsoleErrors, and filterAppErrors. This duplication wasn't flagged in AGENTS.md conventions.",
+      "evidence": "e2e/pipeline/cross-area.spec.ts lines 139-310 contain ~170 lines of helpers that are 90%+ identical to those in e2e/pipeline/workflow-creation.spec.ts and e2e/pipeline/execution.spec.ts."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The cross-area flow tests (VAL-CROSS-001 through VAL-CROSS-003) are well-implemented and cover the required cross-cutting scenarios. The code demonstrates good awareness of bayesgrove 0.5.1 limitations, uses robust waiting strategies (silence-based REPL completion, count-based canvas assertions), and properly leverages the shared pipeline environment. All 3 tests passed in verification, along with typecheck and lint. Several non-blocking issues noted: timing assertion in VAL-CROSS-001 may be aspirational on slow machines, significant helper duplication across pipeline test files, a misleading Playwright API usage (textContent timeout), and a hardcoded 3s sleep. Shared state observations include an outdated SKILL.md that references unavailable bg_submit, undocumented orphaned Vite process issue, and undocumented REPL silence period requirements."
+}

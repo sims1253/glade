@@ -1,0 +1,70 @@
+{
+  "featureId": "test-pipeline-workflow-creation",
+  "reviewedAt": "2026-03-22T12:00:00.000Z",
+  "commitId": "76674ba",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Well-structured implementation of 4 Playwright E2E tests covering VAL-PIPELINE-001 through VAL-PIPELINE-004. The tests use a shared-setup module with singleton server lifecycle and executor registration via REPL, plus individual WebSocket connections per test for isolation of message streams. Code quality is high with good documentation, proper error handling, and defensive snapshot parsing. All assertions map directly to the validation contract requirements.",
+    "issues": [
+      {
+        "file": "e2e/pipeline/shared-setup.ts",
+        "line": 42,
+        "severity": "non_blocking",
+        "description": "replCommand does not throw or warn if the R prompt (\"> \") is never observed within the 15s polling loop. If the R command hangs, the function silently proceeds and returns whatever output was collected. This could mask executor registration failures in some edge cases. A timeout warning log would improve debuggability."
+      },
+      {
+        "file": "e2e/pipeline/shared-setup.ts",
+        "line": 103,
+        "severity": "non_blocking",
+        "description": "The 5-second hardcoded sleep after __GLADE_READY__ is a potential source of flakiness — it may be too long on fast machines (wasting time) or too short under heavy system load. A more robust approach would be to poll for a specific 'ready' signal from bg_serve or the default workflow registration. However, the worker documented this tradeoff and all tests passed, so this is acceptable for now."
+      },
+      {
+        "file": "e2e/pipeline/shared-setup.ts",
+        "line": 120,
+        "severity": "non_blocking",
+        "description": "The Stan model file path is hardcoded as an absolute path: '/home/m0hawk/Documents/glade/e2e/fixtures/models/eight_schools.stan'. This makes the tests non-portable. The path should be constructed relative to the project root or test file. However, since AGENTS.md documents the machine-specific setup and these are local E2E tests, this is a minor portability concern, not a correctness issue."
+      },
+      {
+        "file": "e2e/pipeline/workflow-creation.spec.ts",
+        "line": 30,
+        "severity": "non_blocking",
+        "description": "Hardcoded SERVER_PORT = 3100 matches the shared-setup.ts constant. If shared-setup.ts were to change its port, these tests would break silently (connect to wrong port). Consider importing the port constant from shared-setup.ts or a shared config. However, since shared-setup.ts is the sole consumer of this port and both files are in the same e2e/pipeline/ directory, the risk is minimal."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The pipeline-test-worker SKILL.md documents a non-existent `workflow.executeCommand` RPC method. The worker correctly discovered that the actual RPC methods are `workflow.addNode` and `workflow.connectNodes` (confirmed in apps/server/src/services/server-edge.ts lines 165-169). The skill's example code in section 4 (Pipeline test patterns) will mislead future workers. The worker's suggestedChanges in the handoff include updating the skill with the correct method names.",
+      "evidence": "SKILL.md section 4 shows `ws.sendCommand('workflow.executeCommand', { command: 'bg_add_node', args: {...} })` which does not exist. The server-edge.ts switch statement at line 165 maps `workflow.addNode` to `bg_add_node`. The worker's handoff skillFeedback.suggestedChanges explicitly flags this."
+    },
+    {
+      "area": "skills",
+      "observation": "The SKILL.md does not document that `workflow.addNode` response payload is undefined — node IDs must be extracted from graph snapshot diffs. The worker had to discover this through source code exploration. Future workers will waste time on this.",
+      "evidence": "Handoff skillFeedback.suggestedChanges: 'Document that workflow.addNode response payload is undefined — node IDs come from graph snapshot diffs'. The test implementation in waitForNewNodes() confirms this by diffing snapshot node IDs."
+    },
+    {
+      "area": "skills",
+      "observation": "The SKILL.md does not document the REPL write protocol details: the request body requires `{ _tag: 'repl.write', data: string }` with a trailing newline. The worker had to discover this empirically.",
+      "evidence": "Handoff skillFeedback.suggestedChanges: 'Document that repl.write requires { _tag: \"repl.write\", data: string } body with trailing newline'. The shared-setup.ts replCommand function at line 48 uses this exact format."
+    },
+    {
+      "area": "skills",
+      "observation": "The SKILL.md does not document the fit node input_contract requirement. When using bg_use_default_workflow, the fit kind has an input_contract requiring 'data', meaning fit nodes must be added with a data node as input. The worker discovered this through experimentation.",
+      "evidence": "Handoff skillFeedback.suggestedChanges: 'Document the fit node input_contract requirement from bg_use_default_workflow'. The test VAL-PIPELINE-003 (workflow-creation.spec.ts line 261) explicitly adds a data node first before adding the fit node, with a comment explaining this requirement."
+    },
+    {
+      "area": "services",
+      "observation": "No new services or commands were used that are missing from services.yaml. The pipeline tests use the existing server start pattern and WebSocket interaction, both of which are already documented. The e2e:pipeline command in services.yaml (`npx playwright test e2e/pipeline/`) matches the test directory created by this feature."
+    },
+    {
+      "area": "conventions",
+      "observation": "The worker introduced a new pattern: a shared-setup.ts module providing singleton server lifecycle across multiple test files in the same directory. This pattern is not documented in AGENTS.md but is a reasonable approach for expensive-to-start environments (R process + cmdstanr compilation). The pattern uses module-level `let started = false` for singleton behavior with cleanupPipelineEnvironment() in afterAll. This is distinct from the GUI test pattern which uses Playwright's built-in worker fixture scoping.",
+      "evidence": "e2e/pipeline/shared-setup.ts lines 1-10 (module-level state), e2e/pipeline/workflow-creation.spec.ts lines 37-43 (beforeAll/afterAll usage). Compare with GUI test patterns in e2e/gui/ which use different scoping."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Implementation of test-pipeline-workflow-creation (VAL-PIPELINE-001 through VAL-PIPELINE-004) is solid and passes review. The 4 tests correctly verify: (1) default workflow kind registration (source, fit, ppc, compare), (2) data node addition with Eight Schools data, (3) fit node addition with Stan model (including the input_contract requirement), and (4) node connection via bg_connect. All tests use WebSocket RPC methods and verify graph snapshot state. Code quality is high with thorough documentation and defensive parsing. The main observation is that the pipeline-test-worker SKILL.md contains outdated/incorrect API documentation (workflow.executeCommand does not exist) that should be updated to match the worker's discovered patterns. No blocking issues found."
+}

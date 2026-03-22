@@ -80,7 +80,7 @@ The default workflow's fit kind requires a "data" input. When adding a fit node 
 The R prompt (`>`) is **NOT** sent via WebSocket messages. To detect when an R command completes:
 1. Track the count of repl.output/repl.rawOutput messages
 2. Wait for new messages to arrive (command processing started)
-3. Wait for a silence period (3s with no new repl messages = command done)
+3. Wait for a silence period (**5s** with no new repl messages = command done) — 3s is insufficient for bg_run as MCMC chain outputs can have gaps longer than 3s between chains
 4. **Do NOT** use `.some()` on accumulated messages — old messages will always match, causing the silence detection to never trigger
 
 ## bg_connect Uses Node IDs, Not Labels
@@ -90,3 +90,7 @@ The R prompt (`>`) is **NOT** sent via WebSocket messages. To detect when an R c
 ## bg_submit Not Available
 
 `bg_submit` is not exported from bayesgrove 0.5.1. The only way to execute the workflow is via `bg_run(project)` through the REPL.
+
+## Orphaned Vite Process After Test Runs
+
+Playwright's `webServer` config (which starts Vite via `turbo run dev:web`) can become orphaned after test runs complete. Subsequent test runs with `reuseExistingServer: true` may fail if the orphaned Vite process is in a degraded state. Workaround: manually kill orphaned Vite processes on port 5173 before re-running tests, or set `reuseExistingServer: false` (slower but more reliable).

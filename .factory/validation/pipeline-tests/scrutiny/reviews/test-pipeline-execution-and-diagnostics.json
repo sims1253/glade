@@ -1,0 +1,61 @@
+{
+  "featureId": "test-pipeline-execution-and-diagnostics",
+  "reviewedAt": "2026-03-22T12:00:00.000Z",
+  "commitId": "0118b1e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation adds 6 well-structured Playwright E2E tests covering VAL-PIPELINE-005 through VAL-PIPELINE-010. The code is clean, well-documented with architecture notes explaining bayesgrove 0.5.1 limitations, and follows established patterns from the workflow-creation.spec.ts sibling file. The worker adapted tests appropriately when discovering that bayesgrove 0.5.1 bg_run does not persist results to graph nodes, instead capturing diagnostics from REPL output. Tests pass, typecheck, and lint clean.",
+    "issues": [
+      {
+        "file": "e2e/pipeline/execution.spec.ts",
+        "line": 108,
+        "severity": "non_blocking",
+        "description": "The beforeAll does not call test.setTimeout() for the entire beforeAll scope — it only sets EXECUTION_TIMEOUT_MS on the first test. If Playwright runs beforeAll with a default timeout, the entire pipeline setup (workflow build + bg_run) could time out before any test runs. In practice, Playwright applies the test.setTimeout to the test itself but beforeAll has its own timeout. This appears to work because the overall test file timeout is generous, but it's fragile."
+      },
+      {
+        "file": "e2e/pipeline/execution.spec.ts",
+        "line": 244,
+        "severity": "non_blocking",
+        "description": "The extractNodeId function uses a regex match on the first occurrence of a node ID pattern. If bg_add_node output contains multiple node ID strings (e.g., from prior nodes or metadata), this could return the wrong one. Currently works because bg_add_node outputs only the new node ID, but the function is not robust to output format changes."
+      },
+      {
+        "file": "e2e/pipeline/execution.spec.ts",
+        "line": 233,
+        "severity": "non_blocking",
+        "description": "refreshSnapshot() sends '1+1' to the REPL and waits 3 seconds. This is a workaround to trigger a snapshot refresh since there's no explicit RPC method to request a snapshot. It's functional but fragile — if the server behavior changes, this silent dependency could break."
+      },
+      {
+        "file": "e2e/pipeline/execution.spec.ts",
+        "line": 337,
+        "severity": "non_blocking",
+        "description": "VAL-PIPELINE-009 test navigates to '/' (the Vite dev server on port 5173) but the pipeline tests only start the backend server on port 3100, not the Vite dev server. This test could fail if the Vite dev server is not already running. However, since the test expects zero console errors and the page.goto doesn't waitUntil: 'networkidle', it may just silently fail or timeout."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The pipeline-test-worker SKILL.md documents bg_submit as the execution method and shows using workflow.executeAction RPC, but bayesgrove 0.5.1 only supports bg_run via REPL. The skill's example code and procedure section are misleading for the current version. The worker correctly adapted but the skill needs updating to reflect the actual API surface.",
+      "evidence": "SKILL.md section 4 shows 'bg_submit' command and 'workflow.executeAction' RPC, but execution.spec.ts uses 'bayesgrove::bg_run(project)' via repl.write. The worker's skillFeedback.suggestedChanges explicitly requests this update."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker created a comprehensive .factory/library/pipeline-tests.md documenting critical bayesgrove limitations (bg_run not persisting results, REPL completion detection, bg_connect requiring node IDs not labels, bg_submit unavailability). This is excellent knowledge capture that will benefit future workers.",
+      "evidence": ".factory/library/pipeline-tests.md — new file with 92 lines of documented gotchas, created in commit 0118b1e"
+    },
+    {
+      "area": "conventions",
+      "observation": "The execution tests use REPL-based workflow building (sendReplCommand with bayesgrove::bg_add_node) while the workflow-creation tests use RPC-based workflow building (workflow.addNode). This inconsistency between the two test files in the same directory could confuse future workers. The AGENTS.md doesn't prescribe which approach to use.",
+      "evidence": "execution.spec.ts line 139-153 uses repl.write + bayesgrove::bg_add_node, while workflow-creation.spec.ts uses workflow.addNode RPC via addNodeViaRpc helper"
+    },
+    {
+      "area": "services",
+      "observation": "VAL-PIPELINE-009 test navigates to '/' which presumably hits port 5173 (Vite dev server), but the pipeline test infrastructure only starts the backend server on port 3100 via shared-setup.ts. The services.yaml has a 'web' service on port 5173 but the pipeline tests don't use it. The test may pass because Vite is already running from a separate process, but this dependency is not documented.",
+      "evidence": "execution.spec.ts line 337: page.goto('/') with no explicit port; shared-setup.ts only starts the backend server on port 3100"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The feature is well-implemented with 6 tests covering all 6 required assertions (VAL-PIPELINE-005 through VAL-PIPELINE-010). The worker discovered significant bayesgrove 0.5.1 limitations (bg_run doesn't persist results, bg_submit unavailable) and adapted tests accordingly. All tests pass, typecheck and lint are clean. Four non-blocking issues identified: fragile beforeAll timeout handling, extractNodeId regex brittleness, refreshSnapshot workaround dependency, and VAL-PIPELINE-009 potentially depending on an external Vite dev server. Key shared state observation: the SKILL.md is out of date with the actual bayesgrove API surface and should be updated to match the knowledge captured in pipeline-tests.md."
+}

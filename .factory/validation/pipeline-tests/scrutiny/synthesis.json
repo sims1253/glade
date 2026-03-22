@@ -1,0 +1,70 @@
+{
+  "milestone": "pipeline-tests",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": { "passed": true, "command": "bun run test", "exitCode": 0 },
+    "typecheck": { "passed": true, "command": "bun run typecheck", "exitCode": 0 },
+    "lint": { "passed": true, "command": "bun run lint", "exitCode": 0 }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Updated REPL silence detection period from 3s to 5s in pipeline-tests.md — 3s is insufficient for bg_run MCMC chain gaps",
+      "sourceFeature": "test-cross-area-flows"
+    },
+    {
+      "target": "library",
+      "description": "Added orphaned Vite process gotcha to pipeline-tests.md — Playwright webServer can leave orphaned Vite processes that degrade reuseExistingServer behavior",
+      "sourceFeature": "test-cross-area-flows"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills/pipeline-test-worker",
+      "suggestion": "Update SKILL.md section 4 (Pipeline test patterns) to replace all references to bg_submit with bg_run via REPL. Remove workflow.executeCommand examples (method does not exist). Document correct RPC methods: workflow.addNode, workflow.connectNodes, workflow.deleteNode. Document that workflow.addNode response payload is undefined (node IDs from snapshot diffs). Document REPL write protocol: { _tag: 'repl.write', data: string } with trailing newline.",
+      "evidence": "All 3 reviewers flagged that SKILL.md references bg_submit and workflow.executeCommand which do not exist in bayesgrove 0.5.1. Tests use bg_run via REPL and workflow.addNode/workflow.connectNodes RPCs. Worker handoffs all list these in skillFeedback.suggestedChanges.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills/pipeline-test-worker",
+      "suggestion": "Add section to SKILL.md documenting fit node input_contract requirement: default workflow fit kind requires 'data' input, must pass inputs: [dataNodeId] when adding fit node.",
+      "evidence": "Feature test-pipeline-workflow-creation reviewer noted this was discovered through experimentation. Library already documents it but SKILL.md doesn't.",
+      "isSystemic": false
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention against duplicating helper functions across test files in the same directory. Pipeline test files (cross-area.spec.ts, workflow-creation.spec.ts, execution.spec.ts) duplicate ~170 lines of identical helpers (addNodeViaRpc, connectNodesViaRpc, parseSnapshotGraph, waitForNewNodes, sendReplCommand, etc.). Workers should extract shared helpers to a common module (e.g., e2e/pipeline/helpers.ts).",
+      "evidence": "Two reviewers (test-cross-area-flows and test-pipeline-execution-and-diagnostics) independently flagged ~170 lines of helper duplication across 3 pipeline test files. The shared-setup.ts pattern already exists for server lifecycle; a similar shared helpers module is the natural extension.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention recommending consistent workflow building approach across test files. Pipeline tests inconsistently mix RPC-based (workflow.addNode) and REPL-based (bayesgrove::bg_add_node) approaches. Pick one as the standard and document it.",
+      "evidence": "Feature test-pipeline-execution-and-diagnostics reviewer noted execution.spec.ts uses REPL-based building while workflow-creation.spec.ts uses RPC-based. Both approaches work but inconsistency confuses future workers.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "SKILL.md doesn't document REPL write protocol details (workflow.addNode response undefined payload, repl.write body format)",
+      "reason": "already-documented: .factory/library/pipeline-tests.md comprehensively documents both the REPL write protocol and the workflow.addNode undefined payload behavior"
+    },
+    {
+      "observation": "SKILL.md doesn't document fit node input_contract requirement",
+      "reason": "already-documented: .factory/library/pipeline-tests.md has a dedicated section 'Fit Node Input Requirement' documenting this"
+    },
+    {
+      "observation": "No new services or commands needed in services.yaml",
+      "reason": "no-action-needed: existing services.yaml commands are sufficient"
+    }
+  ],
+  "previousRound": null
+}
