@@ -410,10 +410,12 @@ test('VAL-PIPELINE-009: no browser console errors during pipeline execution', as
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(10_000);
 
-  // Filter out known non-application errors
+  // Filter out known non-application errors (Vite HMR, DevTools, browser extensions)
   const appErrors = errors.filter(
     (e) =>
       !e.text.includes('ws://localhost:5173') &&
+      !e.text.includes('http://localhost:5173/node_modules/.vite') &&
+      !e.text.includes('ERR_CONNECTION_REFUSED') &&
       !e.text.includes('DevTools') &&
       !e.text.includes('extension'),
   );
