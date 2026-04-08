@@ -6,6 +6,9 @@ export const WS_PATH = '/ws';
 
 export * from './schema-json.ts';
 export * from './json-guards.ts';
+export * from './storage.ts';
+export * from './struct.ts';
+export * from './platform.ts';
 
 export interface DesktopSettings {
   readonly rExecutablePath: string;

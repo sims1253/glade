@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import type { WorkflowInspectorTab } from '../lib/workflow-workspace';
-import { createDebouncedStorage } from './ui-prefs';
+import { createDebouncedStorage } from '@glade/shared';
 
 export type CenterTabType = 'canvas' | 'editor' | 'diagnostics' | 'trace';
 

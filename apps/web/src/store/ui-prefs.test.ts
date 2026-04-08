@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createDebouncedStorage } from './ui-prefs';
+import { createDebouncedStorage } from '@glade/shared';
 
 function createMockStorage() {
   const values = new Map<string, string>();

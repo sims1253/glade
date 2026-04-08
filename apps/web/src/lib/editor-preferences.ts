@@ -1,15 +1,25 @@
 import type { DesktopSettings } from '@glade/shared';
 
-const KNOWN_EDITORS = [
-  { id: 'cursor', name: 'Cursor', commands: ['cursor', 'Cursor'] },
-  { id: 'vscode', name: 'VS Code', commands: ['code', 'code-insiders'] },
-  { id: 'zed', name: 'Zed', commands: ['zed'] },
-  { id: 'nova', name: 'Nova', commands: ['nova'] },
-  { id: 'sublime', name: 'Sublime Text', commands: ['subl', 'sublime_text'] },
-  { id: 'vim', name: 'Vim', commands: ['vim', 'nvim', 'gvim'] },
-  { id: 'emacs', name: 'Emacs', commands: ['emacs'] },
-  { id: 'textmate', name: 'TextMate', commands: ['mate'] },
-] as const;
+export type EditorLaunchStyle = 'direct-path' | 'goto' | 'line-column';
+
+export interface EditorDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly commands: ReadonlyArray<string>;
+  readonly launchStyle: EditorLaunchStyle;
+}
+
+const KNOWN_EDITORS: ReadonlyArray<EditorDefinition> = [
+  { id: 'cursor', name: 'Cursor', commands: ['cursor', 'Cursor'], launchStyle: 'goto' },
+  { id: 'vscode', name: 'VS Code', commands: ['code', 'code-insiders'], launchStyle: 'goto' },
+  { id: 'zed', name: 'Zed', commands: ['zed', 'zeditor'], launchStyle: 'direct-path' },
+  { id: 'idea', name: 'IntelliJ IDEA', commands: ['idea'], launchStyle: 'line-column' },
+  { id: 'nova', name: 'Nova', commands: ['nova'], launchStyle: 'goto' },
+  { id: 'sublime', name: 'Sublime Text', commands: ['subl', 'sublime_text'], launchStyle: 'goto' },
+  { id: 'vim', name: 'Vim', commands: ['vim', 'nvim', 'gvim'], launchStyle: 'direct-path' },
+  { id: 'emacs', name: 'Emacs', commands: ['emacs'], launchStyle: 'goto' },
+  { id: 'textmate', name: 'TextMate', commands: ['mate'], launchStyle: 'goto' },
+];
 
 // Pre-normalize known editor commands for comparison
 const NORMALIZED_KNOWN_COMMANDS = new Map(
@@ -68,10 +78,12 @@ export function getEditorOptions(): ReadonlyArray<EditorOption> {
   return [...KNOWN_EDITORS];
 }
 
-function matchesEditorCommand(command: string): boolean {
+function resolveEditorDefinition(command: string): EditorDefinition | null {
   const normalized = normalizeEditorCommand(command);
-  if (!normalized) return false;
-  return NORMALIZED_KNOWN_COMMANDS.has(normalized);
+  if (!normalized) return null;
+  const editorId = NORMALIZED_KNOWN_COMMANDS.get(normalized);
+  if (!editorId) return null;
+  return KNOWN_EDITORS.find((e) => e.id === editorId) ?? null;
 }
 
 export function resolveEditorPreference(settings: DesktopSettings): string {
@@ -97,5 +109,12 @@ export function getEditorDisplayName(editorId: string): string {
 }
 
 export function isKnownEditor(command: string): boolean {
-  return matchesEditorCommand(command);
+  const normalized = normalizeEditorCommand(command);
+  if (!normalized) return false;
+  return NORMALIZED_KNOWN_COMMANDS.has(normalized);
+}
+
+export function getEditorLaunchStyle(editorCommand: string): EditorLaunchStyle {
+  const definition = resolveEditorDefinition(editorCommand);
+  return definition?.launchStyle ?? 'goto';
 }

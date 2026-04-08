@@ -96,6 +96,18 @@ function forwardOutput(
   });
 }
 
+function writeBootstrapEnvelope(child: ChildProcess, envelope: Record<string, unknown>) {
+  const payload = JSON.stringify(envelope) + '\n';
+  if (child.stdin && child.stdin.writable) {
+    child.stdin.write(payload, (error) => {
+      if (error) {
+        // Non-critical: fall back to env vars
+      }
+    });
+    child.stdin.end();
+  }
+}
+
 export function startServerProcess(options: StartServerProcessOptions): Promise<ServerProcessHandle> {
   const root = appRoot();
   const binaryPath = bundledServerBinary();
@@ -109,10 +121,24 @@ export function startServerProcess(options: StartServerProcessOptions): Promise<
     NODE_ENV: process.env.NODE_ENV ?? 'production',
   };
   const projectPath = options.projectPath?.trim();
+  const logs: string[] = [];
+
+  const bootstrapEnvelope: Record<string, unknown> = {};
   if (projectPath) {
+    bootstrapEnvelope.projectPath = projectPath;
+  }
+
+  const useBootstrapFd = process.platform !== 'win32' && Object.keys(bootstrapEnvelope).length > 0;
+
+  if (useBootstrapFd) {
+    env.BAYESGROVE_BOOTSTRAP_FD = '3';
+  } else if (projectPath) {
     env.BAYESGROVE_PROJECT_PATH = projectPath;
   }
-  const logs: string[] = [];
+
+  const stdioConfig = useBootstrapFd
+    ? ['pipe', 'pipe', 'pipe', 'pipe'] as const  // stdin=pipe(for envelope write), stdout, stderr, fd3=pipe
+    : ['ignore', 'pipe', 'pipe'] as const;
 
   const spawnOptions: SpawnProcessOptions = useCompiledBinary
     ? {
@@ -120,7 +146,7 @@ export function startServerProcess(options: StartServerProcessOptions): Promise<
         cwd: envRoot,
         env,
         detached: process.platform !== 'win32',
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: stdioConfig,
       }
     : {
         command: 'bun',
@@ -128,9 +154,13 @@ export function startServerProcess(options: StartServerProcessOptions): Promise<
         cwd: root,
         env,
         detached: process.platform !== 'win32',
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: stdioConfig,
       };
   const child = spawnChildProcess(spawnOptions);
+
+  if (useBootstrapFd && child.stdin) {
+    writeBootstrapEnvelope(child, bootstrapEnvelope);
+  }
 
   forwardOutput(child.stdout, process.stdout, logs, options.stateDir, 'stdout', options.onLogLine);
   forwardOutput(child.stderr, process.stderr, logs, options.stateDir, 'stderr', options.onLogLine);

@@ -217,8 +217,11 @@ export const ReplClearResult = AckResult;
 
 export const HostOpenInEditorInput = Schema.TaggedStruct('host.openInEditor', {
   path: Schema.String,
+  line: Schema.optional(Schema.Number),
+  column: Schema.optional(Schema.Number),
 });
 export type HostOpenInEditorInput = Schema.Schema.Type<typeof HostOpenInEditorInput>;
+export type EditorLaunchStyle = 'direct-path' | 'goto' | 'line-column';
 export const HostOpenInEditorResult = AckResult;
 
 export const ServerConfig = Schema.TaggedStruct('ServerConfig', {

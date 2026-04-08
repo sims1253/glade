@@ -1,21 +1,12 @@
 import { create } from 'zustand';
 
+import { type DebouncedStorage, createDebouncedStorage, createMemoryStorage, type StateStorage } from '@glade/shared';
+
 const UI_PREFS_STORAGE_KEY = 'glade:web-ui:v1';
-const UI_PREFS_PERSIST_DEBOUNCE_MS = 300;
 
 interface StoredUiPrefs {
   readonly replPanelOpen: boolean;
   readonly replPanelHeight: number;
-}
-
-interface StorageLike {
-  readonly getItem: (key: string) => string | null;
-  readonly setItem: (key: string, value: string) => void;
-  readonly removeItem: (key: string) => void;
-}
-
-interface DebouncedStorage extends StorageLike {
-  readonly flush: () => void;
 }
 
 interface UiPrefsState extends StoredUiPrefs {
@@ -32,7 +23,7 @@ function clampPanelHeight(value: number) {
   return Math.max(180, Math.min(640, Math.round(value)));
 }
 
-function readStorage(): StorageLike | null {
+function readStorage(): StateStorage | null {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -43,67 +34,12 @@ function readStorage(): StorageLike | null {
     : null;
 }
 
-export function createDebouncedStorage(
-  baseStorage: StorageLike,
-  debounceMs = UI_PREFS_PERSIST_DEBOUNCE_MS,
-): DebouncedStorage {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let pendingName: string | null = null;
-  let pendingValue: string | null = null;
-
-  const clearPending = () => {
-    if (timer !== null) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    pendingName = null;
-    pendingValue = null;
-  };
-
-  return {
-    getItem: (name) => baseStorage.getItem(name),
-    setItem: (name, value) => {
-      pendingName = name;
-      pendingValue = value;
-      if (timer !== null) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => {
-        const nextName = pendingName;
-        const nextValue = pendingValue;
-        clearPending();
-        if (nextName !== null && nextValue !== null) {
-          baseStorage.setItem(nextName, nextValue);
-        }
-      }, debounceMs);
-    },
-    removeItem: (name) => {
-      if (pendingName === name) {
-        clearPending();
-      }
-      baseStorage.removeItem(name);
-    },
-    flush: () => {
-      if (timer === null || pendingName === null || pendingValue === null) {
-        return;
-      }
-
-      const nextName = pendingName;
-      const nextValue = pendingValue;
-      clearPending();
-      baseStorage.setItem(nextName, nextValue);
-    },
-  };
-}
-
 const fallbackUiPrefsStorage: DebouncedStorage = {
-  getItem: () => null,
-  setItem: () => undefined,
-  removeItem: () => undefined,
+  ...createMemoryStorage(),
   flush: () => undefined,
 };
 
-const uiPrefsStorage = (() => {
+const uiPrefsStorage: DebouncedStorage = (() => {
   const storage = readStorage();
   return storage ? createDebouncedStorage(storage) : fallbackUiPrefsStorage;
 })();
@@ -116,7 +52,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushPendingUiPrefsWrites);
 }
 
-function readStoredUiPrefs(storage: StorageLike | null = uiPrefsStorage): StoredUiPrefs {
+function readStoredUiPrefs(storage: StateStorage | null = uiPrefsStorage): StoredUiPrefs {
   if (!storage) {
     return DEFAULT_UI_PREFS;
   }
@@ -140,7 +76,7 @@ function readStoredUiPrefs(storage: StorageLike | null = uiPrefsStorage): Stored
   }
 }
 
-function writeStoredUiPrefs(value: StoredUiPrefs, storage: StorageLike | null = uiPrefsStorage) {
+function writeStoredUiPrefs(value: StoredUiPrefs, storage: StateStorage | null = uiPrefsStorage) {
   if (!storage) {
     return;
   }

@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import { APP_DISPLAY_NAME } from '@glade/shared';
 
+import { ConnectionStatusSurface } from '../components/connection-status-surface';
 import { ServerSessionProvider } from '../lib/server-session-context';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -15,9 +16,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootRoute() {
   return (
     <ServerSessionProvider>
-      <main className="min-h-screen">
-        <Outlet />
-      </main>
+      <ConnectionStatusSurface>
+        <main className="min-h-screen">
+          <Outlet />
+        </main>
+      </ConnectionStatusSurface>
     </ServerSessionProvider>
   );
 }

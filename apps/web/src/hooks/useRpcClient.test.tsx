@@ -123,7 +123,7 @@ describe('useRpcClient', () => {
     expect(firstSocket?.sent).toHaveLength(0);
 
     await act(async () => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(1000);
       await Promise.resolve();
     });
 

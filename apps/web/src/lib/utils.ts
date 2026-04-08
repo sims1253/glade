@@ -28,3 +28,18 @@ export function randomUUID() {
 export function assertUnreachable(value: never): never {
   throw new Error(`Unhandled case: ${String(value)}`);
 }
+
+export function resolveServerUrl(): string {
+  const bridge = window.desktopBridge;
+  const bridgeUrl = bridge ? bridge.getWsUrl() : null;
+  if (bridgeUrl) {
+    return bridgeUrl.replace(/^ws(s?):\/\//, 'http$1://').replace(/\/ws$/, '');
+  }
+
+  const envUrl = import.meta.env.VITE_SERVER_URL?.trim();
+  if (envUrl) {
+    return envUrl;
+  }
+
+  return window.location.origin;
+}

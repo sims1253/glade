@@ -43,6 +43,7 @@ import {
   RSessionUnavailableError,
 } from '../errors';
 import { BayesgroveSocket } from './bayesgrove-socket';
+import { formatEditorArgs } from '../lib/editor-launch';
 import { toExecuteActionCommand } from './execute-action';
 import { GraphStateCache } from './graph-state-cache';
 import { RProcessService } from './r-process';
@@ -416,10 +417,21 @@ export const ServerEdgeLive = Layer.scoped(
             const runtime = yield* desktopEnvironment.getSessionRuntime;
 
             yield* Effect.tryPromise({
-              try: () =>
-                runtime.editorCommand
-                  ? open(request.body.path, { app: { name: runtime.editorCommand } })
-                  : open(request.body.path),
+              try: () => {
+                const editorCommand = runtime.editorCommand;
+                if (editorCommand) {
+                  const args = formatEditorArgs(
+                    editorCommand,
+                    request.body.path,
+                    request.body.line,
+                    request.body.column,
+                  );
+                  return open(args[0] ?? request.body.path, {
+                    app: { name: editorCommand, arguments: args.slice(1) },
+                  });
+                }
+                return open(request.body.path);
+              },
               catch: (error) =>
                 new CommandDispatchError({
                   code: 'editor_open_failed',

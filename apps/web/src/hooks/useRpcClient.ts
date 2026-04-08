@@ -21,13 +21,12 @@ import {
   type RpcResultValue,
 } from '../lib/rpc';
 import { websocketUrl } from '../lib/runtime';
-import { useConnectionStore } from '../store/connection';
+import { RECONNECT_DELAYS_MS, useConnectionStore } from '../store/connection';
 import { useGraphStore } from '../store/graph';
 import { useReplStore } from '../store/repl';
 import { useToastStore } from '../store/toast';
 
 const REQUEST_TIMEOUT_MS = 20_000;
-const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000] as const;
 const decodeWsInbound = decodeJsonResult(WsMessage);
 
 type PendingRequest = {
@@ -50,7 +49,6 @@ function websocketUnavailableError(message: string): RpcError {
 export function useRpcClient(): RpcClient {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
-  const reconnectAttemptRef = useRef(0);
   const manualReconnectRef = useRef(false);
   const unmountingRef = useRef(false);
   const pendingRequestsRef = useRef(new Map<string, PendingRequest>());
@@ -131,13 +129,22 @@ export function useRpcClient(): RpcClient {
       return;
     }
 
-    const delayMs = RECONNECT_DELAYS_MS[
-      Math.min(reconnectAttemptRef.current, RECONNECT_DELAYS_MS.length - 1)
-    ] ?? RECONNECT_DELAYS_MS[0];
-    reconnectAttemptRef.current += 1;
+    const state = useConnectionStore.getState();
+    const nextAttempt = state.reconnectAttempt + 1;
+    const delayMs = RECONNECT_DELAYS_MS[Math.min(nextAttempt - 1, RECONNECT_DELAYS_MS.length - 1)] ?? RECONNECT_DELAYS_MS[0];
+    const nextRetryAt = new Date(Date.now() + delayMs).toISOString();
+
+    useConnectionStore.getState().markReconnectAttempt();
+    useConnectionStore.getState().markReconnectWaiting(nextRetryAt);
 
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
+
+      const currentState = useConnectionStore.getState();
+      if (currentState.reconnectPhase === 'exhausted') {
+        return;
+      }
+
       setSocketGeneration((current) => current + 1);
     }, delayMs);
   }, []);
@@ -156,8 +163,7 @@ export function useRpcClient(): RpcClient {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
-      reconnectAttemptRef.current = 0;
-      useConnectionStore.getState().markConnecting();
+      useConnectionStore.getState().markConnected();
       manualReconnectRef.current = false;
       flushOutboundQueue(socket);
     };
@@ -342,7 +348,7 @@ export function useRpcClient(): RpcClient {
     },
     reconnect: () => {
       manualReconnectRef.current = true;
-      reconnectAttemptRef.current = 0;
+      useConnectionStore.getState().resetReconnect();
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
