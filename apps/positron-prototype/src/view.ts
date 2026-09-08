@@ -2,7 +2,7 @@ import type { ReviewSnapshot } from './contracts';
 
 const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
-export function render(snapshot: ReviewSnapshot | undefined, busy: boolean, notice: string, handle: string, nonce: string) {
+export function render(snapshot: ReviewSnapshot | undefined, busy: boolean, notice: string, handle: string, nonce: string, sessionId: string) {
   const data = JSON.stringify(snapshot ?? null).replaceAll('<', '\\u003c');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,7 +33,10 @@ details { margin-top:24px; } summary { cursor:pointer; } .decision { margin:14px
 const vscode = acquireVsCodeApi();
 const snapshot = ${data};
 const busy = ${busy};
-const saved = vscode.getState() || {};
+const attachment = ${JSON.stringify(JSON.stringify([sessionId, handle, snapshot?.path ?? ""]))};
+const stored = vscode.getState();
+const saved = stored?.attachment === attachment ? stored : { attachment };
+vscode.setState(saved);
 if (${JSON.stringify(notice.startsWith('Decision recorded'))}) { saved.draft = null; vscode.setState(saved); }
 const element = (tag, text, className) => { const e = document.createElement(tag); if (text) e.textContent = text; if(className) e.className = className; return e; };
 const main = document.getElementById('detail');

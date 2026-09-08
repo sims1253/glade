@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
   let snapshot: ReviewSnapshot | undefined;
   let busy = false;
   const show = (notice = '') => {
-    if (panel) panel.webview.html = render(snapshot, busy, notice, handleName, randomBytes(16).toString('hex'));
+    if (panel) panel.webview.html = render(snapshot, busy, notice, handleName, randomBytes(16).toString('hex'), sessionId);
   };
   const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect.pipe(
     Effect.catchAll((cause) => Effect.sync(() => {
@@ -27,18 +27,20 @@ export function activate(context: vscode.ExtensionContext) {
   const request = (message: Request) => Effect.gen(function* () {
     if (!api) return yield* Effect.fail('Open this prototype in Positron. VS Code session support is not implemented.');
     if (busy) return;
+    const attachedSessionId = sessionId;
+    const attachedHandleName = handleName;
     busy = true;
     show();
     yield* Effect.gen(function* () {
-      const session = yield* Effect.tryPromise(() => Promise.resolve(api.runtime.getSession(sessionId)));
+      const session = yield* Effect.tryPromise(() => Promise.resolve(api.runtime.getSession(attachedSessionId)));
       if (!session || session.runtimeMetadata.languageId !== 'r') {
         snapshot = undefined;
         return yield* Effect.fail('The attached R session ended. Open the prototype again to attach to a session.');
       }
       const bridge = yield* Effect.tryPromise(() => readFile(context.asAbsolutePath('r/bridge.R'), 'utf8'));
-      const code = `local({${bridge}\n if (!exists(${JSON.stringify(handleName)}, envir = .GlobalEnv, inherits = FALSE)) stop("The attached R object is missing. Reopen the project in R, then attach Glade again."); as.character(jsonlite::toJSON(glade_review_request(get(${JSON.stringify(handleName)}, envir = .GlobalEnv), jsonlite::fromJSON(${JSON.stringify(JSON.stringify(message))})), auto_unbox = TRUE, null = "null")) })`;
+      const code = `local({${bridge}\n if (!exists(${JSON.stringify(attachedHandleName)}, envir = .GlobalEnv, inherits = FALSE)) stop("The attached R object is missing. Reopen the project in R, then attach Glade again."); as.character(jsonlite::toJSON(glade_review_request(get(${JSON.stringify(attachedHandleName)}, envir = .GlobalEnv), jsonlite::fromJSON(${JSON.stringify(JSON.stringify(message))})), auto_unbox = TRUE, null = "null")) })`;
       const result = yield* Effect.tryPromise(() => Promise.resolve(api.runtime.evaluateCode(
-        'r', code, undefined, sessionId, api.RuntimeBusyBehavior.Reject,
+        'r', code, undefined, attachedSessionId, api.RuntimeBusyBehavior.Reject,
       )));
       const json = yield* Schema.decodeUnknown(Schema.String)(result.result);
       snapshot = yield* Schema.decodeUnknown(Schema.parseJson(ReviewSnapshot))(json);
@@ -61,6 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
       prompt: 'Name of the R object in this console. Glade will not open a second project session.',
     })));
     if (name === undefined) return;
+    if (busy) return yield* Effect.fail('Wait for the current request before changing sessions.');
     handleName = yield* Schema.decodeUnknown(HandleName)(name);
     sessionId = session.metadata.sessionId;
     snapshot = undefined;
