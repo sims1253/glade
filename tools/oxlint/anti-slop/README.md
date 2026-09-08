@@ -15,3 +15,10 @@ Remove exceptions as the corresponding code is rewritten or deleted.
 `bun run lint` uses the exceptions. `bun run lint:strict` reports the remaining
 violations and exits unsuccessfully until they are resolved. The vendored rules
 are excluded from both checks, as upstream's installation guidance recommends.
+
+The pinned upstream rules have known limits identified in [PR #4](https://github.com/sims1253/glade/pull/4):
+parenthesized empty spreads and unknown parameter aliases can escape checks;
+predicate calls with preceding spreads, shadowed built-in type names, and narrow
+mapped types can produce incorrect reports. The source remains unchanged from
+upstream. Review diagnostics before changing application code, and reassess these
+cases when updating the upstream revision.

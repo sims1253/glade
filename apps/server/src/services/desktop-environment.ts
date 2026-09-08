@@ -137,12 +137,11 @@ function missingRIssue(rExecutablePath: string): DesktopPreflightIssue {
   };
 }
 
-function missingBayesgroveIssue(rExecutablePath: string): DesktopPreflightIssue {
+function missingBayesgroveIssue(): DesktopPreflightIssue {
   return {
     code: 'bayesgrove_missing',
-    title: 'Install the bayesgrove R package',
-    description: 'Glade found R, but the bayesgrove package is not installed yet.',
-    command: `${JSON.stringify(rExecutablePath)} -e "install.packages('pak', repos = 'https://cloud.r-project.org'); pak::pkg_install('sims1253/bayesgrove')"`,
+    title: 'Bayesgrove is not installed',
+    description: 'This legacy Glade client needs Bayesgrove 0.5.1 and dagriculture 0.1.6. See Glade’s README for the compatible revisions. Current Bayesgrove is unsupported.',
   };
 }
 
@@ -247,7 +246,7 @@ export async function runDesktopPreflight(settings: DesktopSettings, projectPath
   }
 
   if (bayesgroveProbe.exitCode === 2) {
-    issues.push(missingBayesgroveIssue(settings.rExecutablePath));
+    issues.push(missingBayesgroveIssue());
     return {
       checkedAt: new Date().toISOString(),
       projectPath,
@@ -257,9 +256,11 @@ export async function runDesktopPreflight(settings: DesktopSettings, projectPath
   }
 
   if (bayesgroveProbe.exitCode === 3) {
-    issues.push(environmentInspectionIssue(
-      'This Glade client requires bg_serve(), which Bayesgrove removed in 0.6.0. Use Bayesgrove directly until Glade supports its current interface.',
-    ));
+    issues.push({
+      code: 'bayesgrove_incompatible',
+      title: 'This Bayesgrove version is not supported by Glade',
+      description: 'This Glade client requires bg_serve(), which Bayesgrove removed in 0.6.0. Use Bayesgrove directly until Glade supports its current interface.',
+    });
     return {
       checkedAt: new Date().toISOString(),
       projectPath,

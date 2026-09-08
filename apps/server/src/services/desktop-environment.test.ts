@@ -72,6 +72,7 @@ describe('runDesktopPreflight', () => {
     const result = await runDesktopPreflight(settings, projectPath);
 
     expect(result.status).toBe('action_required');
+    expect(result.issues[0]?.code).toBe('bayesgrove_incompatible');
     expect(result.issues[0]?.description).toContain('Bayesgrove removed in 0.6.0');
     expect(runBufferedProcess).toHaveBeenCalledTimes(2);
     expect(vi.mocked(runBufferedProcess).mock.calls[1]?.[0].args?.[1]).toContain('getNamespaceExports');
