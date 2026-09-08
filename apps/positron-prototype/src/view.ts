@@ -33,7 +33,7 @@ details { margin-top:24px; } summary { cursor:pointer; } .decision { margin:14px
 const vscode = acquireVsCodeApi();
 const snapshot = ${data};
 const busy = ${busy};
-const attachment = ${JSON.stringify(JSON.stringify([sessionId, handle, snapshot?.path ?? ""]))};
+const attachment = ${JSON.stringify(JSON.stringify([sessionId, handle, snapshot?.path ?? ""])).replaceAll('<', '\\u003c')};
 const stored = vscode.getState();
 const saved = stored?.attachment === attachment ? stored : { attachment };
 vscode.setState(saved);
