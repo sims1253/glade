@@ -349,7 +349,6 @@ export const ServerEdgeLive = Layer.scoped(
         }
 
         if ('message_type' in message && message.message_type === 'ProtocolEvent') {
-          yield* cache.writeProtocolEvent(message);
           const push: WsPush = { _tag: 'WsPush', channel: 'workflow.event', payload: message };
           yield* hub.broadcast(push);
           yield* requestSnapshotRefresh;

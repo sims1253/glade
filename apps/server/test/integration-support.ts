@@ -40,7 +40,7 @@ function unpackMessage(message: Message): Message[] {
 export function ensureBayesgroveIntegrationPrerequisites() {
   const probe = spawnSync(
     'Rscript',
-    ['-e', 'quit(status = if (requireNamespace("bayesgrove", quietly = TRUE)) 0 else 2)'],
+    ['-e', 'quit(status = if (!requireNamespace("bayesgrove", quietly = TRUE)) 2 else if (!"bg_serve" %in% getNamespaceExports("bayesgrove")) 3 else 0)'],
     { stdio: 'ignore' },
   );
 
@@ -58,6 +58,10 @@ export function ensureBayesgroveIntegrationPrerequisites() {
     throw new Error(
       'R-backed integration tests require the `bayesgrove` R package. Install it before running `bun run test:integration`.',
     );
+  }
+
+  if (probe.status === 3) {
+    throw new Error('Glade integration tests require bg_serve(), removed in Bayesgrove 0.6.0. The current bridge must be replaced before testing against newer Bayesgrove.');
   }
 
   if (probe.status !== 0) {

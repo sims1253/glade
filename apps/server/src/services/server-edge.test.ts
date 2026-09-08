@@ -103,7 +103,6 @@ async function makeServerEdge(hub: {
       getReplLines: () => Effect.succeed([]),
       clearReplLines: Effect.void,
       writeSnapshot: () => Effect.void,
-      writeProtocolEvent: () => Effect.void,
       appendReplLine: () => Effect.void,
     }),
     Layer.succeed(RProcessService, {

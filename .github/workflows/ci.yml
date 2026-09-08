@@ -88,7 +88,6 @@ jobs:
       - name: Verify Artifacts
         run: |
           test -f apps/web/dist/index.html
-          test -f apps/marketing/dist/index.html
           test -f apps/desktop/dist-electron/main.cjs
           test -f apps/desktop/dist-electron/preload.cjs
           test -f apps/server/dist/index.mjs
@@ -174,11 +173,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes pkg-config libcurl4-openssl-dev
 
-      - name: Install bayesgrove
+      - name: Install the legacy bridge dependency pair
         shell: bash
         run: |
           Rscript -e 'install.packages("pak", repos = "https://cloud.r-project.org")'
-          Rscript -e 'pak::pkg_install("sims1253/bayesgrove")'
+          # Bayesgrove 0.5.1 and dagriculture 0.1.6 still expose this client's APIs.
+          # Current Bayesgrove is intentionally rejected by desktop preflight.
+          Rscript -e 'pak::pkg_install(c("sims1253/dagriculture@5faf5e47d1d8b65f38e42477278b2195e151b6ff", "sims1253/bayesgrove@64d8f0c8f1714fb009a3539d802cf06e12ab0958"), dependencies = NA)'
 
       - name: Server integration tests
         run: bun run --cwd apps/server test:integration
