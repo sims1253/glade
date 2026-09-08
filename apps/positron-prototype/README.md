@@ -71,6 +71,8 @@ which reviews exist, what choices they accept, and what a decision does.
 - While R ran `Sys.sleep(10)`, refresh was rejected immediately as busy.
 - After restarting R, refresh reported the missing handle instead of opening a
   new project session.
+- A probe with simulated host responses verified the 60-second timeout, control
+  recovery, and rejection of a late response from the expired request.
 - Strict anti-slop lint, TypeScript checking, and the extension build passed.
 
 Run the static checks with:
@@ -91,7 +93,10 @@ not implement plots, comparison, branch navigation, a graph canvas, or a general
 form renderer. It uses explicit refresh. Freshness labels describe the last
 successful refresh, not continuous synchronization with R.
 
-A busy session leaves the old evidence visible. A restarted session needs its
+A busy session leaves the old evidence visible. Requests stop waiting after
+60 seconds. This does not cancel R evaluation or establish whether a decision
+was recorded; check the R console and refresh before deciding again. A restarted
+session needs its
 project reopened in R and Glade reattached. The helper protects against stale
 submissions within this single-session experiment; a production client still
 needs a policy for external changes and uncertain mutation outcomes.

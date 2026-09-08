@@ -44,7 +44,13 @@ export function activate(context: vscode.ExtensionContext) {
       )));
       const json = yield* Schema.decodeUnknown(Schema.String)(result.result);
       snapshot = yield* Schema.decodeUnknown(Schema.parseJson(ReviewSnapshot))(json);
-    }).pipe(Effect.ensuring(Effect.sync(() => { busy = false; })));
+    }).pipe(
+      Effect.timeoutFail({
+        duration: '60 seconds',
+        onTimeout: () => 'R did not respond within 60 seconds. A decision may still have been recorded. Check the R console, then refresh before deciding again.',
+      }),
+      Effect.ensuring(Effect.sync(() => { busy = false; })),
+    );
     show(message.kind === 'decide' ? 'Decision recorded in Bayesgrove. The review list has been refreshed.' : 'Refreshed from the attached R session.');
   });
   context.subscriptions.push(vscode.commands.registerCommand('gladePrototype.open', () => run(Effect.gen(function* () {
