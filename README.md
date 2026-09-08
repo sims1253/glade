@@ -39,5 +39,7 @@ exceptions. Passing the regular lint check does not mean the old code meets
 all anti-slop rules.
 
 R integration tests still target the removed bridge. CI pins Bayesgrove 0.5.1 and
-dagriculture 0.1.6 by commit to exercise the legacy bridge. Current Bayesgrove
-remains unsupported by the desktop client.
+dagriculture 0.1.6 by commit to exercise the legacy bridge. The
+[legacy dependency installation step](.github/workflows/ci.yml#L176) contains the
+exact revisions and installation commands. Current Bayesgrove remains unsupported
+by the desktop client.
