@@ -4,7 +4,6 @@ import * as Layer from 'effect/Layer';
 
 import { AppServer, AppServerLive } from './app-server';
 import { ServerConfig, ServerConfigLive } from './config';
-import { SqliteLive } from './persistence/sqlite';
 import { writeServerLogLine } from './runtime-logging';
 import { BayesgroveSocketLive } from './services/bayesgrove-socket';
 import { DesktopEnvironmentServiceLive } from './services/desktop-environment';
@@ -24,8 +23,7 @@ const BaseLayer = Layer.mergeAll(
 
 const DesktopEnvironmentLayer = Layer.provide(DesktopEnvironmentServiceLive, BaseLayer);
 
-const SqliteLayer = Layer.provide(SqliteLive, BaseLayer);
-const CacheLayer = Layer.provide(GraphStateCacheLive, SqliteLayer);
+const CacheLayer = GraphStateCacheLive;
 const RProcessLayer = Layer.provide(RProcessServiceLive, Layer.mergeAll(BaseLayer, CacheLayer, DesktopEnvironmentLayer));
 const SocketLayer = Layer.provide(BayesgroveSocketLive, BaseLayer);
 const RouterLayer = Layer.provide(

@@ -64,6 +64,19 @@ describe('runDesktopPreflight', () => {
     expect(result.issues).toEqual([]);
   });
 
+  it('stops before opening a project when Bayesgrove has no IPC server', async () => {
+    vi.mocked(runBufferedProcess)
+      .mockResolvedValueOnce(probe(0))
+      .mockResolvedValueOnce(probe(3));
+
+    const result = await runDesktopPreflight(settings, projectPath);
+
+    expect(result.status).toBe('action_required');
+    expect(result.issues[0]?.description).toContain('Bayesgrove removed in 0.6.0');
+    expect(runBufferedProcess).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(runBufferedProcess).mock.calls[1]?.[0].args?.[1]).toContain('getNamespaceExports');
+  });
+
   it('surfaces project preparation failures with the failing steps', async () => {
     vi.mocked(runBufferedProcess)
       .mockResolvedValueOnce(probe(0))

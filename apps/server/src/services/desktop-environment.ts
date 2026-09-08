@@ -234,7 +234,7 @@ export async function runDesktopPreflight(settings: DesktopSettings, projectPath
   try {
     bayesgroveProbe = await runProbe(
       settings.rExecutablePath,
-      'quit(status = if (requireNamespace("bayesgrove", quietly = TRUE)) 0 else 2)',
+      'quit(status = if (!requireNamespace("bayesgrove", quietly = TRUE)) 2 else if (!"bg_serve" %in% getNamespaceExports("bayesgrove")) 3 else 0)',
     );
   } catch {
     issues.push(environmentInspectionIssue(`Failed to check bayesgrove package availability.`));
@@ -248,6 +248,18 @@ export async function runDesktopPreflight(settings: DesktopSettings, projectPath
 
   if (bayesgroveProbe.exitCode === 2) {
     issues.push(missingBayesgroveIssue(settings.rExecutablePath));
+    return {
+      checkedAt: new Date().toISOString(),
+      projectPath,
+      status: 'action_required',
+      issues,
+    };
+  }
+
+  if (bayesgroveProbe.exitCode === 3) {
+    issues.push(environmentInspectionIssue(
+      'This Glade client requires bg_serve(), which Bayesgrove removed in 0.6.0. Use Bayesgrove directly until Glade supports its current interface.',
+    ));
     return {
       checkedAt: new Date().toISOString(),
       projectPath,
