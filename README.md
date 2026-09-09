@@ -1,52 +1,45 @@
 # Glade
 
-Glade is a desktop app for working with local Bayesgrove workflows.
+Glade is an experimental workspace for connecting Bayesian model evidence,
+reviews, and recorded decisions inside the researcher's coding environment.
 
-Current release: `0.16.2`
+The recommended direction is a rebuild as a Positron extension. A working
+[disposable prototype](https://github.com/sims1253/glade/blob/prototype/positron-review/apps/positron-prototype/README.md)
+lives on branch `prototype/positron-review`; it has been exercised in a real
+Positron host with the same R handle used by the console.
 
-## What you get
+The current Electron client requires `bg_serve()`, which Bayesgrove removed in
+0.6.0. It does not work with the current Bayesgrove checkout. Glade now detects
+that missing interface before opening or initializing a project.
 
-- a desktop-first workspace for local Bayesgrove projects
-- a workflow canvas with guided actions and obligations
-- guided action dialogs that render Bayesgrove-provided prompts and required inputs
-- a shared REPL and terminal surface inside the app
-- setup checks for local dependencies such as R and `bayesgrove`
-- in-app settings and health status for the local Glade session
+See [the restart review](RESTART.md) for the proposed scope, desktop options,
+and the integration work needed before Glade can be used again.
 
-## Requirements
-
-Before running Glade, install:
-
-- [R](https://cran.r-project.org/)
-- `bayesgrove` in your local R environment
-
-Glade will check your local setup on first launch and show any missing prerequisites in the app.
-
-## Install and run
-
-Download the desktop build for your platform from the project releases, then launch Glade like any other desktop app.
-
-If you are running from source, install dependencies and start the desktop app with:
+For development:
 
 ```bash
 bun install
 bun run dev:desktop
 ```
 
-## Using Glade
+The existing renderer lives in `apps/web`; Electron uses it as its desktop UI.
+Its directory name does not commit Glade to a browser client.
 
-From the main workspace you can:
+```bash
+bun run lint
+bun run typecheck
+bun run test
+bun run build
+```
 
-- inspect your workflow graph
-- review recommended actions and blocking obligations
-- run guided actions that ask for prompt-driven inputs such as decisions and rationales
-- open Settings to fix local environment issues
-- open the Health dialog to inspect the local session status
+TypeScript uses Effect. Vendored [anti-slop](tools/oxlint/anti-slop/README.md)
+rules apply to new files. Existing violations have explicit file-and-rule
+exceptions in `.oxlintrc.json`; `bun run lint:strict` reports them without those
+exceptions. Passing the regular lint check does not mean the old code meets
+all anti-slop rules.
 
-When Bayesgrove includes structured invocation metadata on an action, Glade shows the prompt, renders the required fields, and prevents submission until the required values are present.
-
-If Glade can open an existing local Bayesgrove project but setup still needs attention, Settings now shows the failing preparation step and a safe stderr snippet so you can tell whether `bg_open()` failed, `bg_init()` failed, or a local dependency is missing.
-
-## Notes
-
-Glade is focused on local Bayesgrove workflows. Hosted mode and non-local Glade-managed execution are not part of the current product surface.
+R integration tests still target the removed bridge. CI pins Bayesgrove 0.5.1 and
+dagriculture 0.1.6 by commit to exercise the legacy bridge. The
+[legacy dependency installation step](.github/workflows/ci.yml#L176) contains the
+exact revisions and installation commands. Current Bayesgrove remains unsupported
+by the desktop client.

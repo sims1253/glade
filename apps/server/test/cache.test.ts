@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import * as Effect from 'effect/Effect';
-import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 
 import type { GraphSnapshot } from '@glade/contracts';
 
-import { makeSqliteLayer } from '../src/persistence/sqlite';
 import { GraphStateCache, GraphStateCacheLive } from '../src/services/graph-state-cache';
 
 const sampleSnapshot: GraphSnapshot = {
@@ -71,10 +69,41 @@ const sampleSnapshot: GraphSnapshot = {
   },
 };
 
-const layer = GraphStateCacheLive.pipe(Layer.provideMerge(makeSqliteLayer(':memory:')));
+const layer = GraphStateCacheLive;
 
 describe('GraphStateCache', () => {
-  it('writes and reloads snapshots from sqlite cache', async () => {
+  it('starts empty and clears replay state between sessions', async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const cache = yield* GraphStateCache;
+        expect(Option.isNone(yield* cache.getSnapshot)).toBe(true);
+        yield* cache.writeSnapshot(sampleSnapshot);
+        yield* cache.appendReplLine('previous session');
+        yield* cache.clear;
+        expect(Option.isNone(yield* cache.getSnapshot)).toBe(true);
+        expect(yield* cache.getReplLines()).toEqual([]);
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  it('limits replay and clears the terminal without losing the snapshot', async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const cache = yield* GraphStateCache;
+        yield* cache.writeSnapshot(sampleSnapshot);
+        yield* cache.appendReplLine('first');
+        yield* cache.appendReplLine('second');
+        expect(yield* cache.getReplLines(0)).toEqual([]);
+        expect(yield* cache.getReplLines(-1)).toEqual([]);
+        expect(yield* cache.getReplLines(1)).toEqual(['second']);
+        yield* cache.clearReplLines;
+        expect(yield* cache.getReplLines()).toEqual([]);
+        expect(yield* cache.getSnapshot).toEqual(Option.some(sampleSnapshot));
+      }).pipe(Effect.provide(layer)),
+    );
+  });
+
+  it('replays the latest snapshot', async () => {
     const snapshot = await Effect.runPromise(
       Effect.gen(function* () {
         const cache = yield* GraphStateCache;

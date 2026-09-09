@@ -1,0 +1,239 @@
+{
+  "extends": [
+    "./.oxlint-strict.json"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "apps/web/src/hooks/useRpcClient.ts"
+      ],
+      "rules": {
+        "anti-slop-effect/no-service-constructor-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/server/src/services/server-edge.test.ts",
+        "apps/web/src/hooks/useRpcClient.test.tsx",
+        "apps/web/src/hooks/useServerConnection.test.tsx",
+        "apps/web/src/lib/graph-layout.ts",
+        "packages/shared/src/process.test.ts"
+      ],
+      "rules": {
+        "anti-slop/no-chained-type-assertions": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/desktop/scripts/smoke-test.mjs",
+        "apps/server/src/services/desktop-environment.ts",
+        "apps/server/src/services/execute-action.ts",
+        "apps/server/src/services/server-edge.ts",
+        "apps/web/src/lib/legacy-commands.ts",
+        "packages/contracts/src/decode.ts",
+        "packages/shared/src/index.ts",
+        "scripts/build-desktop-artifact.ts"
+      ],
+      "rules": {
+        "anti-slop/no-conditional-empty-object-spread": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/components/extensions/schema-form.tsx",
+        "apps/web/src/hooks/useCopyToClipboard.ts",
+        "apps/web/src/lib/graph-adapter.ts",
+        "apps/web/src/lib/keybindings.ts",
+        "apps/web/src/lib/legacy-commands.ts",
+        "apps/web/src/lib/workflow-protocol.ts",
+        "scripts/build-desktop-artifact.ts"
+      ],
+      "rules": {
+        "anti-slop/no-known-value-widening": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/server/src/services/desktop-environment.test.ts",
+        "apps/web/src/components/repl/repl-terminal-panel.test.tsx",
+        "apps/web/src/routes/-index.browser.tsx",
+        "apps/web/src/routes/-index.test.tsx",
+        "apps/web/src/routes/-settings.test.tsx",
+        "apps/web/src/routes/-welcome.test.tsx"
+      ],
+      "rules": {
+        "anti-slop/no-module-mocking": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/desktop/scripts/dev-electron.ts",
+        "apps/desktop/scripts/real-bayesgrove-smoke.mjs",
+        "apps/desktop/scripts/smoke-test.mjs",
+        "apps/server/src/app-server.ts",
+        "apps/server/src/runtime-logging.ts",
+        "apps/server/src/services/desktop-environment.ts",
+        "apps/server/src/services/execute-action.ts",
+        "apps/server/src/services/r-process.ts",
+        "apps/server/src/services/server-edge.ts",
+        "apps/server/test/bridge.integration.test.ts",
+        "apps/server/test/integration-support.ts",
+        "apps/server/test/repl.integration.test.ts",
+        "apps/web/src/components/extensions/schema-form.tsx",
+        "apps/web/src/components/graph/workflow-canvas-toolbar.test.tsx",
+        "apps/web/src/components/shell/inspector-panel.tsx",
+        "apps/web/src/components/shell/workspace-shell.tsx",
+        "apps/web/src/lib/graph-adapter.ts",
+        "apps/web/src/lib/json.ts",
+        "apps/web/src/lib/runtime.ts",
+        "apps/web/src/lib/terminal-theme.ts",
+        "apps/web/src/lib/utils.ts",
+        "apps/web/src/lib/workflow-protocol.ts",
+        "apps/web/src/store/ui-prefs.ts",
+        "apps/web/src/store/workspace.ts",
+        "packages/contracts/src/decode.ts",
+        "packages/shared/src/index.ts",
+        "packages/shared/src/json-guards.ts",
+        "packages/shared/src/net.test.ts",
+        "packages/shared/src/net.ts",
+        "packages/shared/src/process.ts",
+        "vitest.setup.ts"
+      ],
+      "rules": {
+        "anti-slop/no-runtime-typeof": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/server/src/config.ts",
+        "apps/server/src/services/server-edge.test.ts"
+      ],
+      "rules": {
+        "anti-slop/no-shape-in-symbol-names": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/server/src/runtime-logging.ts",
+        "apps/server/src/services/bayesgrove-socket.ts",
+        "apps/server/src/services/desktop-environment.ts",
+        "apps/server/src/services/execute-action.ts",
+        "apps/server/src/services/server-edge.test.ts",
+        "apps/server/src/services/server-edge.ts",
+        "apps/web/src/components/extensions/schema-form.tsx",
+        "apps/web/src/components/graph/node-detail-drawer.tsx",
+        "apps/web/src/components/graph/nodes/generic-node.tsx",
+        "apps/web/src/hooks/useRpcClient.test.tsx",
+        "apps/web/src/hooks/useServerConnection.test.tsx",
+        "apps/web/src/lib/graph-adapter.ts",
+        "apps/web/src/lib/graph-layout.ts",
+        "apps/web/src/lib/json.ts",
+        "apps/web/src/lib/workflow-protocol.ts",
+        "packages/contracts/src/decode.ts",
+        "packages/shared/src/index.ts",
+        "packages/shared/src/json-guards.ts"
+      ],
+      "rules": {
+        "anti-slop/no-unknown-parameters": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/components/extensions/extension-manager.tsx",
+        "apps/web/src/components/extensions/schema-form.tsx",
+        "packages/shared/src/process.ts"
+      ],
+      "rules": {
+        "anti-slop/no-unknown-returns": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/server/src/services/execute-action.test.ts",
+        "apps/server/test/integration-support.ts",
+        "apps/server/test/interactive-graph.integration.test.ts",
+        "apps/server/test/repl.test.ts",
+        "apps/web/src/components/extensions/schema-form.tsx",
+        "apps/web/src/components/graph/node-detail-drawer.tsx",
+        "apps/web/src/components/graph/workflow-canvas.tsx",
+        "apps/web/src/components/workflow/protocol-panels.tsx",
+        "apps/web/src/hooks/useServerConnection.test.tsx",
+        "apps/web/src/lib/graph-adapter.ts",
+        "apps/web/src/lib/graph-types.ts",
+        "apps/web/src/lib/legacy-commands.ts",
+        "apps/web/src/routes/index.tsx",
+        "packages/contracts/src/decode.ts",
+        "packages/shared/src/json-guards.ts",
+        "scripts/build-desktop-artifact.ts"
+      ],
+      "rules": {
+        "anti-slop/no-unsafe-dictionary-type": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/desktop/scripts/dev-electron.ts",
+        "apps/desktop/src/preload.ts",
+        "apps/desktop/src/server-process.ts",
+        "apps/desktop/src/settings.ts",
+        "apps/desktop/src/smoke-runner.ts",
+        "apps/server/src/app-server.ts",
+        "apps/server/src/services/desktop-environment.ts",
+        "apps/server/src/services/execute-action.test.ts",
+        "apps/server/src/services/execute-action.ts",
+        "apps/server/src/services/process-supervisor.ts",
+        "apps/server/src/services/r-process.ts",
+        "apps/server/src/services/server-edge.test.ts",
+        "apps/server/src/services/server-edge.ts",
+        "apps/server/src/services/session-status.ts",
+        "apps/server/src/services/websocket-hub.test.ts",
+        "apps/server/src/services/websocket-hub.ts",
+        "apps/server/test/bridge.integration.test.ts",
+        "apps/server/test/integration-support.ts",
+        "apps/server/test/interactive-graph.integration.test.ts",
+        "apps/server/test/repl.test.ts",
+        "apps/web/src/components/extensions/schema-form.tsx",
+        "apps/web/src/components/graph/node-registry.ts",
+        "apps/web/src/components/graph/node-shell.test.tsx",
+        "apps/web/src/components/graph/nodes.test.tsx",
+        "apps/web/src/components/graph/workflow-canvas.tsx",
+        "apps/web/src/components/repl/repl-terminal-panel.test.tsx",
+        "apps/web/src/components/repl/repl-terminal-panel.tsx",
+        "apps/web/src/components/shell/explorer-panel.tsx",
+        "apps/web/src/components/shell/inspector-panel.tsx",
+        "apps/web/src/components/shell/workspace-shell.tsx",
+        "apps/web/src/hooks/useRpcClient.test.tsx",
+        "apps/web/src/hooks/useRpcClient.ts",
+        "apps/web/src/hooks/useServerConnection.test.tsx",
+        "apps/web/src/lib/graph-adapter.ts",
+        "apps/web/src/lib/graph-layout.ts",
+        "apps/web/src/lib/json.ts",
+        "apps/web/src/lib/keybindings.ts",
+        "apps/web/src/lib/legacy-commands.ts",
+        "apps/web/src/lib/rpc-ui.ts",
+        "apps/web/src/lib/rpc.test.ts",
+        "apps/web/src/lib/rpc.ts",
+        "apps/web/src/main.tsx",
+        "apps/web/src/store/ui-prefs.ts",
+        "apps/web/src/store/workspace.ts",
+        "apps/web/vite.config.ts",
+        "packages/contracts/src/contracts.test.ts",
+        "packages/contracts/src/decode.ts",
+        "packages/shared/src/index.ts",
+        "packages/shared/src/json-guards.ts",
+        "packages/shared/src/logging.ts",
+        "packages/shared/src/process.test.ts",
+        "packages/shared/src/process.ts",
+        "scripts/build-desktop-artifact.ts",
+        "scripts/dev-runner.ts",
+        "scripts/release-smoke.ts"
+      ],
+      "rules": {
+        "anti-slop/require-safety-comment-for-type-assertion": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "tools/oxlint/anti-slop/**"
+  ]
+}

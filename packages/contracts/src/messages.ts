@@ -83,6 +83,7 @@ export type DesktopSettings = Schema.Schema.Type<typeof DesktopSettings>;
 export const DesktopPreflightIssueCode = Schema.Literal(
   'r_missing',
   'bayesgrove_missing',
+  'bayesgrove_incompatible',
   'environment_inspection_failed',
   'project_bootstrap_failed',
   'session_connection_failed',
