@@ -1,0 +1,42 @@
+{
+  "name": "glade-positron-prototype",
+  "displayName": "Glade Review Prototype",
+  "description": "Disposable experiment: review Bayesgrove evidence in the active R session.",
+  "version": "0.0.1",
+  "publisher": "glade-local",
+  "private": true,
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "onCommand:gladePrototype.open"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gladePrototype.open",
+        "title": "Glade: Open Review Prototype"
+      },
+      {
+        "command": "gladePrototype.demo",
+        "title": "Glade: Create Scratch Review Project"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "bun build src/extension.ts --target=node --format=cjs --external=vscode --outfile=dist/extension.cjs",
+    "typecheck": "tsc --noEmit",
+    "dev": "bun install && bun run build && \"${POSITRON_BIN:-positron}\" --new-window --extensionDevelopmentPath=\"$PWD\"",
+    "lint": "oxlint src --config ../../.oxlint-strict.json --deny-warnings"
+  },
+  "dependencies": {
+    "effect": "3.19.19",
+    "@posit-dev/positron": "0.2.10"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.93.0",
+    "@types/node": "25.3.5",
+    "typescript": "5.9.3"
+  }
+}

@@ -4,9 +4,9 @@ Glade is an experimental workspace for connecting Bayesian model evidence,
 reviews, and recorded decisions inside the researcher's coding environment.
 
 The recommended direction is a rebuild as a Positron extension. A working
-[disposable prototype](https://github.com/sims1253/glade/blob/prototype/positron-review/apps/positron-prototype/README.md)
-lives on branch `prototype/positron-review`; it has been exercised in a real
-Positron host with the same R handle used by the console.
+[disposable prototype](apps/positron-prototype/README.md) is preserved at
+`apps/positron-prototype/`; it has been exercised in a real Positron host with
+the same R handle used by the console.
 
 The current Electron client requires `bg_serve()`, which Bayesgrove removed in
 0.6.0. It does not work with the current Bayesgrove checkout. Glade now detects
