@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.17.0 - unreleased
+
+- Recorded the rebuild decision in RESTART.md (application layer as a Positron extension, Bayesgrove as the workflow engine, legacy client kept as reference) and rewrote the README around the restart state.
+- Desktop client now reports the missing `bg_serve()` interface (removed in Bayesgrove 0.6.0) as `bayesgrove_incompatible` before opening or initializing a project, instead of failing later.
+- Removed the marketing site app, the SQLite cache and its migrations, unread event storage, and the duplicate unused desktop preflight.
+- Replaced the SQLite cache with a bounded in-memory replay cache (one snapshot plus a bounded REPL replay buffer), simplifying Glade session state.
+- CI pins legacy Bayesgrove 0.5.1 (`64d8f0c`) and dagriculture 0.1.6 (`5faf5e4`) by full commit hash so the retained bridge keeps its four R integration tests; current Bayesgrove remains unsupported by the desktop client.
+- Added vendored anti-slop oxlint rules with per-file exceptions for 396 existing violations, plus `lint:strict` to report violations without those exceptions.
+- Added the manually dispatched `pullfrog.yml` agent review workflow.
+- Preserved the disposable Positron review prototype under `apps/positron-prototype/` as verified reference for the rebuild (#5).
+- Aligned all shipped workspace package versions at 0.17.0 (root, server, desktop, web, contracts, shared).
+
 ## 0.16.3 - 2026-03-17
 
 - Fixed CI `pr-size.yml` to fetch PR head via `refs/pull/<number>/head` for fork PRs instead of HEAD SHA from fork.
