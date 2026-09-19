@@ -88,10 +88,12 @@ checks were performed interactively through the editor and panel.
 
 ## Limits that matter to the rebuild
 
-This view supports project-scope review actions with enumerated choices. It does
-not implement plots, comparison, branch navigation, a graph canvas, or a general
-form renderer. It uses explicit refresh. Freshness labels describe the last
-successful refresh, not continuous synchronization with R.
+This view supports project-scope review actions with enumerated choices. Review
+types without a choice enum, such as free-text criticisms, are not handled and
+would need product treatment. It does not implement plots, comparison, branch
+navigation, a graph canvas, or a general form renderer. It uses explicit
+refresh. Freshness labels describe the last successful refresh, not continuous
+synchronization with R.
 
 A busy session leaves the old evidence visible. Requests stop waiting after
 60 seconds. This does not cancel R evaluation or establish whether a decision
