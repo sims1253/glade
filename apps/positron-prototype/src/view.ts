@@ -28,7 +28,7 @@ details { margin-top:24px; } summary { cursor:pointer; } .decision { margin:14px
 <h1>${escape(snapshot?.project ?? 'Attach to Bayesgrove')}</h1>
 <p class="subtle">Inspect the evidence, then record what it means for your analysis.</p>
 <div class="path subtle">${escape(snapshot?.path ?? '')} ${snapshot ? `• R object: ${escape(handle)}` : ''}</div></header>
-<div class="notice" role="status">${escape(busy ? 'Waiting for the attached R session…' : notice)}</div>
+<div class="notice" role="status">${escape(notice || (busy ? 'Waiting for the attached R session…' : ''))}</div>
 <div class="layout"><nav aria-label="Pending reviews"><h3>Pending reviews</h3><div id="reviews"></div><details><summary>Workflow context</summary><div id="context"></div></details></nav><main id="detail"></main></div>
 <script nonce="${nonce}">
 const vscode = acquireVsCodeApi();

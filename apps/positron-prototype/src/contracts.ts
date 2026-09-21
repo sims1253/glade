@@ -17,6 +17,15 @@ export const ReviewSnapshot = Schema.Struct({
   decisions: Schema.Array(Schema.Struct({ type: Schema.String, choice: Schema.String, rationale: Schema.String })),
 });
 export type ReviewSnapshot = typeof ReviewSnapshot.Type;
+// One response per request: the bridge discriminates the mutation outcome from
+// the projection, so a decide whose refreshed snapshot fails to load still
+// acknowledges the decision instead of failing the whole request.
+export const BridgeResponse = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal('snapshot'), snapshot: ReviewSnapshot }),
+  Schema.Struct({ kind: Schema.Literal('decided'), snapshot: ReviewSnapshot }),
+  Schema.Struct({ kind: Schema.Literal('decided'), snapshot: Schema.Null, refresh_error: Schema.String }),
+);
+export type BridgeResponse = typeof BridgeResponse.Type;
 export const Request = Schema.Union(
   Schema.Struct({ kind: Schema.Literal('snapshot') }),
   Schema.Struct({
