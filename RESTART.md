@@ -140,3 +140,8 @@ For PR verification, all four legacy integration tests pass with Bayesgrove
 0.5.1 (`64d8f0c`) and dagriculture 0.1.6 (`5faf5e4`) in an isolated R library.
 CI pins that pair by full commit hash. This tests the retained bridge without
 claiming compatibility with current Bayesgrove.
+
+Update: the standalone client described above was removed ahead of the 0.17.0
+release, together with its server, web renderer, and shared packages, its
+desktop build and release tooling, and the legacy Bayesgrove 0.5.1 CI pin. The
+retired source lives in git history.

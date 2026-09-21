@@ -1,7 +1,0 @@
-{
-  "extends": "../../tsconfig.effect.json",
-  "compilerOptions": {
-    "composite": true
-  },
-  "include": ["src"]
-}

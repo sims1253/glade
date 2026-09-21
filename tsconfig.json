@@ -1,10 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "./packages/shared" },
-    { "path": "./packages/contracts" },
-    { "path": "./apps/server" },
-    { "path": "./apps/web" },
-    { "path": "./apps/desktop" }
-  ]
+  "references": []
 }
