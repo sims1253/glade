@@ -13,6 +13,10 @@
 - Aligned all shipped workspace package versions at 0.17.0 (root, server, desktop, web, contracts, shared).
 - Fixed the Positron prototype to key persisted drafts by `[sessionId, handle]` so a draft survives reattaching to the same handle, to validate a restored `draft.choice` against the refreshed `choices`, and to clear drafts on an explicit `recorded` flag instead of matching English notice copy (#11).
 - Rendered each review's `scope` as a subtitle on the prototype's nav buttons and detail header so duplicate review titles are distinguishable, and surfaced each obligation's `why` in the workflow context list (#12).
+- Hardened the prototype R bridge so a single missing field no longer fails the whole snapshot decode: `fallback()` now covers every projected string field and summary records without a `summary_id` are dropped instead of blanking the panel (#8).
+- Validated the recorded `choice` against `action$invocation$input$fields$choice$enum` in `glade_review_request` before calling `bg_execute_action`, and refused reviews without enumerated choices instead of writing arbitrary strings into the decision log (#14).
+- Formatted prototype metric values directly for display instead of round-tripping through `jsonlite::toJSON()`, removing JSON quotes and raw arrays from the evidence tables (#15).
+- Made the prototype scratch command remove its half-built `glade_prototype` handle and temporary directory when a post-init step fails, and documented the manual `rm(glade_prototype, envir = .GlobalEnv)` recovery in the prototype README (#16).
 
 ## 0.16.3 - 2026-03-17
 
