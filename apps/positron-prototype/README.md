@@ -83,10 +83,12 @@ which reviews exist, what choices they accept, and what a decision does.
 - Strict anti-slop lint, TypeScript checking, and the extension build passed.
 - A local jsdom harness (not committed) loaded the shell, stubbed the editor
   API, and delivered state messages; it verified the surviving live-region
-  node and its change-only text updates, in-place focus and scroll
-  preservation, draft clearing on `recorded` but not on `busy`, the form
-  rebuild rules for changed reviews and tokens, and duplicate-title reviews
-  staying distinguishable by scope.
+  node, its change-only text updates, and its re-announce of a repeated
+  notice, in-place focus and scroll preservation, draft clearing on a fresh
+  decision completion (consume-once by id, so replays never clear a newer
+  draft) but not on `busy`, the form rebuild rules for changed reviews,
+  tokens, and decision completions, and duplicate-title reviews staying
+  distinguishable by scope.
 
 Run the static checks with:
 
@@ -124,11 +126,14 @@ The panel is a persistent document: the extension ships a static shell to the
 webview once and delivers every later state as a `postMessage` payload that a
 boot script applies to the DOM in place. Refreshes and decisions no longer
 discard keyboard focus or scroll position, the `role="status"` notice node
-survives across updates so screen readers can announce changes, and a mounted
-decision form is left untouched unless the selected review or its evidence
-token changed, so typing survives busy updates. These behaviors are covered by
-a local jsdom harness; validation with a real screen reader on a real platform
-remains open.
+survives across updates so screen readers can announce changes (an unchanged
+notice is re-announced by clearing and restoring it in a later frame), and a
+mounted decision form is left untouched unless the selected review, its
+evidence token, or a fresh decision completion (which clears the persisted
+draft via a consume-once decision id) calls for a rebuild, so typing survives
+busy updates and replays never clear a newer draft. These behaviors are
+covered by a local jsdom harness; validation with a real screen reader on a
+real platform remains open.
 
 The panel preserves an unsent rationale across its own redraws, but complete
 editor-restart recovery and other operating systems remain unverified. Do not

@@ -114,10 +114,10 @@ const renderContext = (state) => {
 // Rebuilds the detail region. Regions keyed by the snapshot token (nav,
 // context) skip rebuilds when nothing changed, and a mounted decision form is
 // left mounted unless the token or the selected review moved, so typing
-// survives busy updates; the recorded flag always rebuilds so a decided form
-// comes back empty as before. The persisted draft is restored only for the
-// review it belongs to, with the choice validated against the review's
-// choices.
+// survives busy updates; a fresh decision completion always rebuilds so a
+// decided form comes back empty as before. The persisted draft is restored
+// only for the review it belongs to, with the choice validated against the
+// review's choices.
 const buildDetail = (state, review) => {
   const snapshot = state.snapshot;
   builtToken = snapshot ? snapshot.token : undefined;
@@ -171,20 +171,37 @@ const renderDetail = (state) => {
   buildDetail(state, review);
 };
 // Rebases the persisted state onto this message's [sessionId, handle]
-// attachment and clears the draft when the decision was recorded. Busy
-// updates carry recorded=false and leave drafts alone.
+// attachment. A decision completion carries a unique id; the id is consumed
+// exactly once and persisted with the draft, so a replayed state (the ready
+// handshake after a reload) can never clear a draft saved after that
+// decision. Busy updates carry no decision id and leave drafts alone.
 const rebase = (state) => {
   const attachment = JSON.stringify([state.sessionId, state.handle]);
   const stored = vscode.getState();
   saved = stored && stored.attachment === attachment ? stored : { attachment: attachment };
   vscode.setState(saved);
-  if (state.recorded) { saved.draft = null; vscode.setState(saved); }
+  state.recorded = state.decision !== undefined && state.decision !== saved.consumedDecision;
+  if (state.recorded) { saved.draft = null; saved.consumedDecision = state.decision; vscode.setState(saved); }
+};
+// A live region only speaks on change, so an unchanged non-empty notice is
+// cleared and restored in a later frame to re-announce it. A newer request
+// cancels the pending frame, so a stale restore can never overwrite a
+// fresher notice.
+let noticeFrame;
+const announce = (text) => {
+  if (noticeFrame !== undefined) { cancelAnimationFrame(noticeFrame); noticeFrame = undefined; }
+  if (text && noticeNode.textContent === text) {
+    noticeNode.textContent = '';
+    noticeFrame = requestAnimationFrame(() => { noticeFrame = undefined; noticeNode.textContent = text; });
+  } else {
+    noticeNode.textContent = text;
+  }
 };
 const applyState = (state) => {
   current = state;
   rebase(state);
   preserve(() => {
-    setText(noticeNode, state.notice || (state.busy ? 'Waiting for the attached R session…' : ''));
+    announce(state.notice || (state.busy ? 'Waiting for the attached R session…' : ''));
     refresh.disabled = state.busy;
     setText(document.getElementById('project'), state.snapshot ? state.snapshot.project : 'Attach to Bayesgrove');
     setText(document.getElementById('path'), state.snapshot ? state.snapshot.path + ' • R object: ' + state.handle : '');

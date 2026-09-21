@@ -75,17 +75,17 @@ export function activate(context: vscode.ExtensionContext) {
   let busy = false;
   // The panel is a persistent document: the shell is set once per panel and
   // every later state change travels as a postMessage payload. The last
-  // notice and recorded flag are kept so the ready handshake can redeliver
+  // notice and decision id are kept so the ready handshake can redeliver
   // the latest state after the shell loads or the webview reloads.
   let shellSent = false;
   let lastNotice = '';
-  let lastRecorded = false;
+  let lastDecision: string | undefined;
   const pushState = () => {
-    if (panel && shellSent) void panel.webview.postMessage({ snapshot, busy, notice: lastNotice, handle: handleName, sessionId, recorded: lastRecorded });
+    if (panel && shellSent) void panel.webview.postMessage({ snapshot, busy, notice: lastNotice, handle: handleName, sessionId, decision: lastDecision });
   };
-  const show = (notice = '', recorded = false) => {
+  const show = (notice = '', decision?: string) => {
     lastNotice = notice;
-    lastRecorded = recorded;
+    lastDecision = decision;
     if (!panel) return;
     if (!shellSent) {
       shellSent = true;
@@ -123,7 +123,7 @@ export function activate(context: vscode.ExtensionContext) {
     const attachedSessionId = sessionId;
     const attachedHandleName = handleName;
     let notice = 'Refreshed from the attached R session.';
-    let recorded = false;
+    let decision: string | undefined;
     yield* Effect.gen(function* () {
       busy = true;
       show();
@@ -145,13 +145,13 @@ export function activate(context: vscode.ExtensionContext) {
       if (response.snapshot === null) {
         console.warn('Glade prototype: decision recorded but the refreshed evidence failed to load:', response.refresh_error);
         notice = `Decision recorded in Bayesgrove, but the refreshed evidence could not be loaded: ${summarizeRefreshError(response.refresh_error)}. Refresh from R when it is available.`;
-        recorded = true;
+        decision = randomBytes(8).toString('hex');
         return;
       }
       snapshot = response.snapshot;
       if (response.kind === 'decided') {
         notice = 'Decision recorded in Bayesgrove. The review list has been refreshed.';
-        recorded = true;
+        decision = randomBytes(8).toString('hex');
       }
     }).pipe(
       Effect.timeoutFail({
@@ -162,7 +162,7 @@ export function activate(context: vscode.ExtensionContext) {
       // guard, so busy resets on success, failure, timeout, and defects alike.
       Effect.onExit(() => Effect.sync(() => { busy = false; })),
     );
-    show(notice, recorded);
+    show(notice, decision);
   });
   context.subscriptions.push(vscode.commands.registerCommand('gladePrototype.open', () => run(Effect.gen(function* () {
     if (!api) {
@@ -189,7 +189,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!panel) {
       shellSent = false;
       lastNotice = '';
-      lastRecorded = false;
+      lastDecision = undefined;
       panel = vscode.window.createWebviewPanel('gladePrototype', 'Glade review', vscode.ViewColumn.One, {
         enableScripts: true, localResourceRoots: [],
       });
