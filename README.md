@@ -37,6 +37,8 @@ bun run build
 ```
 
 TypeScript uses Effect. Vendored [anti-slop](tools/oxlint/anti-slop/README.md)
-rules apply to TypeScript sources. `bun run lint:strict` reports violations
-without the per-file exceptions listed in `.oxlintrc.json`; passing the regular
-lint check does not mean the code meets all anti-slop rules.
+rules apply to TypeScript sources. The per-file exceptions that the retired
+client carried for its existing violations were removed with it, so
+`bun run lint` and `bun run lint:strict` currently run the same checks. Future
+exceptions would be listed per file in `.oxlintrc.json`; `lint:strict` reports
+violations without them.
