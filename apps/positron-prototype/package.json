@@ -10,7 +10,8 @@
   },
   "main": "./dist/extension.cjs",
   "activationEvents": [
-    "onCommand:gladePrototype.open"
+    "onCommand:gladePrototype.open",
+    "onCommand:gladePrototype.demo"
   ],
   "contributes": {
     "commands": [
@@ -27,7 +28,7 @@
   "scripts": {
     "build": "bun build src/extension.ts --target=node --format=cjs --external=vscode --outfile=dist/extension.cjs",
     "typecheck": "tsc --noEmit",
-    "dev": "bun install && bun run build && \"${POSITRON_BIN:-positron}\" --new-window --extensionDevelopmentPath=\"$PWD\"",
+    "dev": "bun install && bun run build && \"${POSITRON_BIN:-positron}\" --new-window --user-data-dir=\"${TMPDIR:-/tmp}/glade-positron-dev-user\" --extensions-dir=\"${TMPDIR:-/tmp}/glade-positron-dev-extensions\" --extensionDevelopmentPath=\"$PWD\"",
     "lint": "oxlint src --config ../../.oxlint-strict.json --deny-warnings"
   },
   "dependencies": {

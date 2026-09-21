@@ -22,8 +22,11 @@ bun run dev
 
 This installs dependencies, builds the extension, and opens a development host.
 Set `POSITRON_BIN` if the Positron executable is not named `positron` on PATH.
-The host is an extra window; the extension is not installed into your normal
-editor profile.
+The host is an extra window on its own profile, `glade-positron-dev-user` and
+`glade-positron-dev-extensions` under the system temp directory, with stable
+names so caches persist between runs. The extension is not installed into your
+normal editor profile, and your normal settings, keybindings, and installed
+extensions do not leak into the host.
 
 In that window:
 
@@ -111,9 +114,16 @@ Silent evaluation did not immediately refresh Positron's Variables pane during
 the experiment. A subsequent console command did. Avoid assuming every host view
 updates when an extension executes code.
 
+Known limitation: every refresh replaces the whole webview document, so the
+panel loses keyboard focus and scroll position, and status messages are not
+announced to screen readers because the live region cannot survive the
+replacement. The real fix is to patch the DOM from a persistent document, which
+is the webview architecture the production rebuild should use anyway, so this is
+deliberately deferred to the rebuild (#13).
+
 The panel preserves an unsent rationale across its own redraws, but complete
-editor-restart recovery, focus management, accessibility, and other operating
-systems remain unverified. Do not promote this code directly to production.
+editor-restart recovery and other operating systems remain unverified. Do not
+promote this code directly to production.
 
 [Captured extension host](evidence/recorded-review.png).
 
@@ -121,8 +131,7 @@ systems remain unverified. Do not promote this code directly to production.
 
 For this WSL experiment, a current Linux Positron was extracted under
 `/tmp/glade-positron-app`; the pre-existing `positron` on PATH points to a Windows
-installation. The running experimental host uses its own profile under
-`/tmp/glade-positron-user`. To reopen the same host after building:
+installation. To reopen that same experimental host after building:
 
 ```bash
 /tmp/glade-positron-app/usr/share/positron/positron \
@@ -133,5 +142,6 @@ installation. The running experimental host uses its own profile under
 ```
 
 Those `/tmp` paths belong to this local experiment and are not installation
-requirements for the extension. Use `bun run dev` with a current normal Positron
-installation elsewhere.
+requirements for the extension. `bun run dev` applies the same profile isolation
+with stable directories under the system temp directory, so use it with a
+current normal Positron installation elsewhere.
