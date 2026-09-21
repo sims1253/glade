@@ -4,7 +4,7 @@ import { Effect, Option, ParseResult, Schema } from 'effect';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { BridgeResponse, HandleName, Request, ReviewSnapshot } from './contracts';
-import { render } from './view';
+import { renderShell } from './view';
 
 // A failure ready for the notice bar: short text a researcher can act on, with
 // the raw internal dump (parse trees, host errors) kept for the extension host
@@ -15,6 +15,10 @@ export type Failure = { readonly message: string; readonly detail?: unknown };
 // the original value; the box itself never reaches the notice bar.
 const WrappedRejection = Schema.Struct({ _tag: Schema.Literal('UnknownException'), error: Schema.Unknown });
 const MessageCarrier = Schema.Struct({ message: Schema.String });
+// Transport plumbing, not a bridge request: the panel's boot script answers
+// with this once its message listener exists, because state posted to a
+// document that is still loading would be dropped.
+const ReadyMessage = Schema.Struct({ kind: Schema.Literal('ready') });
 
 const hostFailure = (message: string): Failure => {
   if (/(?:bridge|scratch)\.R/.test(message)) {
@@ -69,8 +73,26 @@ export function activate(context: vscode.ExtensionContext) {
   let sessionId = '';
   let snapshot: ReviewSnapshot | undefined;
   let busy = false;
-  const show = (notice = '', recorded = false) => {
-    if (panel) panel.webview.html = render(snapshot, busy, notice, handleName, randomBytes(16).toString('hex'), sessionId, recorded);
+  // The panel is a persistent document: the shell is set once per panel and
+  // every later state change travels as a postMessage payload. The last
+  // notice and decision id are kept so the ready handshake can redeliver
+  // the latest state after the shell loads or the webview reloads.
+  let shellSent = false;
+  let lastNotice = '';
+  let lastDecision: string | undefined;
+  const pushState = () => {
+    if (panel && shellSent) void panel.webview.postMessage({ snapshot, busy, notice: lastNotice, handle: handleName, sessionId, decision: lastDecision });
+  };
+  const show = (notice = '', decision?: string) => {
+    lastNotice = notice;
+    lastDecision = decision;
+    if (!panel) return;
+    if (!shellSent) {
+      shellSent = true;
+      panel.webview.html = renderShell(randomBytes(16).toString('hex'));
+      return;
+    }
+    pushState();
   };
   const report = (failure: Failure) => {
     if (failure.detail !== undefined) console.warn('Glade prototype:', failure.detail);
@@ -101,7 +123,7 @@ export function activate(context: vscode.ExtensionContext) {
     const attachedSessionId = sessionId;
     const attachedHandleName = handleName;
     let notice = 'Refreshed from the attached R session.';
-    let recorded = false;
+    let decision: string | undefined;
     yield* Effect.gen(function* () {
       busy = true;
       show();
@@ -123,13 +145,13 @@ export function activate(context: vscode.ExtensionContext) {
       if (response.snapshot === null) {
         console.warn('Glade prototype: decision recorded but the refreshed evidence failed to load:', response.refresh_error);
         notice = `Decision recorded in Bayesgrove, but the refreshed evidence could not be loaded: ${summarizeRefreshError(response.refresh_error)}. Refresh from R when it is available.`;
-        recorded = true;
+        decision = randomBytes(8).toString('hex');
         return;
       }
       snapshot = response.snapshot;
       if (response.kind === 'decided') {
         notice = 'Decision recorded in Bayesgrove. The review list has been refreshed.';
-        recorded = true;
+        decision = randomBytes(8).toString('hex');
       }
     }).pipe(
       Effect.timeoutFail({
@@ -140,7 +162,7 @@ export function activate(context: vscode.ExtensionContext) {
       // guard, so busy resets on success, failure, timeout, and defects alike.
       Effect.onExit(() => Effect.sync(() => { busy = false; })),
     );
-    show(notice, recorded);
+    show(notice, decision);
   });
   context.subscriptions.push(vscode.commands.registerCommand('gladePrototype.open', () => run(Effect.gen(function* () {
     if (!api) {
@@ -165,11 +187,17 @@ export function activate(context: vscode.ExtensionContext) {
     sessionId = session.metadata.sessionId;
     snapshot = undefined;
     if (!panel) {
+      shellSent = false;
+      lastNotice = '';
+      lastDecision = undefined;
       panel = vscode.window.createWebviewPanel('gladePrototype', 'Glade review', vscode.ViewColumn.One, {
         enableScripts: true, localResourceRoots: [],
       });
       panel.onDidDispose(() => { panel = undefined; }, undefined, context.subscriptions);
-      panel.webview.onDidReceiveMessage((raw) => { void run(Schema.decodeUnknown(Request)(raw).pipe(Effect.flatMap(request))); }, undefined, context.subscriptions);
+      panel.webview.onDidReceiveMessage((raw) => {
+        if (Schema.is(ReadyMessage)(raw)) { pushState(); return; }
+        void run(Schema.decodeUnknown(Request)(raw).pipe(Effect.flatMap(request)));
+      }, undefined, context.subscriptions);
     }
     panel.reveal();
     yield* request({ kind: 'snapshot' });

@@ -81,6 +81,14 @@ which reviews exist, what choices they accept, and what a decision does.
 - A probe with simulated host responses verified the 60-second timeout, control
   recovery, and rejection of a late response from the expired request.
 - Strict anti-slop lint, TypeScript checking, and the extension build passed.
+- A local jsdom harness (not committed) loaded the shell, stubbed the editor
+  API, and delivered state messages; it verified the surviving live-region
+  node, its change-only text updates, and its re-announce of a repeated
+  notice, in-place focus and scroll preservation, draft clearing on a fresh
+  decision completion (consume-once by id, so replays never clear a newer
+  draft) but not on `busy`, the form rebuild rules for changed reviews,
+  tokens, and decision completions, and duplicate-title reviews staying
+  distinguishable by scope.
 
 Run the static checks with:
 
@@ -114,12 +122,18 @@ Silent evaluation did not immediately refresh Positron's Variables pane during
 the experiment. A subsequent console command did. Avoid assuming every host view
 updates when an extension executes code.
 
-Known limitation: every refresh replaces the whole webview document, so the
-panel loses keyboard focus and scroll position, and status messages are not
-announced to screen readers because the live region cannot survive the
-replacement. The real fix is to patch the DOM from a persistent document, which
-is the webview architecture the production rebuild should use anyway, so this is
-deliberately deferred to the rebuild (#13).
+The panel is a persistent document: the extension ships a static shell to the
+webview once and delivers every later state as a `postMessage` payload that a
+boot script applies to the DOM in place. Refreshes and decisions no longer
+discard keyboard focus or scroll position, the `role="status"` notice node
+survives across updates so screen readers can announce changes (an unchanged
+notice is re-announced by clearing and restoring it in a later frame), and a
+mounted decision form is left untouched unless the selected review, its
+evidence token, or a fresh decision completion (which clears the persisted
+draft via a consume-once decision id) calls for a rebuild, so typing survives
+busy updates and replays never clear a newer draft. These behaviors are
+covered by a local jsdom harness; validation with a real screen reader on a
+real platform remains open.
 
 The panel preserves an unsent rationale across its own redraws, but complete
 editor-restart recovery and other operating systems remain unverified. Do not
