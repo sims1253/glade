@@ -36,6 +36,10 @@ In that window:
 The scratch project lives in R's temporary directory. Its diagnostics are
 simulated; the Bayesgrove calls, review rules, and recorded decisions are real.
 The scratch command refuses to overwrite an existing `glade_prototype` object.
+If a step fails after the project is created, the scratch command removes the
+half-built handle and its temporary directory again, so it can simply be re-run.
+If a `glade_prototype` handle is ever left behind anyway, remove it in R first
+with `rm(glade_prototype, envir = .GlobalEnv)`.
 
 To use a project already open in this console, run **Glade: Open Review
 Prototype** and enter its handle's variable name instead. A click on
