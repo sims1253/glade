@@ -17,6 +17,7 @@
 - Validated the recorded `choice` against `action$invocation$input$fields$choice$enum` in `glade_review_request` before calling `bg_execute_action`, and refused reviews without enumerated choices instead of writing arbitrary strings into the decision log (#14).
 - Formatted prototype metric values directly for display instead of round-tripping through `jsonlite::toJSON()`, removing JSON quotes and raw arrays from the evidence tables (#15).
 - Made the prototype scratch command remove its half-built `glade_prototype` handle and temporary directory when a post-init step fails, and documented the manual `rm(glade_prototype, envir = .GlobalEnv)` recovery in the prototype README (#16).
+- Isolated the prototype `bun run dev` host onto its own profile under the system temp directory via `--user-data-dir`/`--extensions-dir`, declared the missing `onCommand:gladePrototype.demo` activation event, and documented the whole-document refresh losing focus, scroll, and screen-reader announcements as a known limitation deferred to the rebuild (#17, #13).
 
 ## 0.16.3 - 2026-03-17
 
