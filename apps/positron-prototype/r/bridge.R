@@ -7,9 +7,14 @@ glade_review_request <- function(handle, request) {
   # The TypeScript contract requires a string in every projected field, so degraded
   # data is coerced here instead of failing the decode as a JSON null downstream.
   fallback <- function(x, default = "") {
-    if (is.null(x) || length(x) == 0 || all(is.na(x))) default else as.character(x[[1]])
+    if (is.null(x) || length(x) == 0) return(default)
+    value <- as.character(x[[1]])
+    if (length(value) != 1 || is.na(value)) default else value
   }
-  array <- function(x) unname(as.list(Filter(Negate(is.null), x)))
+  array <- function(x) {
+    kept <- Filter(Negate(is.null), x)
+    if (length(kept) == 0) list() else unname(as.list(kept))
+  }
   strings <- function(x) array(Filter(function(v) is.character(v) && length(v) == 1 && !is.na(v), as.list(x)))
   metric_value <- function(value) {
     if (is.list(value)) value <- unlist(value)
