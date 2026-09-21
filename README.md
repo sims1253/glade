@@ -8,24 +8,28 @@ The recommended direction is a rebuild as a Positron extension. A working
 `apps/positron-prototype/`; it has been exercised in a real Positron host with
 the same R handle used by the console.
 
-The current Electron client requires `bg_serve()`, which Bayesgrove removed in
-0.6.0. It does not work with the current Bayesgrove checkout. Glade now detects
-that missing interface before opening or initializing a project.
+The standalone Electron client and its workspace were removed before the 0.17.0
+release. That client needed `bg_serve()`, which Bayesgrove removed in 0.6.0, so
+it could not run against the current Bayesgrove checkout. Its reference value
+lives in git history. See [the restart review](RESTART.md) for the proposed
+scope, desktop options, and the integration work needed before Glade can be
+used again.
 
-See [the restart review](RESTART.md) for the proposed scope, desktop options,
-and the integration work needed before Glade can be used again.
+## Development
 
-For development:
+The active surface is the prototype under `apps/positron-prototype/`. Its
+[README](apps/positron-prototype/README.md) describes what it covers and how to
+run it against a Positron host:
+
+```bash
+cd apps/positron-prototype
+bun run dev
+```
+
+Workspace checks run from the repository root:
 
 ```bash
 bun install
-bun run dev:desktop
-```
-
-The existing renderer lives in `apps/web`; Electron uses it as its desktop UI.
-Its directory name does not commit Glade to a browser client.
-
-```bash
 bun run lint
 bun run typecheck
 bun run test
@@ -33,13 +37,8 @@ bun run build
 ```
 
 TypeScript uses Effect. Vendored [anti-slop](tools/oxlint/anti-slop/README.md)
-rules apply to new files. Existing violations have explicit file-and-rule
-exceptions in `.oxlintrc.json`; `bun run lint:strict` reports them without those
-exceptions. Passing the regular lint check does not mean the old code meets
-all anti-slop rules.
-
-R integration tests still target the removed bridge. CI pins Bayesgrove 0.5.1 and
-dagriculture 0.1.6 by commit to exercise the legacy bridge. The
-[legacy dependency installation step](.github/workflows/ci.yml#L176) contains the
-exact revisions and installation commands. Current Bayesgrove remains unsupported
-by the desktop client.
+rules apply to TypeScript sources. The per-file exceptions that the retired
+client carried for its existing violations were removed with it, so
+`bun run lint` and `bun run lint:strict` currently run the same checks. Future
+exceptions would be listed per file in `.oxlintrc.json`; `lint:strict` reports
+violations without them.

@@ -6,17 +6,11 @@ node_modules/
 .glade/
 coverage/
 dist/
-dist-electron/
 apps/*/dist/
-apps/*/dist-electron/
-packages/*/dist/
 *.tsbuildinfo
 *.log
 mockups/
 __screenshots__/
 .factory/
-assets/desktop/icons/
-apps/web/screenshots/
-apps/web/take-screenshot.mjs
 bayesgrove/
 .desloppify/

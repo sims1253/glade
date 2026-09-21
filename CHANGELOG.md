@@ -2,6 +2,7 @@
 
 ## 0.17.0 - unreleased
 
+- Retired the standalone Electron client before the 0.17.0 release: removed the desktop, server, and web apps, the contracts and shared packages, their build, smoke, and release tooling, and the legacy Bayesgrove 0.5.1 CI pin. The client needed the `bg_serve()` interface Bayesgrove removed in 0.6.0; its reference value lives in git history (#22).
 - Recorded the rebuild decision in RESTART.md (application layer as a Positron extension, Bayesgrove as the workflow engine, legacy client kept as reference) and rewrote the README around the restart state.
 - Desktop client now reports the missing `bg_serve()` interface (removed in Bayesgrove 0.6.0) as `bayesgrove_incompatible` before opening or initializing a project, instead of failing later.
 - Removed the marketing site app, the SQLite cache and its migrations, unread event storage, and the duplicate unused desktop preflight.
