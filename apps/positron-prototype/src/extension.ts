@@ -34,7 +34,8 @@ const hostFailure = (message: string): Failure => {
 
 // Maps every failure this extension produces to notice-bar text: plain string
 // failures pass through, Error-like values contribute their message, and
-// anything else still degrades to its string form instead of "[object Object]".
+// anything unclassified gets fixed generic copy while the raw value goes to
+// the extension host log, so no internal dump reaches the notice bar.
 export const describeFailure = (cause: unknown): Failure => {
   const unwrapped = Schema.decodeUnknownOption(WrappedRejection)(cause);
   if (Option.isSome(unwrapped)) return describeFailure(unwrapped.value.error);
@@ -45,12 +46,20 @@ export const describeFailure = (cause: unknown): Failure => {
   }
   const carrier = Schema.decodeUnknownOption(MessageCarrier)(cause);
   if (Option.isSome(carrier)) return hostFailure(carrier.value.message);
-  return { message: String(cause), detail: cause };
+  return { message: 'The prototype hit an unexpected condition. Details are in the extension host log.', detail: cause };
 };
 
 const unreadableResponse = (cause: unknown): string => {
   console.warn('Glade prototype: unreadable response:', cause);
   return 'The attached project returned data this prototype cannot read. Check the R console; details are in the extension host log.';
+};
+
+// The R-side refresh reason can span lines and carry an internal dump; the
+// notice keeps one capped line, and the caller logs the raw value.
+const summarizeRefreshError = (error: string): string => {
+  const line = error.split('\n')[0]?.trim() ?? '';
+  if (!line) return 'no reason was reported';
+  return line.length > 160 ? `${line.slice(0, 159)}…` : line;
 };
 
 export function activate(context: vscode.ExtensionContext) {
@@ -76,9 +85,10 @@ export function activate(context: vscode.ExtensionContext) {
   const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect.pipe(
     Effect.catchAll((cause) => Effect.sync(() => report(describeFailure(cause)))),
     // Defects (for example a throw inside a render) are not failures; catch
-    // them too so the crash is reported and busy cannot stay wedged.
+    // them too so the crash is reported and busy cannot stay wedged. The
+    // notice stays generic — the defect itself goes to the log via `detail`.
     Effect.catchAllDefect((defect) => Effect.sync(() => report({
-      message: `The prototype hit an unexpected error: ${describeFailure(defect).message}. Try again.`,
+      message: 'The prototype hit an unexpected condition. Details are in the extension host log.',
       detail: defect,
     }))),
   ));
@@ -111,7 +121,8 @@ export function activate(context: vscode.ExtensionContext) {
       // the decision is already recorded in Bayesgrove, so keep the previous
       // snapshot and never re-issue the decide — a retry would record it twice.
       if (response.snapshot === null) {
-        notice = `Decision recorded in Bayesgrove, but the refreshed evidence could not be loaded: ${response.refresh_error}. Refresh from R when it is available.`;
+        console.warn('Glade prototype: decision recorded but the refreshed evidence failed to load:', response.refresh_error);
+        notice = `Decision recorded in Bayesgrove, but the refreshed evidence could not be loaded: ${summarizeRefreshError(response.refresh_error)}. Refresh from R when it is available.`;
         recorded = true;
         return;
       }
