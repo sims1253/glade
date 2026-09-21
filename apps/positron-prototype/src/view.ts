@@ -2,7 +2,7 @@ import type { ReviewSnapshot } from './contracts';
 
 const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
-export function render(snapshot: ReviewSnapshot | undefined, busy: boolean, notice: string, handle: string, nonce: string, sessionId: string) {
+export function render(snapshot: ReviewSnapshot | undefined, busy: boolean, notice: string, handle: string, nonce: string, sessionId: string, recorded: boolean) {
   const data = JSON.stringify(snapshot ?? null).replaceAll('<', '\\u003c');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,6 +16,7 @@ p { max-width:76ch; margin:6px 0 12px; } .subtle { color:var(--vscode-descriptio
 button, select, textarea { font:inherit; } button { cursor:pointer; border:0; padding:7px 12px; background:var(--vscode-button-background,#235b87); color:var(--vscode-button-foreground,#fff); border-radius:3px; }
 button:disabled { opacity:.5; cursor:wait; } button:focus-visible, textarea:focus, select:focus { outline:2px solid var(--vscode-focusBorder,#2679b7); outline-offset:2px; }
 nav button { display:block; width:100%; text-align:left; margin:4px 0; padding:12px; background:transparent; color:inherit; border-left:3px solid transparent; border-radius:0; } nav button[aria-pressed=true] { background:var(--vscode-list-activeSelectionBackground,#e7eff6); color:var(--vscode-list-activeSelectionForeground,#163d60); border-color:var(--vscode-focusBorder,#2679b7); }
+.scope { display:block; font-size:11px; font-weight:400; opacity:.75; }
 label { display:block; margin:14px 0 6px; font-weight:550; } select, textarea { box-sizing:border-box; width:100%; background:var(--vscode-input-background,#f6f7f8); color:var(--vscode-input-foreground,#252b32); border:1px solid var(--vscode-input-border,#cbd1d6); border-radius:2px; padding:9px; } textarea { min-height:105px; resize:vertical; }
 form { max-width:700px; margin-top:24px; padding-top:12px; border-top:1px solid var(--vscode-panel-border,#ddd); } form button { margin-top:14px; }
 table { border-collapse:collapse; width:100%; } td,th { padding:7px 10px; text-align:left; border-bottom:1px solid var(--vscode-panel-border,#ddd); } td:last-child { text-align:right; font-variant-numeric:tabular-nums; } th { font-weight:500; }
@@ -33,11 +34,11 @@ details { margin-top:24px; } summary { cursor:pointer; } .decision { margin:14px
 const vscode = acquireVsCodeApi();
 const snapshot = ${data};
 const busy = ${busy};
-const attachment = ${JSON.stringify(JSON.stringify([sessionId, handle, snapshot?.path ?? ""])).replaceAll('<', '\\u003c')};
+const attachment = ${JSON.stringify(JSON.stringify([sessionId, handle])).replaceAll('<', '\\u003c')};
 const stored = vscode.getState();
 const saved = stored?.attachment === attachment ? stored : { attachment };
 vscode.setState(saved);
-if (${JSON.stringify(notice.startsWith('Decision recorded'))}) { saved.draft = null; vscode.setState(saved); }
+if (${JSON.stringify(recorded)}) { saved.draft = null; vscode.setState(saved); }
 const element = (tag, text, className) => { const e = document.createElement(tag); if (text) e.textContent = text; if(className) e.className = className; return e; };
 const main = document.getElementById('detail');
 document.getElementById('refresh').onclick = () => vscode.postMessage({kind:'snapshot'});
@@ -68,7 +69,9 @@ function select(review) {
     evidence(main); history(main); return;
   }
   saved.selected=review.id; vscode.setState(saved);
-  main.append(element('h2',review.title),element('p',review.why)); evidence(main,review);
+  main.append(element('h2',review.title));
+  if(review.scope) main.append(element('p',review.scope,'subtle'));
+  main.append(element('p',review.why)); evidence(main,review);
   const form=element('form'); form.append(element('h3',review.prompt));
   const choiceLabel=element('label','Decision'); choiceLabel.htmlFor='choice';
   const choice=element('select'); choice.id='choice'; choice.required=true;
@@ -76,7 +79,7 @@ function select(review) {
   for(const value of review.choices) { const option=element('option',value.replaceAll('_',' ')); option.value=value; choice.append(option); }
   const rationaleLabel=element('label','Rationale'); rationaleLabel.htmlFor='rationale';
   const rationale=element('textarea'); rationale.id='rationale'; rationale.required=true; rationale.placeholder='What did you learn, and what should happen next?';
-  if(saved.draft?.id===review.id) { choice.value=saved.draft.choice; rationale.value=saved.draft.rationale; }
+  if(saved.draft?.id===review.id) { if(review.choices.includes(saved.draft.choice)) choice.value=saved.draft.choice; rationale.value=saved.draft.rationale; }
   const save=()=>{saved.draft={id:review.id,choice:choice.value,rationale:rationale.value};vscode.setState(saved);}; choice.onchange=save; rationale.oninput=save;
   const submit=element('button','Record decision in Bayesgrove'); submit.type='submit'; submit.disabled=busy || review.choices.length===0;
   form.append(choiceLabel,choice,rationaleLabel,rationale,submit);
@@ -84,9 +87,9 @@ function select(review) {
   main.append(form); history(main);
 }
 if(snapshot) {
-  for(const review of snapshot.reviews) { const button=element('button',review.title); button.dataset.id=review.id; button.onclick=()=>select(review); button.disabled=busy; document.getElementById('reviews').append(button); }
+  for(const review of snapshot.reviews) { const button=element('button'); if(review.scope) button.append(element('span',review.title),element('span',review.scope,'scope')); else button.textContent=review.title; button.dataset.id=review.id; button.onclick=()=>select(review); button.disabled=busy; document.getElementById('reviews').append(button); }
   const context=document.getElementById('context');
-  for(const o of snapshot.obligations) context.append(element('p',o.severity+': '+o.title));
+  for(const o of snapshot.obligations) { const entry=element('p',o.severity+': '+o.title); if(o.why) entry.append(element('span',o.why,'scope')); context.append(entry); }
   for(const n of snapshot.nodes) context.append(element('p',n.label+' ('+n.kind+')','subtle'));
 }
 select(snapshot?.reviews.find(r=>r.id===saved.selected) || snapshot?.reviews[0]);
