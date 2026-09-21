@@ -13,8 +13,8 @@ export function activate(context: vscode.ExtensionContext) {
   let sessionId = '';
   let snapshot: ReviewSnapshot | undefined;
   let busy = false;
-  const show = (notice = '') => {
-    if (panel) panel.webview.html = render(snapshot, busy, notice, handleName, randomBytes(16).toString('hex'), sessionId);
+  const show = (notice = '', recorded = false) => {
+    if (panel) panel.webview.html = render(snapshot, busy, notice, handleName, randomBytes(16).toString('hex'), sessionId, recorded);
   };
   const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect.pipe(
     Effect.catchAll((cause) => Effect.sync(() => {
@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
       }),
       Effect.ensuring(Effect.sync(() => { busy = false; })),
     );
-    show(message.kind === 'decide' ? 'Decision recorded in Bayesgrove. The review list has been refreshed.' : 'Refreshed from the attached R session.');
+    show(message.kind === 'decide' ? 'Decision recorded in Bayesgrove. The review list has been refreshed.' : 'Refreshed from the attached R session.', message.kind === 'decide');
   });
   context.subscriptions.push(vscode.commands.registerCommand('gladePrototype.open', () => run(Effect.gen(function* () {
     if (!api) {
