@@ -81,25 +81,29 @@ which reviews exist, what choices they accept, and what a decision does.
 - A probe with simulated host responses verified the 60-second timeout, control
   recovery, and rejection of a late response from the expired request.
 - Strict anti-slop lint, TypeScript checking, and the extension build passed.
-- A local jsdom harness (not committed) loaded the shell, stubbed the editor
-  API, and delivered state messages; it verified the surviving live-region
-  node, its change-only text updates, and its re-announce of a repeated
-  notice, in-place focus and scroll preservation, draft clearing on a fresh
-  decision completion (consume-once by id, so replays never clear a newer
-  draft) but not on `busy`, the form rebuild rules for changed reviews,
-  tokens, and decision completions, and duplicate-title reviews staying
-  distinguishable by scope.
+- A committed happy-dom suite (`src/view.test.ts`, run by `bun test` and CI)
+  boots the exact shipped shell, runs its inline boot script unmodified, and
+  pins the draft lifecycle a repository review flagged: a decision completion
+  replayed after panel recreation, or redelivered while busy, never clears a
+  draft written afterwards; a failed decide keeps its draft; reattaching to
+  another session drops the old draft with the stale form; a decide whose
+  refresh failed still consumes its completion once; and a restored draft
+  choice missing from the refreshed choices is not preselected.
+- A local jsdom harness (not committed) additionally loaded the shell, stubbed
+  the editor API, and delivered state messages; it verified the surviving
+  live-region node, its change-only text updates, and its re-announce of a
+  repeated notice, in-place focus and scroll preservation, the form rebuild
+  rules for changed reviews, tokens, and decision completions, and
+  duplicate-title reviews staying distinguishable by scope.
 
-Run the static checks with:
+Run the checks with:
 
 ```bash
 bun run lint
 bun run typecheck
+bun run test
 bun run build
 ```
-
-No new automated test suite was added for the disposable prototype. The host
-checks were performed interactively through the editor and panel.
 
 ## Limits that matter to the rebuild
 
@@ -131,9 +135,11 @@ notice is re-announced by clearing and restoring it in a later frame), and a
 mounted decision form is left untouched unless the selected review, its
 evidence token, or a fresh decision completion (which clears the persisted
 draft via a consume-once decision id) calls for a rebuild, so typing survives
-busy updates and replays never clear a newer draft. These behaviors are
-covered by a local jsdom harness; validation with a real screen reader on a
-real platform remains open.
+busy updates and replays never clear a newer draft. The draft-preservation
+half of these behaviors is pinned by the committed happy-dom suite; the
+focus, scroll, and live-region behaviors were verified by a local jsdom
+harness, and validation with a real screen reader on a real platform remains
+open.
 
 The panel preserves an unsent rationale across its own redraws, but complete
 editor-restart recovery and other operating systems remain unverified. Do not
