@@ -28,6 +28,7 @@
   "scripts": {
     "build": "bun build src/extension.ts --target=node --format=cjs --external=vscode --outfile=dist/extension.cjs",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "dev": "bun install && bun run build && \"${POSITRON_BIN:-positron}\" --new-window --user-data-dir=\"${TMPDIR:-/tmp}/glade-positron-dev-user\" --extensions-dir=\"${TMPDIR:-/tmp}/glade-positron-dev-extensions\" --extensionDevelopmentPath=\"$PWD\"",
     "lint": "oxlint src --config ../../.oxlint-strict.json --deny-warnings"
   },
@@ -36,8 +37,10 @@
     "@posit-dev/positron": "0.2.10"
   },
   "devDependencies": {
-    "@types/vscode": "1.93.0",
+    "@types/bun": "^1.4.2",
     "@types/node": "25.3.5",
+    "@types/vscode": "1.93.0",
+    "happy-dom": "^20.14.5",
     "typescript": "5.9.3"
   }
 }
